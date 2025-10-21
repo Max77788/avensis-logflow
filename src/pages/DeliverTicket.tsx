@@ -7,20 +7,24 @@ import { useGPS } from "@/hooks/useGPS";
 import { ArrowLeft, MapPin, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Ticket } from "@/lib/types";
+import { ticketService } from "@/lib/ticketService";
 
 const DeliverTicket = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { captureLocation, coordinates, loading } = useGPS();
 
   useEffect(() => {
-    const tickets = JSON.parse(localStorage.getItem("tickets") || "[]");
-    const found = tickets.find((t: Ticket) => t.ticket_id === id);
-    if (found) {
-      setTicket(found);
-    }
+    const loadTicket = async () => {
+      if (id) {
+        const found = await ticketService.getTicket(id);
+        setTicket(found);
+      }
+    };
+    loadTicket();
   }, [id]);
 
   const handleDeliver = async () => {
@@ -33,7 +37,6 @@ const DeliverTicket = () => {
       return;
     }
 
-    // Capture GPS
     const gps = await captureLocation();
     if (!gps) {
       toast({
@@ -44,29 +47,30 @@ const DeliverTicket = () => {
       return;
     }
 
-    // Update ticket
-    const tickets = JSON.parse(localStorage.getItem("tickets") || "[]");
-    const updatedTickets = tickets.map((t: Ticket) => {
-      if (t.ticket_id === id) {
-        return {
-          ...t,
-          destination_signature: signature,
-          delivery_gps: `${gps.latitude},${gps.longitude}`,
-          delivered_at: new Date().toISOString(),
-          status: "DELIVERED",
-        };
-      }
-      return t;
+    setIsSubmitting(true);
+
+    const result = await ticketService.updateTicket(id!, {
+      destination_signature: signature,
+      delivery_gps: `${gps.latitude},${gps.longitude}`,
+      delivered_at: new Date().toISOString(),
+      status: "DELIVERED",
     });
 
-    localStorage.setItem("tickets", JSON.stringify(updatedTickets));
+    setIsSubmitting(false);
 
-    toast({
-      title: "Delivery Confirmed",
-      description: `Ticket ${id} marked as delivered`,
-    });
-
-    navigate(`/tickets/${id}`);
+    if (result.success) {
+      toast({
+        title: "Delivery Confirmed",
+        description: `Ticket ${id} marked as delivered`,
+      });
+      navigate(`/tickets/${id}`);
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to update ticket. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!ticket) {
@@ -184,7 +188,7 @@ const DeliverTicket = () => {
             onClick={handleDeliver}
             size="lg"
             className="w-full shadow-lg"
-            disabled={!signature || !coordinates}
+            disabled={!signature || !coordinates || isSubmitting}
           >
             <CheckCircle className="mr-2 h-5 w-5" />
             Confirm Delivery

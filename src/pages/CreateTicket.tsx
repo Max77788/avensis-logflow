@@ -8,6 +8,7 @@ import { SignaturePad } from "@/components/SignaturePad";
 import { ArrowLeft, Save, Truck, Weight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Ticket } from "@/lib/types";
+import { ticketService } from "@/lib/ticketService";
 
 const CreateTicket = () => {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ const CreateTicket = () => {
 
   const [signature, setSignature] = useState<string | null>(null);
   const [netWeight, setNetWeight] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const gross = parseFloat(formData.gross_weight);
@@ -41,7 +43,7 @@ const CreateTicket = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!signature) {
@@ -53,7 +55,8 @@ const CreateTicket = () => {
       return;
     }
 
-    // Create ticket object
+    setIsSubmitting(true);
+
     const ticket: Ticket = {
       ticket_id: `TKT-${Date.now()}`,
       truck_qr_id: `TRUCK-${formData.truck_id}`,
@@ -71,17 +74,23 @@ const CreateTicket = () => {
       customer_email: formData.customer_email || undefined,
     };
 
-    // Store in localStorage (temporary until backend is connected)
-    const tickets = JSON.parse(localStorage.getItem("tickets") || "[]");
-    tickets.push(ticket);
-    localStorage.setItem("tickets", JSON.stringify(tickets));
+    const result = await ticketService.createTicket(ticket);
 
-    toast({
-      title: "Ticket Created",
-      description: `Ticket ${ticket.ticket_id} created successfully`,
-    });
+    setIsSubmitting(false);
 
-    navigate(`/tickets/${ticket.ticket_id}`);
+    if (result.success) {
+      toast({
+        title: "Ticket Created",
+        description: `Ticket ${ticket.ticket_id} created successfully`,
+      });
+      navigate(`/tickets/${ticket.ticket_id}`);
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to create ticket. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -252,9 +261,9 @@ const CreateTicket = () => {
           )}
 
           {/* Submit */}
-          <Button type="submit" size="lg" className="w-full shadow-lg">
+          <Button type="submit" size="lg" className="w-full shadow-lg" disabled={isSubmitting}>
             <Save className="mr-2 h-5 w-5" />
-            Create & Verify Ticket
+            {isSubmitting ? "Creating..." : "Create & Verify Ticket"}
           </Button>
         </form>
       </main>

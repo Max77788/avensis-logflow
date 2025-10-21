@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ArrowLeft, MapPin, Truck, Package, Calendar, User } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
+import { ticketService } from "@/lib/ticketService";
 
 const TicketDetails = () => {
   const { id } = useParams();
@@ -13,12 +14,13 @@ const TicketDetails = () => {
   const [ticket, setTicket] = useState<Ticket | null>(null);
 
   useEffect(() => {
-    // Fetch from localStorage (temporary)
-    const tickets = JSON.parse(localStorage.getItem("tickets") || "[]");
-    const found = tickets.find((t: Ticket) => t.ticket_id === id);
-    if (found) {
-      setTicket(found);
-    }
+    const loadTicket = async () => {
+      if (id) {
+        const found = await ticketService.getTicket(id);
+        setTicket(found);
+      }
+    };
+    loadTicket();
   }, [id]);
 
   if (!ticket) {

@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ArrowLeft, Search, Download, Package, Filter } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { toast } from "@/hooks/use-toast";
+import { ticketService } from "@/lib/ticketService";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -15,8 +16,11 @@ const Admin = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("tickets") || "[]");
-    setTickets(stored);
+    const loadTickets = async () => {
+      const allTickets = await ticketService.getAllTickets();
+      setTickets(allTickets);
+    };
+    loadTickets();
   }, []);
 
   const filteredTickets = tickets.filter((ticket) => {
