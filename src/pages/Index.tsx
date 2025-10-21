@@ -12,24 +12,19 @@ const Index = () => {
 
   const handleScan = (data: string) => {
     console.log("Scanned QR:", data);
-    
-    // Check if it's a truck QR (permanent) or ticket QR (temporary)
+
+    setShowScanner(false);
+
     if (data.startsWith("TRUCK-")) {
-      // Navigate to create ticket with truck ID prefilled
       const truckId = data.replace("TRUCK-", "");
-      navigate(`/tickets/create?truck=${truckId}`);
       toast({
         title: "Truck QR Scanned",
         description: `Creating ticket for Truck ${truckId}`,
       });
+      navigate(`/tickets/create?truck=${truckId}`);
     } else if (data.startsWith("TICKET-")) {
-      // Navigate to ticket details
       const ticketId = data.replace("TICKET-", "");
       navigate(`/tickets/${ticketId}`);
-      toast({
-        title: "Ticket QR Scanned",
-        description: `Opening ticket ${ticketId}`,
-      });
     } else {
       toast({
         title: "Invalid QR Code",
@@ -37,8 +32,6 @@ const Index = () => {
         variant: "destructive",
       });
     }
-    
-    setShowScanner(false);
   };
 
   return (

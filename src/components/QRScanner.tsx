@@ -27,7 +27,19 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
         const scanner = new Html5Qrcode("qr-reader");
         scannerRef.current = scanner;
 
-        const cameraId = devices[0].id;
+        let cameraId = devices[0].id;
+
+        const backCamera = devices.find(device =>
+          device.label.toLowerCase().includes('back') ||
+          device.label.toLowerCase().includes('rear') ||
+          device.label.toLowerCase().includes('environment')
+        );
+
+        if (backCamera) {
+          cameraId = backCamera.id;
+        } else if (devices.length > 1) {
+          cameraId = devices[devices.length - 1].id;
+        }
 
         await scanner.start(
           cameraId,
