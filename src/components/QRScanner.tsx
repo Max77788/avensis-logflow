@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ScanLine, Camera, X } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScanLine, Camera, X, SwitchCamera } from "lucide-react";
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -14,9 +14,11 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>("");
 
   useEffect(() => {
-    const startScanner = async () => {
+    const initCameras = async () => {
       try {
         const devices = await Html5Qrcode.getCameras();
 
@@ -24,10 +26,9 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
           throw new Error("No cameras found");
         }
 
-        const scanner = new Html5Qrcode("qr-reader");
-        scannerRef.current = scanner;
+        setCameras(devices);
 
-        let cameraId = devices[0].id;
+        let defaultCameraId = devices[0].id;
 
         const backCamera = devices.find(device =>
           device.label.toLowerCase().includes('back') ||
@@ -36,13 +37,38 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
         );
 
         if (backCamera) {
-          cameraId = backCamera.id;
+          defaultCameraId = backCamera.id;
         } else if (devices.length > 1) {
-          cameraId = devices[devices.length - 1].id;
+          defaultCameraId = devices[devices.length - 1].id;
         }
 
+        setSelectedCamera(defaultCameraId);
+      } catch (err: any) {
+        console.error("Failed to get cameras:", err);
+        const errorMsg = err.message || "Camera access denied or unavailable";
+        setError(errorMsg);
+      }
+    };
+
+    initCameras();
+
+    return () => {
+      stopScanner();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCamera) return;
+
+    const startScanner = async () => {
+      try {
+        await stopScanner();
+
+        const scanner = new Html5Qrcode("qr-reader");
+        scannerRef.current = scanner;
+
         await scanner.start(
-          cameraId,
+          selectedCamera,
           {
             fps: 10,
             qrbox: { width: 250, height: 250 },
@@ -60,24 +86,16 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
           }
         );
         setIsScanning(true);
+        setError(null);
       } catch (err: any) {
         console.error("Failed to start scanner:", err);
         const errorMsg = err.message || "Camera access denied or unavailable";
         setError(errorMsg);
-        toast({
-          title: "Camera Error",
-          description: "Please allow camera access in your browser settings and reload the page",
-          variant: "destructive",
-        });
       }
     };
 
     startScanner();
-
-    return () => {
-      stopScanner();
-    };
-  }, []);
+  }, [selectedCamera]);
 
   const stopScanner = async () => {
     if (scannerRef.current && isScanning) {
@@ -119,6 +137,26 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
                 Position the QR code within the frame
               </p>
             </div>
+
+            {cameras.length > 1 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2">
+                  <SwitchCamera className="h-5 w-5 text-muted-foreground" />
+                  <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select camera" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cameras.map((camera, index) => (
+                        <SelectItem key={camera.id} value={camera.id}>
+                          {camera.label || `Camera ${index + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
 
             {error ? (
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-8 text-center">
