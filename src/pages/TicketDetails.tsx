@@ -36,14 +36,18 @@ const TicketDetails = () => {
     const ctx = canvas.getContext('2d');
     const img = new Image();
 
-    canvas.width = 512;
-    canvas.height = 512;
+    const padding = 40;
+    const qrSize = 512;
+    const totalSize = qrSize + (padding * 2);
+
+    canvas.width = totalSize;
+    canvas.height = totalSize;
 
     img.onload = () => {
       if (ctx) {
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, padding, padding, qrSize, qrSize);
 
         canvas.toBlob((blob) => {
           if (blob) {

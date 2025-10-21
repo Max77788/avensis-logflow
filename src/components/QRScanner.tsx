@@ -18,14 +18,23 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
   useEffect(() => {
     const startScanner = async () => {
       try {
+        const devices = await Html5Qrcode.getCameras();
+
+        if (!devices || devices.length === 0) {
+          throw new Error("No cameras found");
+        }
+
         const scanner = new Html5Qrcode("qr-reader");
         scannerRef.current = scanner;
 
+        const cameraId = devices[0].id;
+
         await scanner.start(
-          { facingMode: "environment" },
+          cameraId,
           {
             fps: 10,
             qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0,
           },
           (decodedText) => {
             console.log("QR Code detected:", decodedText);
@@ -33,7 +42,6 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
             stopScanner();
           },
           (errorMessage) => {
-            // Ignore common scanning errors
             if (!errorMessage.includes("NotFoundException")) {
               console.warn("QR Scan error:", errorMessage);
             }
@@ -42,10 +50,11 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
         setIsScanning(true);
       } catch (err: any) {
         console.error("Failed to start scanner:", err);
-        setError("Camera access denied or unavailable");
+        const errorMsg = err.message || "Camera access denied or unavailable";
+        setError(errorMsg);
         toast({
           title: "Camera Error",
-          description: "Please allow camera access to scan QR codes",
+          description: "Please allow camera access in your browser settings and reload the page",
           variant: "destructive",
         });
       }
