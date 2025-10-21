@@ -1,17 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ArrowLeft, MapPin, Truck, Package, Calendar, User } from "lucide-react";
+import { ArrowLeft, MapPin, Truck, Package, Calendar, User, Download } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
 import { ticketService } from "@/lib/ticketService";
+import { toast } from "@/hooks/use-toast";
 
 const TicketDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadTicket = async () => {
@@ -22,6 +24,47 @@ const TicketDetails = () => {
     };
     loadTicket();
   }, [id]);
+
+  const handleExportQR = () => {
+    if (!qrCodeRef.current) return;
+
+    const svg = qrCodeRef.current.querySelector('svg');
+    if (!svg) return;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    canvas.width = 512;
+    canvas.height = 512;
+
+    img.onload = () => {
+      if (ctx) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ticket-${ticket?.ticket_id}-qr.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            toast({
+              title: "QR Code Exported",
+              description: "QR code saved as PNG image",
+            });
+          }
+        });
+      }
+    };
+
+    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+  };
 
   if (!ticket) {
     return (
@@ -62,12 +105,16 @@ const TicketDetails = () => {
           {/* QR Code Card */}
           <Card className="overflow-hidden shadow-lg">
             <div className="bg-primary/5 p-6 text-center">
-              <div className="mx-auto mb-4 inline-block rounded-xl bg-white p-4 shadow-md">
+              <div ref={qrCodeRef} className="mx-auto mb-4 inline-block rounded-xl bg-white p-4 shadow-md">
                 <QRCodeSVG value={`TICKET-${ticket.ticket_id}`} size={160} />
               </div>
-              <p className="text-sm font-medium text-muted-foreground">
+              <p className="mb-3 text-sm font-medium text-muted-foreground">
                 Scan at delivery site
               </p>
+              <Button onClick={handleExportQR} variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Export QR Code
+              </Button>
             </div>
           </Card>
 
