@@ -61,7 +61,7 @@ const DeliverTicket = () => {
     if (result.success) {
       toast({
         title: "Delivery Confirmed",
-        description: `Ticket ${id} marked as delivered`,
+        description: `Ticket ${id} is marked as delivered`,
       });
       // Show success animation
       setShowSuccessAnimation(true);
