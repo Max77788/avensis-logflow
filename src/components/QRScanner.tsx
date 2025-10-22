@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ScanLine, Camera, X, SwitchCamera } from "lucide-react";
 
 interface QRScannerProps {
@@ -20,6 +26,14 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
   useEffect(() => {
     const initCameras = async () => {
       try {
+        // Request camera permission explicitly first
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+
+        // Stop the stream after getting permission
+        stream.getTracks().forEach((track) => track.stop());
+
         const devices = await Html5Qrcode.getCameras();
 
         if (!devices || devices.length === 0) {
@@ -30,10 +44,11 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
 
         let defaultCameraId = devices[0].id;
 
-        const backCamera = devices.find(device =>
-          device.label.toLowerCase().includes('back') ||
-          device.label.toLowerCase().includes('rear') ||
-          device.label.toLowerCase().includes('environment')
+        const backCamera = devices.find(
+          (device) =>
+            device.label.toLowerCase().includes("back") ||
+            device.label.toLowerCase().includes("rear") ||
+            device.label.toLowerCase().includes("environment")
         );
 
         if (backCamera) {
@@ -45,7 +60,19 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
         setSelectedCamera(defaultCameraId);
       } catch (err: any) {
         console.error("Failed to get cameras:", err);
-        const errorMsg = err.message || "Camera access denied or unavailable";
+        let errorMsg = "Camera access denied or unavailable";
+
+        if (err.name === "NotAllowedError") {
+          errorMsg =
+            "Camera permission denied. Please allow camera access in your browser settings.";
+        } else if (err.name === "NotFoundError") {
+          errorMsg = "No camera found on this device.";
+        } else if (err.name === "NotReadableError") {
+          errorMsg = "Camera is already in use by another application.";
+        } else if (err.name === "SecurityError") {
+          errorMsg = "Camera access requires HTTPS connection.";
+        }
+
         setError(errorMsg);
       }
     };
@@ -114,6 +141,44 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
     onClose();
   };
 
+  const handleRetry = async () => {
+    setError(null);
+    setCameras([]);
+    setSelectedCamera("");
+
+    // Retry camera initialization
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      stream.getTracks().forEach((track) => track.stop());
+
+      const devices = await Html5Qrcode.getCameras();
+      if (!devices || devices.length === 0) {
+        throw new Error("No cameras found");
+      }
+
+      setCameras(devices);
+      setSelectedCamera(devices[0].id);
+    } catch (err: any) {
+      console.error("Retry failed:", err);
+      let errorMsg = "Camera access denied or unavailable";
+
+      if (err.name === "NotAllowedError") {
+        errorMsg =
+          "Camera permission denied. Please allow camera access in your browser settings.";
+      } else if (err.name === "NotFoundError") {
+        errorMsg = "No camera found on this device.";
+      } else if (err.name === "NotReadableError") {
+        errorMsg = "Camera is already in use by another application.";
+      } else if (err.name === "SecurityError") {
+        errorMsg = "Camera access requires HTTPS connection.";
+      }
+
+      setError(errorMsg);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm">
       <div className="container mx-auto flex min-h-screen items-center justify-center p-4">
@@ -132,7 +197,9 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                 <Camera className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground">Scan QR Code</h2>
+              <h2 className="text-2xl font-bold text-foreground">
+                Scan QR Code
+              </h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 Position the QR code within the frame
               </p>
@@ -142,7 +209,10 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
               <div className="mb-4">
                 <div className="flex items-center gap-2">
                   <SwitchCamera className="h-5 w-5 text-muted-foreground" />
-                  <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+                  <Select
+                    value={selectedCamera}
+                    onValueChange={setSelectedCamera}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select camera" />
                     </SelectTrigger>
@@ -160,10 +230,30 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
 
             {error ? (
               <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-8 text-center">
-                <p className="text-destructive">{error}</p>
-                <Button onClick={handleClose} className="mt-4" variant="outline">
-                  Close
-                </Button>
+                <p className="mb-4 font-semibold text-destructive">{error}</p>
+                <div className="mb-4 space-y-2 text-sm text-muted-foreground">
+                  <p>💡 Troubleshooting tips:</p>
+                  <ul className="ml-4 space-y-1 text-left">
+                    <li>
+                      • Check if your browser has camera permission enabled
+                    </li>
+                    <li>• Ensure no other app is using the camera</li>
+                    <li>• Try using HTTPS connection</li>
+                    <li>• Refresh the page and try again</li>
+                  </ul>
+                </div>
+                <div className="flex justify-center gap-2">
+                  <Button onClick={handleRetry} className="flex-1">
+                    Retry
+                  </Button>
+                  <Button
+                    onClick={handleClose}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="relative">
@@ -178,7 +268,11 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
             )}
 
             <div className="mt-4 text-center">
-              <Button onClick={handleClose} variant="secondary" className="w-full">
+              <Button
+                onClick={handleClose}
+                variant="secondary"
+                className="w-full"
+              >
                 Cancel Scan
               </Button>
             </div>
