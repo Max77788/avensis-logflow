@@ -1,9 +1,17 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ArrowLeft, MapPin, Truck, Package, Calendar, User, Download } from "lucide-react";
+import {
+  ArrowLeft,
+  MapPin,
+  Truck,
+  Package,
+  Calendar,
+  User,
+  Download,
+} from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
 import { ticketService } from "@/lib/ticketService";
@@ -12,47 +20,55 @@ import { toast } from "@/hooks/use-toast";
 const TicketDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const loadTicket = async () => {
       if (id) {
-        const found = await ticketService.getTicket(id);
-        setTicket(found);
+        // Check if ticket was passed via navigation state
+        const state = location.state as { ticket?: Ticket } | null;
+        if (state?.ticket) {
+          setTicket(state.ticket);
+        } else {
+          // Otherwise fetch from service
+          const found = await ticketService.getTicket(id);
+          setTicket(found);
+        }
       }
     };
     loadTicket();
-  }, [id]);
+  }, [id, location.state]);
 
   const handleExportQR = () => {
     if (!qrCodeRef.current) return;
 
-    const svg = qrCodeRef.current.querySelector('svg');
+    const svg = qrCodeRef.current.querySelector("svg");
     if (!svg) return;
 
     const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
     const img = new Image();
 
     const padding = 40;
     const qrSize = 512;
-    const totalSize = qrSize + (padding * 2);
+    const totalSize = qrSize + padding * 2;
 
     canvas.width = totalSize;
     canvas.height = totalSize;
 
     img.onload = () => {
       if (ctx) {
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = "white";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, padding, padding, qrSize, qrSize);
 
         canvas.toBlob((blob) => {
           if (blob) {
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
+            const a = document.createElement("a");
             a.href = url;
             a.download = `ticket-${ticket?.ticket_id}-qr.png`;
             a.click();
@@ -67,7 +83,7 @@ const TicketDetails = () => {
       }
     };
 
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+    img.src = "data:image/svg+xml;base64," + btoa(svgData);
   };
 
   if (!ticket) {
@@ -75,7 +91,9 @@ const TicketDetails = () => {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Card className="p-8 text-center shadow-lg">
           <Package className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
-          <h2 className="mb-2 text-xl font-bold text-foreground">Ticket Not Found</h2>
+          <h2 className="mb-2 text-xl font-bold text-foreground">
+            Ticket Not Found
+          </h2>
           <p className="mb-4 text-muted-foreground">
             The ticket you're looking for doesn't exist
           </p>
@@ -85,7 +103,8 @@ const TicketDetails = () => {
     );
   }
 
-  const canDeliver = ticket.status === "VERIFIED_AT_SCALE" || ticket.status === "IN_TRANSIT";
+  const canDeliver =
+    ticket.status === "VERIFIED_AT_SCALE" || ticket.status === "IN_TRANSIT";
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,7 +115,9 @@ const TicketDetails = () => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-foreground">Ticket Details</h1>
+            <h1 className="text-xl font-bold text-foreground">
+              Ticket Details
+            </h1>
             <p className="text-sm text-muted-foreground">{ticket.ticket_id}</p>
           </div>
           <StatusBadge status={ticket.status} />
@@ -109,7 +130,10 @@ const TicketDetails = () => {
           {/* QR Code Card */}
           <Card className="overflow-hidden shadow-lg">
             <div className="bg-primary/5 p-6 text-center">
-              <div ref={qrCodeRef} className="mx-auto mb-4 inline-block rounded-xl bg-white p-4 shadow-md">
+              <div
+                ref={qrCodeRef}
+                className="mx-auto mb-4 inline-block rounded-xl bg-white p-4 shadow-md"
+              >
                 <QRCodeSVG value={`TICKET-${ticket.ticket_id}`} size={160} />
               </div>
               <p className="mb-3 text-sm font-medium text-muted-foreground">
@@ -129,8 +153,12 @@ const TicketDetails = () => {
                 <Truck className="h-6 w-6 text-primary" />
               </div>
               <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Truck {ticket.truck_id}</h3>
-                <p className="text-sm text-muted-foreground">{ticket.product}</p>
+                <h3 className="font-semibold text-foreground">
+                  Truck {ticket.truck_id}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {ticket.product}
+                </p>
               </div>
             </div>
           </Card>
@@ -142,14 +170,18 @@ const TicketDetails = () => {
                 <MapPin className="mt-1 h-5 w-5 text-success" />
                 <div>
                   <p className="text-xs text-muted-foreground">Origin</p>
-                  <p className="font-medium text-foreground">{ticket.origin_site}</p>
+                  <p className="font-medium text-foreground">
+                    {ticket.origin_site}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <MapPin className="mt-1 h-5 w-5 text-destructive" />
                 <div>
                   <p className="text-xs text-muted-foreground">Destination</p>
-                  <p className="font-medium text-foreground">{ticket.destination_site}</p>
+                  <p className="font-medium text-foreground">
+                    {ticket.destination_site}
+                  </p>
                 </div>
               </div>
             </div>
@@ -197,7 +229,9 @@ const TicketDetails = () => {
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">Verified at Scale</p>
+                    <p className="text-xs text-muted-foreground">
+                      Verified at Scale
+                    </p>
                     <p className="text-sm font-medium text-foreground">
                       {new Date(ticket.verified_at_scale).toLocaleString()}
                     </p>
@@ -224,7 +258,9 @@ const TicketDetails = () => {
               <div className="p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm font-medium text-foreground">Operator Signature</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Operator Signature
+                  </p>
                 </div>
                 <img
                   src={ticket.scale_operator_signature}
@@ -240,7 +276,9 @@ const TicketDetails = () => {
               <div className="p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm font-medium text-foreground">Receiver Signature</p>
+                  <p className="text-sm font-medium text-foreground">
+                    Receiver Signature
+                  </p>
                 </div>
                 <img
                   src={ticket.destination_signature}

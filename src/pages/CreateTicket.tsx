@@ -83,7 +83,7 @@ const CreateTicket = () => {
         title: "Ticket Created",
         description: `Ticket ${ticket.ticket_id} created successfully`,
       });
-      navigate(`/tickets/${ticket.ticket_id}`);
+      navigate(`/tickets/${ticket.ticket_id}`, { state: { ticket } });
     } else {
       toast({
         title: "Error",
@@ -98,11 +98,7 @@ const CreateTicket = () => {
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto flex items-center gap-3 px-4 py-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/")}
-          >
+          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -179,7 +175,9 @@ const CreateTicket = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="customer_email">Customer Email (optional)</Label>
+                <Label htmlFor="customer_email">
+                  Customer Email (optional)
+                </Label>
                 <Input
                   id="customer_email"
                   name="customer_email"
@@ -232,7 +230,9 @@ const CreateTicket = () => {
               </div>
               {netWeight !== null && (
                 <div className="rounded-lg bg-success-light p-4">
-                  <Label className="text-sm text-muted-foreground">Net Weight</Label>
+                  <Label className="text-sm text-muted-foreground">
+                    Net Weight
+                  </Label>
                   <p className="text-2xl font-bold text-success">
                     {netWeight.toFixed(2)} kg
                   </p>
@@ -261,7 +261,12 @@ const CreateTicket = () => {
           )}
 
           {/* Submit */}
-          <Button type="submit" size="lg" className="w-full shadow-lg" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full shadow-lg"
+            disabled={isSubmitting}
+          >
             <Save className="mr-2 h-5 w-5" />
             {isSubmitting ? "Creating..." : "Create & Verify Ticket"}
           </Button>
