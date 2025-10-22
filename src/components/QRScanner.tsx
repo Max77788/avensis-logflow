@@ -234,6 +234,7 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
                 <div className="mb-4 space-y-2 text-sm text-muted-foreground">
                   <p>💡 Troubleshooting tips:</p>
                   <ul className="ml-4 space-y-1 text-left">
+                    <li>• MOST COMMON FIX: Pick the other camera and press "retry" below</li>
                     <li>
                       • Check if your browser has camera permission enabled
                     </li>
