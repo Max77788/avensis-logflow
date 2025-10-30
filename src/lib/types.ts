@@ -1,7 +1,7 @@
-export type TicketStatus = 
-  | "CREATED" 
-  | "VERIFIED_AT_SCALE" 
-  | "IN_TRANSIT" 
+export type TicketStatus =
+  | "CREATED"
+  | "VERIFIED_AT_SCALE"
+  | "IN_TRANSIT"
   | "DELIVERED";
 
 export interface Ticket {
@@ -26,6 +26,9 @@ export interface Ticket {
   customer_email?: string;
   scale_ticket_file_url?: string;
   include_scale_ticket_in_email?: boolean;
+  confirmer_name?: string;
+  carrier?: string;
+  driver_name?: string;
 }
 
 export interface GPSCoordinates {

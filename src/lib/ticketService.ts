@@ -1,10 +1,19 @@
-import { supabase } from './supabase';
-import type { Ticket, AuditLog } from './types';
+import { supabase } from "./supabase";
+import type { Ticket, AuditLog } from "./types";
 
 export const ticketService = {
-  async createTicket(ticket: Ticket): Promise<{ success: boolean; error?: string }> {
+  async createTicket(
+    ticket: Ticket
+  ): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase.from('tickets').insert({
+      // Verify Supabase connection
+      if (!supabase) {
+        throw new Error(
+          "Supabase client not initialized. Check your environment variables."
+        );
+      }
+
+      const { error } = await supabase.from("tickets").insert({
         ticket_id: ticket.ticket_id,
         truck_qr_id: ticket.truck_qr_id,
         truck_id: ticket.truck_id,
@@ -25,29 +34,35 @@ export const ticketService = {
         pdf_url: ticket.pdf_url || null,
         customer_email: ticket.customer_email || null,
         scale_ticket_file_url: ticket.scale_ticket_file_url || null,
-        include_scale_ticket_in_email: ticket.include_scale_ticket_in_email || false,
+        include_scale_ticket_in_email:
+          ticket.include_scale_ticket_in_email || false,
+        confirmer_name: ticket.confirmer_name || null,
+        carrier: ticket.carrier || null,
+        driver_name: ticket.driver_name || null,
       });
 
       if (error) throw error;
 
-      await this.logAction(ticket.ticket_id, 'CREATED', 'System', {
+      await this.logAction(ticket.ticket_id, "CREATED", "System", {
         truck_id: ticket.truck_id,
         product: ticket.product,
       });
 
       return { success: true };
-    } catch (error) {
-      console.error('Error creating ticket:', error);
-      return { success: false, error: String(error) };
+    } catch (error: any) {
+      const errorMessage = this.getErrorMessage(error);
+      console.error("Error creating ticket:", error);
+      console.error("Formatted error:", errorMessage);
+      return { success: false, error: errorMessage };
     }
   },
 
   async getTicket(ticketId: string): Promise<Ticket | null> {
     try {
       const { data, error } = await supabase
-        .from('tickets')
-        .select('*')
-        .eq('ticket_id', ticketId)
+        .from("tickets")
+        .select("*")
+        .eq("ticket_id", ticketId)
         .maybeSingle();
 
       if (error) throw error;
@@ -55,7 +70,7 @@ export const ticketService = {
 
       return this.mapDbTicketToTicket(data);
     } catch (error) {
-      console.error('Error getting ticket:', error);
+      console.error("Error getting ticket:", error);
       return null;
     }
   },
@@ -63,14 +78,14 @@ export const ticketService = {
   async getAllTickets(): Promise<Ticket[]> {
     try {
       const { data, error } = await supabase
-        .from('tickets')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("tickets")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       return (data || []).map(this.mapDbTicketToTicket);
     } catch (error) {
-      console.error('Error getting all tickets:', error);
+      console.error("Error getting all tickets:", error);
       return [];
     }
   },
@@ -85,26 +100,38 @@ export const ticketService = {
       if (updates.status !== undefined) updateData.status = updates.status;
       if (updates.destination_signature !== undefined)
         updateData.destination_signature = updates.destination_signature;
-      if (updates.delivered_at !== undefined) updateData.delivered_at = updates.delivered_at;
-      if (updates.delivery_gps !== undefined) updateData.delivery_gps = updates.delivery_gps;
+      if (updates.delivered_at !== undefined)
+        updateData.delivered_at = updates.delivered_at;
+      if (updates.delivery_gps !== undefined)
+        updateData.delivery_gps = updates.delivery_gps;
       if (updates.pdf_url !== undefined) updateData.pdf_url = updates.pdf_url;
+      if (updates.confirmer_name !== undefined)
+        updateData.confirmer_name = updates.confirmer_name;
+      if (updates.carrier !== undefined) updateData.carrier = updates.carrier;
+      if (updates.driver_name !== undefined)
+        updateData.driver_name = updates.driver_name;
 
       const { error } = await supabase
-        .from('tickets')
+        .from("tickets")
         .update(updateData)
-        .eq('ticket_id', ticketId);
+        .eq("ticket_id", ticketId);
 
       if (error) throw error;
 
       if (updates.status) {
-        await this.logAction(ticketId, `STATUS_CHANGED_TO_${updates.status}`, 'System', {
-          new_status: updates.status,
-        });
+        await this.logAction(
+          ticketId,
+          `STATUS_CHANGED_TO_${updates.status}`,
+          "System",
+          {
+            new_status: updates.status,
+          }
+        );
       }
 
       return { success: true };
     } catch (error) {
-      console.error('Error updating ticket:', error);
+      console.error("Error updating ticket:", error);
       return { success: false, error: String(error) };
     }
   },
@@ -116,24 +143,24 @@ export const ticketService = {
     metadata?: Record<string, unknown>
   ): Promise<void> {
     try {
-      await supabase.from('audit_logs').insert({
+      await supabase.from("audit_logs").insert({
         ticket_id: ticketId,
         action,
         actor,
         metadata_json: metadata || null,
       });
     } catch (error) {
-      console.error('Error logging action:', error);
+      console.error("Error logging action:", error);
     }
   },
 
   async getAuditLogs(ticketId: string): Promise<AuditLog[]> {
     try {
       const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .eq('ticket_id', ticketId)
-        .order('timestamp_utc', { ascending: false });
+        .from("audit_logs")
+        .select("*")
+        .eq("ticket_id", ticketId)
+        .order("timestamp_utc", { ascending: false });
 
       if (error) throw error;
 
@@ -142,10 +169,12 @@ export const ticketService = {
         action: log.action,
         actor: log.actor,
         timestamp_utc: log.timestamp_utc || new Date().toISOString(),
-        metadata_json: log.metadata_json ? JSON.stringify(log.metadata_json) : undefined,
+        metadata_json: log.metadata_json
+          ? JSON.stringify(log.metadata_json)
+          : undefined,
       }));
     } catch (error) {
-      console.error('Error getting audit logs:', error);
+      console.error("Error getting audit logs:", error);
       return [];
     }
   },
@@ -173,6 +202,32 @@ export const ticketService = {
       customer_email: dbTicket.customer_email,
       scale_ticket_file_url: dbTicket.scale_ticket_file_url,
       include_scale_ticket_in_email: dbTicket.include_scale_ticket_in_email,
+      confirmer_name: dbTicket.confirmer_name,
+      carrier: dbTicket.carrier,
+      driver_name: dbTicket.driver_name,
     };
+  },
+
+  getErrorMessage(error: any): string {
+    // Handle fetch errors (network issues, CORS, browser extensions)
+    if (error?.message?.includes("Failed to fetch")) {
+      return "Network error: Unable to connect to the server. Please check:\n1. Your internet connection\n2. Disable browser extensions (especially ad blockers)\n3. Check if Supabase is accessible";
+    }
+
+    // Handle Supabase-specific errors
+    if (error?.message) {
+      return error.message;
+    }
+
+    if (error?.details) {
+      return error.details;
+    }
+
+    if (error?.hint) {
+      return error.hint;
+    }
+
+    // Fallback
+    return "An unexpected error occurred. Please try again.";
   },
 };

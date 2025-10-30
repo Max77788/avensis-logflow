@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/SignaturePad";
 import { useGPS } from "@/hooks/useGPS";
-import { ArrowLeft, MapPin, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, CheckCircle, Loader2, User } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
@@ -14,8 +16,10 @@ const DeliverTicket = () => {
   const navigate = useNavigate();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const [confirmerName, setConfirmerName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [showConfirmationForm, setShowConfirmationForm] = useState(false);
   const { captureLocation, coordinates, loading } = useGPS();
 
   useEffect(() => {
@@ -47,6 +51,15 @@ const DeliverTicket = () => {
       return;
     }
 
+    if (!confirmerName.trim()) {
+      toast({
+        title: "Confirmer Name Required",
+        description: "Please enter the name of the person confirming delivery",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     const result = await ticketService.updateTicket(id!, {
@@ -54,6 +67,7 @@ const DeliverTicket = () => {
       delivery_gps: `${coordinates.latitude},${coordinates.longitude}`,
       delivered_at: new Date().toISOString(),
       status: "DELIVERED",
+      confirmer_name: confirmerName.trim(),
     });
 
     setIsSubmitting(false);
@@ -90,7 +104,7 @@ const DeliverTicket = () => {
     <div className="min-h-screen bg-background">
       {/* Success Animation Overlay */}
       {showSuccessAnimation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <style>{`
             @keyframes scaleIn {
               0% {
@@ -268,33 +282,86 @@ const DeliverTicket = () => {
             </Card>
 
             {/* Signature */}
-            <SignaturePad onSave={setSignature} label="Receiver Signature" />
+            <div
+              className={
+                showSuccessAnimation ? "pointer-events-none opacity-50" : ""
+              }
+            >
+              <SignaturePad onSave={setSignature} label="Receiver Signature" />
 
-            {signature && (
-              <Card className="overflow-hidden shadow-md">
-                <div className="p-4">
-                  <p className="mb-2 text-sm font-medium text-foreground">
-                    Signature Preview
-                  </p>
-                  <img
-                    src={signature}
-                    alt="Receiver signature"
-                    className="h-32 w-full rounded border border-border object-contain bg-white"
-                  />
+              {signature && (
+                <Card className="overflow-hidden shadow-md">
+                  <div className="p-4">
+                    <p className="mb-2 text-sm font-medium text-foreground">
+                      Signature Preview
+                    </p>
+                    <img
+                      src={signature}
+                      alt="Receiver signature"
+                      className="h-32 w-full rounded border border-border object-contain bg-white"
+                    />
+                  </div>
+                </Card>
+              )}
+            </div>
+
+            {/* Confirmation Form - Inline Expansion */}
+            {!showConfirmationForm ? (
+              <Button
+                onClick={() => setShowConfirmationForm(true)}
+                size="lg"
+                className="w-full shadow-lg"
+                disabled={!signature || !coordinates}
+              >
+                <CheckCircle className="mr-2 h-5 w-5" />
+                Confirm Delivery
+              </Button>
+            ) : (
+              <Card className="overflow-hidden shadow-md border-primary/50 bg-primary/5">
+                <div className="bg-primary/10 p-4">
+                  <div className="flex items-center gap-2 text-primary">
+                    <User className="h-5 w-5" />
+                    <h2 className="font-semibold">Delivery Confirmation</h2>
+                  </div>
+                </div>
+                <div className="space-y-4 p-4">
+                  <div>
+                    <Label htmlFor="confirmer_name">Confirmer's Name *</Label>
+                    <Input
+                      id="confirmer_name"
+                      placeholder="Enter name of person confirming delivery"
+                      value={confirmerName}
+                      onChange={(e) => setConfirmerName(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleDeliver}
+                      size="lg"
+                      className="flex-1 shadow-lg"
+                      disabled={!confirmerName.trim() || isSubmitting}
+                    >
+                      <CheckCircle className="mr-2 h-5 w-5" />
+                      {isSubmitting ? "Confirming..." : "Confirm"}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setShowConfirmationForm(false);
+                        setConfirmerName("");
+                      }}
+                      size="lg"
+                      variant="outline"
+                      className="flex-1"
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
               </Card>
             )}
-
-            {/* Submit */}
-            <Button
-              onClick={handleDeliver}
-              size="lg"
-              className="w-full shadow-lg"
-              disabled={!signature || !coordinates || isSubmitting}
-            >
-              <CheckCircle className="mr-2 h-5 w-5" />
-              Confirm Delivery
-            </Button>
           </div>
         </main>
       </div>
