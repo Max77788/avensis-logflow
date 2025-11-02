@@ -127,7 +127,7 @@ const Index = () => {
     } else {
       toast({
         title: "Invalid QR Code",
-        description: "Please scan a valid Avensis QR code",
+        description: "Please scan a valid Truck IT QR code",
         variant: "destructive",
       });
     }
@@ -143,10 +143,8 @@ const Index = () => {
               <Truck className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">
-                Avensis Digital
-              </h1>
-              <p className="text-xs text-muted-foreground">Ticketing System</p>
+              <h1 className="text-xl font-bold text-foreground">Truck IT</h1>
+              <p className="text-xs text-muted-foreground">Digital Ticketing</p>
             </div>
           </div>
 

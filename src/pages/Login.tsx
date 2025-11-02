@@ -84,7 +84,7 @@ const Login = () => {
               <Truck className="h-8 w-8 text-primary-foreground" />
             </div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Avensis LogFlow
+              Truck IT
             </h1>
             <p className="text-muted-foreground">Digital Ticketing System</p>
           </div>
@@ -138,7 +138,7 @@ const Login = () => {
 
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground mt-8">
-            © 2024 Avensis. All rights reserved.
+            © 2024 Truck IT. All rights reserved.
           </p>
         </div>
       </div>

@@ -4,8 +4,8 @@ export const pwaConfig = VitePWA({
   registerType: "autoUpdate",
   includeAssets: ["favicon.ico"],
   manifest: {
-    name: "Avensis Digital Ticketing",
-    short_name: "Avensis",
+    name: "Truck IT - Digital Ticketing",
+    short_name: "Truck IT",
     description: "Digital ticketing system for logistics operations",
     theme_color: "#1e5ba8",
     background_color: "#f5f7fa",

@@ -410,7 +410,7 @@ export const CARRIERS = [
   "2SM",
   "ISM",
   "4K",
-  "Avensis",
+  "Truck IT",
   "K Kay's Trucking",
   "Fox Transportation",
   "Tru Avant",
@@ -432,4 +432,3 @@ export const CARRIERS = [
   "4HR Trucking",
   "AFS",
 ];
-
