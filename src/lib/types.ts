@@ -4,6 +4,10 @@ export type TicketStatus =
   | "IN_TRANSIT"
   | "DELIVERED";
 
+export type UserRole = "driver" | "attendant";
+
+export type DriverStatus = "active" | "inactive";
+
 export interface Ticket {
   ticket_id: string;
   truck_qr_id: string;
@@ -28,7 +32,9 @@ export interface Ticket {
   include_scale_ticket_in_email?: boolean;
   confirmer_name?: string;
   carrier?: string;
+  carrier_id?: string;
   driver_name?: string;
+  driver_id?: string;
 }
 
 export interface GPSCoordinates {
@@ -44,4 +50,22 @@ export interface AuditLog {
   actor: string;
   timestamp_utc: string;
   metadata_json?: string;
+}
+
+export interface AuthUser {
+  id: string;
+  role: UserRole;
+  driver_id?: string;
+  name?: string;
+}
+
+export interface DriverProfile {
+  id: string;
+  name: string;
+  carrier_id: string;
+  default_truck_id: string;
+  driver_qr_code: string;
+  status: DriverStatus;
+  created_at: string;
+  updated_at: string;
 }

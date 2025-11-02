@@ -12,10 +12,14 @@ import {
   Package,
   Calendar,
   CheckCircle2,
+  LogOut,
+  Settings,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ticketService } from "@/lib/ticketService";
+import { carrierService } from "@/lib/carrierService";
 import { StatusBadge } from "@/components/StatusBadge";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Ticket } from "@/lib/types";
 
 // Helper function to format date and time
@@ -41,21 +45,34 @@ const Index = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const navigate = useNavigate();
+  const { user, driverProfile, logout } = useAuth();
 
   useEffect(() => {
     const loadRecentTickets = async () => {
-      const allTickets = await ticketService.getAllTickets();
+      let tickets: Ticket[] = [];
+
+      if (user?.role === "driver" && driverProfile?.id) {
+        // For drivers, show only their tickets
+        tickets = await ticketService.getTicketsByDriver(driverProfile.id);
+      } else if (user?.role === "attendant") {
+        // For attendants, don't show any tickets
+        tickets = [];
+      } else {
+        // For other roles, show all tickets
+        tickets = await ticketService.getAllTickets();
+      }
+
       // Get the 5 most recent tickets
-      setRecentTickets(allTickets.slice(0, 5));
+      setRecentTickets(tickets.slice(0, 5));
     };
     loadRecentTickets();
 
     // Refresh tickets every 5 seconds to show newly created tickets
     const interval = setInterval(loadRecentTickets, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user, driverProfile]);
 
-  const handleScan = (data: string) => {
+  const handleScan = async (data: string) => {
     console.log("Scanned QR:", data);
 
     setShowScanner(false);
@@ -70,6 +87,43 @@ const Index = () => {
     } else if (data.startsWith("TICKET-")) {
       const ticketId = data.replace("TICKET-", "");
       navigate(`/tickets/${ticketId}`);
+    } else if (data.startsWith("DRIVER-")) {
+      // Handle driver QR code scan
+      try {
+        const driver = await carrierService.getDriverByQRCode(data);
+        if (driver) {
+          // Fetch driver's active tickets
+          const activeTickets = await ticketService.getActiveTicketsByDriver(
+            driver.id
+          );
+          if (activeTickets.length > 0) {
+            // Show the first active ticket
+            navigate(`/tickets/${activeTickets[0].ticket_id}`);
+            toast({
+              title: "Driver QR Scanned",
+              description: `Showing active ticket for ${driver.name}`,
+            });
+          } else {
+            toast({
+              title: "No Active Tickets",
+              description: `${driver.name} has no active delivery tickets`,
+            });
+          }
+        } else {
+          toast({
+            title: "Driver Not Found",
+            description: "This driver QR code is not registered",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error scanning driver QR:", error);
+        toast({
+          title: "Error",
+          description: "Failed to process driver QR code",
+          variant: "destructive",
+        });
+      }
     } else {
       toast({
         title: "Invalid QR Code",
@@ -95,14 +149,58 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">Ticketing System</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/admin")}
-            className="rounded-full"
-          >
-            <User className="h-5 w-5" />
-          </Button>
+
+          {/* User Section */}
+          {user ? (
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="text-sm font-medium text-foreground">
+                  {driverProfile?.name || "User"}
+                </p>
+                <p className="text-xs text-muted-foreground capitalize">
+                  {user.role}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {user.role === "driver" && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate("/driver/profile")}
+                    className="rounded-full"
+                    title="Profile"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    logout();
+                    navigate("/login");
+                    toast({
+                      title: "Logged Out",
+                      description: "You have been logged out successfully",
+                    });
+                  }}
+                  className="rounded-full"
+                  title="Logout"
+                >
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => navigate("/login")}>
+                Login
+              </Button>
+              <Button onClick={() => navigate("/driver/signup")}>
+                Sign Up
+              </Button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -132,51 +230,59 @@ const Index = () => {
           </Card>
 
           {/* Action Cards */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Card
-              className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
-              onClick={() => setShowScanner(true)}
-            >
-              <div className="space-y-4 p-6">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/20">
-                  <QrCode className="h-7 w-7 text-primary" />
+          {user?.role !== "driver" && (
+            <div className="grid gap-4 sm:grid-cols-1">
+              <Card
+                className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
+                onClick={() => setShowScanner(true)}
+              >
+                <div className="space-y-4 p-6">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/20">
+                    <QrCode className="h-7 w-7 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="mb-1 text-lg font-bold text-foreground">
+                      Scan QR Code
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {user?.role === "attendant"
+                        ? "Scan driver QR code to view tickets"
+                        : "Scan truck or ticket QR code"}
+                    </p>
+                  </div>
+                  <Button className="w-full" size="lg">
+                    Open Scanner
+                  </Button>
                 </div>
-                <div>
-                  <h3 className="mb-1 text-lg font-bold text-foreground">
-                    Scan QR Code
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Scan truck or ticket QR code
-                  </p>
-                </div>
-                <Button className="w-full" size="lg">
-                  Open Scanner
-                </Button>
-              </div>
-            </Card>
+              </Card>
+            </div>
+          )}
 
-            <Card
-              className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
-              onClick={() => navigate("/tickets/create")}
-            >
-              <div className="space-y-4 p-6">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-success/10 transition-colors group-hover:bg-success/20">
-                  <ClipboardList className="h-7 w-7 text-success" />
+          {user?.role === "driver" && (
+            <div className="grid gap-4 sm:grid-cols-1">
+              <Card
+                className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
+                onClick={() => navigate("/tickets/create")}
+              >
+                <div className="space-y-4 p-6">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-success/10 transition-colors group-hover:bg-success/20">
+                    <ClipboardList className="h-7 w-7 text-success" />
+                  </div>
+                  <div>
+                    <h3 className="mb-1 text-lg font-bold text-foreground">
+                      Create Ticket
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Manually create new ticket
+                    </p>
+                  </div>
+                  <Button variant="outline" className="w-full" size="lg">
+                    Create New
+                  </Button>
                 </div>
-                <div>
-                  <h3 className="mb-1 text-lg font-bold text-foreground">
-                    Create Ticket
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Manually create new ticket
-                  </p>
-                </div>
-                <Button variant="outline" className="w-full" size="lg">
-                  Create New
-                </Button>
-              </div>
-            </Card>
-          </div>
+              </Card>
+            </div>
+          )}
 
           {/* Recent Activity */}
           <Card className="mt-8 shadow-md">

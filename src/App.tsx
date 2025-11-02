@@ -4,7 +4,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
+import Login from "./pages/Login";
+import DriverSignUp from "./pages/DriverSignUp";
+import DriverProfile from "./pages/DriverProfile";
 import CreateTicket from "./pages/CreateTicket";
 import TicketDetails from "./pages/TicketDetails";
 import DeliverTicket from "./pages/DeliverTicket";
@@ -21,20 +26,70 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/tickets/create" element={<CreateTicket />} />
-            <Route path="/tickets/:id" element={<TicketDetails />} />
-            <Route path="/tickets/:id/deliver" element={<DeliverTicket />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/driver/signup" element={<DriverSignUp />} />
+
+              {/* Protected routes - require authentication */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Index />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/driver/profile"
+                element={
+                  <ProtectedRoute requiredRole="driver">
+                    <DriverProfile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tickets/create"
+                element={
+                  <ProtectedRoute requiredRole="driver">
+                    <CreateTicket />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tickets/:id"
+                element={
+                  <ProtectedRoute>
+                    <TicketDetails />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/tickets/:id/deliver"
+                element={
+                  <ProtectedRoute>
+                    <DeliverTicket />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };

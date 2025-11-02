@@ -39,6 +39,8 @@ export const ticketService = {
         confirmer_name: ticket.confirmer_name || null,
         carrier: ticket.carrier || null,
         driver_name: ticket.driver_name || null,
+        driver_id: ticket.driver_id || null,
+        carrier_id: ticket.carrier_id || null,
       });
 
       if (error) throw error;
@@ -86,6 +88,39 @@ export const ticketService = {
       return (data || []).map(this.mapDbTicketToTicket);
     } catch (error) {
       console.error("Error getting all tickets:", error);
+      return [];
+    }
+  },
+
+  async getActiveTicketsByDriver(driverId: string): Promise<Ticket[]> {
+    try {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("*")
+        .eq("driver_id", driverId)
+        .in("status", ["CREATED", "VERIFIED_AT_SCALE", "IN_TRANSIT"])
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map(this.mapDbTicketToTicket);
+    } catch (error) {
+      console.error("Error getting active tickets for driver:", error);
+      return [];
+    }
+  },
+
+  async getTicketsByDriver(driverId: string): Promise<Ticket[]> {
+    try {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("*")
+        .eq("driver_id", driverId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map(this.mapDbTicketToTicket);
+    } catch (error) {
+      console.error("Error getting tickets for driver:", error);
       return [];
     }
   },
@@ -205,6 +240,8 @@ export const ticketService = {
       confirmer_name: dbTicket.confirmer_name,
       carrier: dbTicket.carrier,
       driver_name: dbTicket.driver_name,
+      driver_id: dbTicket.driver_id,
+      carrier_id: dbTicket.carrier_id,
     };
   },
 

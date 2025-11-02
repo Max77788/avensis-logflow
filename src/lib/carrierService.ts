@@ -18,7 +18,11 @@ export interface Truck {
 export interface Driver {
   id: string;
   name: string;
+  email: string;
   carrier_id: string;
+  default_truck_id: string;
+  driver_qr_code: string;
+  status: "active" | "inactive";
   created_at: string;
   updated_at: string;
 }
@@ -43,7 +47,9 @@ export const carrierService = {
     }
   },
 
-  async createCarrier(name: string): Promise<{ success: boolean; data?: Carrier; error?: string }> {
+  async createCarrier(
+    name: string
+  ): Promise<{ success: boolean; data?: Carrier; error?: string }> {
     try {
       const { data, error } = await supabase
         .from("carriers")
@@ -56,6 +62,41 @@ export const carrierService = {
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to create carrier";
       console.error("Error creating carrier:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  async getCarrierByName(name: string): Promise<Carrier | null> {
+    try {
+      const { data, error } = await supabase
+        .from("carriers")
+        .select("*")
+        .eq("name", name)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data || null;
+    } catch (error) {
+      console.error("Error fetching carrier by name:", error);
+      return null;
+    }
+  },
+
+  async getOrCreateCarrier(
+    name: string
+  ): Promise<{ success: boolean; data?: Carrier; error?: string }> {
+    try {
+      // First try to find existing carrier
+      const existing = await this.getCarrierByName(name);
+      if (existing) {
+        return { success: true, data: existing };
+      }
+
+      // If not found, create it
+      return await this.createCarrier(name);
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to get or create carrier";
+      console.error("Error in getOrCreateCarrier:", error);
       return { success: false, error: errorMessage };
     }
   },
@@ -100,6 +141,62 @@ export const carrierService = {
     }
   },
 
+  async getTruckById(truckUuid: string): Promise<Truck | null> {
+    try {
+      const { data, error } = await supabase
+        .from("trucks")
+        .select("*")
+        .eq("id", truckUuid)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data || null;
+    } catch (error) {
+      console.error("Error fetching truck by UUID:", error);
+      return null;
+    }
+  },
+
+  async getTruckByIdAndCarrier(
+    truckId: string,
+    carrierId: string
+  ): Promise<Truck | null> {
+    try {
+      const { data, error } = await supabase
+        .from("trucks")
+        .select("*")
+        .eq("truck_id", truckId)
+        .eq("carrier_id", carrierId)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data || null;
+    } catch (error) {
+      console.error("Error fetching truck:", error);
+      return null;
+    }
+  },
+
+  async getOrCreateTruck(
+    truckId: string,
+    carrierId: string
+  ): Promise<{ success: boolean; data?: Truck; error?: string }> {
+    try {
+      // First try to find existing truck
+      const existing = await this.getTruckByIdAndCarrier(truckId, carrierId);
+      if (existing) {
+        return { success: true, data: existing };
+      }
+
+      // If not found, create it
+      return await this.createTruck(truckId, carrierId);
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to get or create truck";
+      console.error("Error in getOrCreateTruck:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
   // ============================================================================
   // DRIVERS
   // ============================================================================
@@ -122,12 +219,26 @@ export const carrierService = {
 
   async createDriver(
     name: string,
-    carrierId: string
+    carrierId: string,
+    email: string,
+    defaultTruckId: string
   ): Promise<{ success: boolean; data?: Driver; error?: string }> {
     try {
+      // Generate driver QR code
+      const driverQrCode = `DRIVER-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+
       const { data, error } = await supabase
         .from("drivers")
-        .insert({ name, carrier_id: carrierId })
+        .insert({
+          name,
+          email,
+          carrier_id: carrierId,
+          default_truck_id: defaultTruckId,
+          driver_qr_code: driverQrCode,
+          status: "inactive",
+        })
         .select()
         .single();
 
@@ -140,13 +251,77 @@ export const carrierService = {
     }
   },
 
+  async getDriverByEmail(email: string): Promise<Driver | null> {
+    try {
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("*")
+        .eq("email", email)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data || null;
+    } catch (error) {
+      console.error("Error fetching driver by email:", error);
+      return null;
+    }
+  },
+
+  async getDriverByQRCode(qrCode: string): Promise<Driver | null> {
+    try {
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("*")
+        .eq("driver_qr_code", qrCode)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data || null;
+    } catch (error) {
+      console.error("Error fetching driver by QR code:", error);
+      return null;
+    }
+  },
+
+  async updateDriverStatus(
+    driverId: string,
+    status: "active" | "inactive"
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase
+        .from("drivers")
+        .update({ status })
+        .eq("id", driverId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to update driver status";
+      console.error("Error updating driver status:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  async getAllDrivers(): Promise<Driver[]> {
+    try {
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("*")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching all drivers:", error);
+      return [];
+    }
+  },
+
   // ============================================================================
   // COMBINED OPERATIONS
   // ============================================================================
 
-  async getCarrierWithTrucksAndDrivers(
-    carrierId: string
-  ): Promise<{
+  async getCarrierWithTrucksAndDrivers(carrierId: string): Promise<{
     carrier: Carrier | null;
     trucks: Truck[];
     drivers: Driver[];
@@ -170,4 +345,3 @@ export const carrierService = {
     }
   },
 };
-

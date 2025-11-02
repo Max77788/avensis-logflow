@@ -4,218 +4,149 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SignaturePad } from "@/components/SignaturePad";
-import {
-  ArrowLeft,
-  Save,
-  Truck as TruckIcon,
-  Weight,
-  Plus,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Save, Truck as TruckIcon, Weight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
-import {
-  carrierService,
-  type Carrier,
-  type Truck,
-  type Driver,
-} from "@/lib/carrierService";
+import { carrierService, type Carrier } from "@/lib/carrierService";
+import { TRUCKS, CARRIERS } from "@/lib/trucksAndCarriers";
 
 // Sample data for dropdowns
-const ORIGIN_SITES = [
+const PICKUP_LOCATIONS = [
   "Quarry A - North",
   "Quarry B - South",
   "Quarry C - East",
 ];
 
-const DESTINATION_SITES = [
-  "Construction Site 1",
-  "Construction Site 2",
-  "Construction Site 3",
-];
-
-const PRODUCTS = [
-  "Aggregate 10mm",
-  "Aggregate 20mm",
-  "Concrete Mix",
-  "Sand",
-  "Gravel",
-];
-
 const CreateTicket = () => {
   const navigate = useNavigate();
+  const { user, driverProfile } = useAuth();
   const [searchParams] = useSearchParams();
   const truckFromQR = searchParams.get("truck");
 
-  // State for data from Supabase
-  const [carriers, setCarriers] = useState<Carrier[]>([]);
-  const [trucks, setTrucks] = useState<Truck[]>([]);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState(true);
-
   const [formData, setFormData] = useState({
+    carrier: "",
     carrier_id: "",
     truck_id: truckFromQR || "",
     driver_id: "",
     driver_name: "",
-    product: "",
-    origin_site: "",
-    destination_site: "",
-    gross_weight: "",
-    tare_weight: "",
-    customer_email: "",
+    pickup_location: "",
+    net_weight: "",
   });
 
+  console.log("Driver ID: ", JSON.stringify(driverProfile));
+
   const [signature, setSignature] = useState<string | null>(null);
-  const [netWeight, setNetWeight] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [carriers, setCarriers] = useState<Carrier[]>([]);
+  const [
+    hasShownActiveTicketNotification,
+    setHasShownActiveTicketNotification,
+  ] = useState(false);
+  const [hasActiveTicket, setHasActiveTicket] = useState(false);
 
-  // UI state for adding new trucks/drivers
-  const [showAddTruck, setShowAddTruck] = useState(false);
-  const [newTruckId, setNewTruckId] = useState("");
-  const [showAddDriver, setShowAddDriver] = useState(false);
-  const [newDriverName, setNewDriverName] = useState("");
-  const [isAddingTruck, setIsAddingTruck] = useState(false);
-  const [isAddingDriver, setIsAddingDriver] = useState(false);
+  // Fetch carriers on component mount
 
-  // Load carriers on mount
   useEffect(() => {
-    const loadCarriers = async () => {
-      setIsLoadingData(true);
+    const fetchCarriers = async () => {
       const data = await carrierService.getAllCarriers();
       setCarriers(data);
-      setIsLoadingData(false);
     };
-    loadCarriers();
+    fetchCarriers();
   }, []);
 
-  // Load trucks and drivers when carrier changes
+  // Load driver data on mount
   useEffect(() => {
-    const loadTrucksAndDrivers = async () => {
-      if (formData.carrier_id) {
-        const [trucksData, driversData] = await Promise.all([
-          carrierService.getTrucksByCarrier(formData.carrier_id),
-          carrierService.getDriversByCarrier(formData.carrier_id),
-        ]);
-        setTrucks(trucksData);
-        setDrivers(driversData);
-        // Reset truck and driver when carrier changes
+    const loadData = async () => {
+      // If driver is logged in, auto-fill their data
+      if (user?.role === "driver" && driverProfile) {
+        // Get the carrier name from the carrier ID
+        let carrierName = "";
+        let carrierId = "";
+        if (driverProfile.carrier_id) {
+          const carrier = carriers.find(
+            (c) => c.id === driverProfile.carrier_id
+          );
+          carrierName = carrier?.name || "";
+          carrierId = driverProfile.carrier_id;
+        }
+
+        // Get the truck name from the truck UUID
+        let truckName = truckFromQR || "";
+        if (driverProfile.default_truck_id && !truckFromQR) {
+          const truck = await carrierService.getTruckById(
+            driverProfile.default_truck_id
+          );
+          truckName = truck?.truck_id || "";
+        }
+
         setFormData((prev) => ({
           ...prev,
-          truck_id: "",
-          driver_id: "",
-          driver_name: "",
+          carrier: carrierName,
+          carrier_id: carrierId,
+          truck_id: truckName,
+          driver_id: driverProfile.id,
+          driver_name: driverProfile.name,
         }));
-      } else {
-        setTrucks([]);
-        setDrivers([]);
       }
     };
-    loadTrucksAndDrivers();
-  }, [formData.carrier_id]);
+    loadData();
+  }, [user, driverProfile, carriers, truckFromQR]);
 
+  // Check for active tickets only once when driver profile is loaded
   useEffect(() => {
-    const gross = parseFloat(formData.gross_weight);
-    const tare = parseFloat(formData.tare_weight);
-    if (!isNaN(gross) && !isNaN(tare)) {
-      setNetWeight(gross - tare);
-    } else {
-      setNetWeight(null);
-    }
-  }, [formData.gross_weight, formData.tare_weight]);
+    const checkActiveTickets = async () => {
+      if (
+        user?.role === "driver" &&
+        driverProfile?.id &&
+        !hasShownActiveTicketNotification
+      ) {
+        const activeTickets = await ticketService.getActiveTicketsByDriver(
+          driverProfile.id
+        );
+        if (activeTickets.length > 0) {
+          setHasActiveTicket(true);
+          toast({
+            title: "Active Ticket",
+            description:
+              "You have an active ticket. Complete it before creating a new one.",
+            variant: "destructive",
+          });
+        }
+        setHasShownActiveTicketNotification(true);
+      }
+    };
+    checkActiveTickets();
+  }, [driverProfile?.id, hasShownActiveTicketNotification]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleAddTruck = async () => {
-    if (!newTruckId.trim() || !formData.carrier_id) {
-      toast({
-        title: "Invalid Input",
-        description: "Please enter a truck ID",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsAddingTruck(true);
-    const result = await carrierService.createTruck(
-      newTruckId.trim(),
-      formData.carrier_id
-    );
-    setIsAddingTruck(false);
-
-    if (result.success && result.data) {
-      setTrucks([...trucks, result.data]);
-      setFormData({ ...formData, truck_id: result.data.truck_id });
-      setNewTruckId("");
-      setShowAddTruck(false);
-      toast({
-        title: "Truck Added",
-        description: `Truck ${result.data.truck_id} added successfully`,
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: result.error || "Failed to add truck",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAddDriver = async () => {
-    if (!newDriverName.trim() || !formData.carrier_id) {
-      toast({
-        title: "Invalid Input",
-        description: "Please enter a driver name",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsAddingDriver(true);
-    const result = await carrierService.createDriver(
-      newDriverName.trim(),
-      formData.carrier_id
-    );
-    setIsAddingDriver(false);
-
-    if (result.success && result.data) {
-      setDrivers([...drivers, result.data]);
-      setFormData({
-        ...formData,
-        driver_id: result.data.id,
-        driver_name: result.data.name,
-      });
-      setNewDriverName("");
-      setShowAddDriver(false);
-      toast({
-        title: "Driver Added",
-        description: `Driver ${result.data.name} added successfully`,
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: result.error || "Failed to add driver",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Check for active tickets if driver is logged in
+    if (user?.role === "driver" && driverProfile?.id) {
+      const activeTickets = await ticketService.getActiveTicketsByDriver(
+        driverProfile.id
+      );
+      if (activeTickets.length > 0) {
+        toast({
+          title: "Uh-oh!",
+          description:
+            "You already have another active delivery ticket. Please complete it before starting a new one.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     // Validation
-    if (!formData.carrier_id) {
+    if (!formData.carrier) {
       toast({
         title: "Carrier Required",
         description: "Please select a carrier",
@@ -227,7 +158,7 @@ const CreateTicket = () => {
     if (!formData.truck_id) {
       toast({
         title: "Truck Required",
-        description: "Please select or add a truck",
+        description: "Please select a truck",
         variant: "destructive",
       });
       return;
@@ -236,7 +167,7 @@ const CreateTicket = () => {
     if (!formData.driver_name) {
       toast({
         title: "Driver Required",
-        description: "Please select or add a driver",
+        description: "Please enter a driver name",
         variant: "destructive",
       });
       return;
@@ -253,24 +184,22 @@ const CreateTicket = () => {
 
     setIsSubmitting(true);
 
-    const selectedCarrier = carriers.find((c) => c.id === formData.carrier_id);
     const ticket: Ticket = {
       ticket_id: `TKT-${Date.now()}`,
       truck_qr_id: `TRUCK-${formData.truck_id}`,
       truck_id: formData.truck_id,
-      product: formData.product,
-      origin_site: formData.origin_site,
-      destination_site: formData.destination_site,
-      gross_weight: parseFloat(formData.gross_weight),
-      tare_weight: parseFloat(formData.tare_weight),
-      net_weight: netWeight || 0,
+      product: "", // Optional field, left empty
+      origin_site: formData.pickup_location,
+      destination_site: "", // Will be filled during delivery
+      net_weight: parseFloat(formData.net_weight) || 0,
       scale_operator_signature: signature,
       status: "VERIFIED_AT_SCALE",
       created_at: new Date().toISOString(),
       verified_at_scale: new Date().toISOString(),
-      customer_email: formData.customer_email || undefined,
-      carrier: selectedCarrier?.name || "",
+      carrier: formData.carrier,
+      carrier_id: formData.carrier_id,
       driver_name: formData.driver_name,
+      driver_id: formData.driver_id,
     };
 
     const result = await ticketService.createTicket(ticket);
@@ -297,14 +226,23 @@ const CreateTicket = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto flex items-center gap-3 px-4 py-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Create Ticket</h1>
-            <p className="text-sm text-muted-foreground">Scale verification</p>
+        <div className="container mx-auto flex items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">
+                Create Ticket
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Scale verification
+              </p>
+            </div>
           </div>
+          <Button variant="outline" onClick={() => navigate("/")}>
+            Home
+          </Button>
         </div>
       </header>
 
@@ -320,256 +258,92 @@ const CreateTicket = () => {
               </div>
             </div>
             <div className="space-y-4 p-4">
-              {isLoadingData ? (
-                <div className="text-center text-muted-foreground">
-                  Loading carriers...
+              <>
+                {/* Carrier Selection */}
+                <div>
+                  <Label htmlFor="carrier">
+                    Carrier * (Default from Profile)
+                  </Label>
+                  <SearchableSelect
+                    value={formData.carrier}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        carrier: value,
+                      })
+                    }
+                    placeholder="Select a carrier"
+                    items={[
+                      // Database carriers
+                      ...carriers.map((carrier) => ({
+                        value: carrier.name,
+                        label: carrier.name,
+                      })),
+                      // Static carriers not in database
+                      ...CARRIERS.filter(
+                        (staticCarrier) =>
+                          !carriers.some(
+                            (dbCarrier) => dbCarrier.name === staticCarrier
+                          )
+                      ).map((carrier) => ({
+                        value: carrier,
+                        label: carrier,
+                      })),
+                    ]}
+                  />
                 </div>
-              ) : (
-                <>
-                  {/* Carrier Selection */}
-                  <div>
-                    <Label htmlFor="carrier_id">Carrier * (Unchangeable)</Label>
-                    <Select
-                      value={formData.carrier_id}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          carrier_id: value,
-                          truck_id: "",
-                          driver_id: "",
-                          driver_name: "",
-                        })
-                      }
-                    >
-                      <SelectTrigger id="carrier_id" className="mt-1">
-                        <SelectValue placeholder="Select a carrier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {carriers.map((carrier) => (
-                          <SelectItem key={carrier.id} value={carrier.id}>
-                            {carrier.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  {/* Truck Selection */}
-                  <div>
-                    <Label htmlFor="truck_id">Truck ID * (Changeable)</Label>
-                    <div className="flex gap-2">
-                      <Select
-                        value={formData.truck_id}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, truck_id: value })
-                        }
-                        disabled={!formData.carrier_id}
-                      >
-                        <SelectTrigger id="truck_id" className="mt-1 flex-1">
-                          <SelectValue placeholder="Select a truck" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {trucks.map((truck) => (
-                            <SelectItem key={truck.id} value={truck.truck_id}>
-                              {truck.truck_id}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowAddTruck(!showAddTruck)}
-                        disabled={!formData.carrier_id}
-                        className="mt-1"
-                        size="icon"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {showAddTruck && (
-                      <div className="mt-3 flex gap-2">
-                        <Input
-                          placeholder="Enter truck ID (e.g., T-010)"
-                          value={newTruckId}
-                          onChange={(e) => setNewTruckId(e.target.value)}
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          onClick={handleAddTruck}
-                          disabled={isAddingTruck}
-                          size="sm"
-                        >
-                          {isAddingTruck ? "Adding..." : "Add"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            setShowAddTruck(false);
-                            setNewTruckId("");
-                          }}
-                          size="icon"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                {/* Truck Selection */}
+                <div>
+                  <Label htmlFor="truck_id">
+                    Truck ID * (Default from Profile)
+                  </Label>
+                  <SearchableSelect
+                    value={formData.truck_id}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, truck_id: value })
+                    }
+                    placeholder="Select a truck"
+                    items={TRUCKS.map((truck) => ({
+                      value: truck,
+                      label: truck,
+                    }))}
+                  />
+                </div>
 
-                  {/* Driver Selection */}
-                  <div>
-                    <Label htmlFor="driver_name">Driver * (Changeable)</Label>
-                    <div className="flex gap-2">
-                      <Select
-                        value={formData.driver_id}
-                        onValueChange={(value) => {
-                          const driver = drivers.find((d) => d.id === value);
-                          if (driver) {
-                            setFormData({
-                              ...formData,
-                              driver_id: value,
-                              driver_name: driver.name,
-                            });
-                          }
-                        }}
-                        disabled={!formData.carrier_id}
-                      >
-                        <SelectTrigger id="driver_name" className="mt-1 flex-1">
-                          <SelectValue placeholder="Select a driver" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {drivers.map((driver) => (
-                            <SelectItem key={driver.id} value={driver.id}>
-                              {driver.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowAddDriver(!showAddDriver)}
-                        disabled={!formData.carrier_id}
-                        className="mt-1"
-                        size="icon"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {showAddDriver && (
-                      <div className="mt-3 flex gap-2">
-                        <Input
-                          placeholder="Enter driver name"
-                          value={newDriverName}
-                          onChange={(e) => setNewDriverName(e.target.value)}
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          onClick={handleAddDriver}
-                          disabled={isAddingDriver}
-                          size="sm"
-                        >
-                          {isAddingDriver ? "Adding..." : "Add"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            setShowAddDriver(false);
-                            setNewDriverName("");
-                          }}
-                          size="icon"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Product Selection */}
-              <div>
-                <Label htmlFor="product">Product *</Label>
-                <Select
-                  value={formData.product}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, product: value })
-                  }
-                >
-                  <SelectTrigger id="product" className="mt-1">
-                    <SelectValue placeholder="Select a product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRODUCTS.map((product) => (
-                      <SelectItem key={product} value={product}>
-                        {product}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                {/* Driver Name */}
+                <div>
+                  <Label htmlFor="driver_name">Driver Name *</Label>
+                  <Input
+                    id="driver_name"
+                    name="driver_name"
+                    type="text"
+                    value={formData.driver_name}
+                    onChange={handleChange}
+                    placeholder="Enter driver name"
+                    className="mt-1"
+                    readOnly={user?.role === "driver"}
+                  />
+                </div>
+              </>
             </div>
           </Card>
 
-          {/* Site Info */}
+          {/* Pickup Location */}
           <Card className="shadow-md">
             <div className="space-y-4 p-4">
               <div>
-                <Label htmlFor="origin_site">Origin Site *</Label>
-                <Select
-                  value={formData.origin_site}
+                <Label htmlFor="pickup_location">Pickup Location *</Label>
+                <SearchableSelect
+                  value={formData.pickup_location}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, origin_site: value })
+                    setFormData({ ...formData, pickup_location: value })
                   }
-                >
-                  <SelectTrigger id="origin_site" className="mt-1">
-                    <SelectValue placeholder="Select origin site" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ORIGIN_SITES.map((site) => (
-                      <SelectItem key={site} value={site}>
-                        {site}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="destination_site">Destination Site *</Label>
-                <Select
-                  value={formData.destination_site}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, destination_site: value })
-                  }
-                >
-                  <SelectTrigger id="destination_site" className="mt-1">
-                    <SelectValue placeholder="Select destination site" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DESTINATION_SITES.map((site) => (
-                      <SelectItem key={site} value={site}>
-                        {site}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="customer_email">
-                  Customer Email (optional)
-                </Label>
-                <Input
-                  id="customer_email"
-                  name="customer_email"
-                  type="email"
-                  value={formData.customer_email}
-                  onChange={handleChange}
-                  placeholder="customer@example.com"
-                  className="mt-1"
+                  placeholder="Select pickup location"
+                  items={PICKUP_LOCATIONS.map((site) => ({
+                    value: site,
+                    label: site,
+                  }))}
                 />
               </div>
             </div>
@@ -580,48 +354,24 @@ const CreateTicket = () => {
             <div className="bg-success/5 p-4">
               <div className="flex items-center gap-2 text-success">
                 <Weight className="h-5 w-5" />
-                <h2 className="font-semibold">Weight Measurements</h2>
+                <h2 className="font-semibold">Weight</h2>
               </div>
             </div>
             <div className="space-y-4 p-4">
               <div>
-                <Label htmlFor="gross_weight">Gross Weight (kg) *</Label>
+                <Label htmlFor="net_weight">Net Weight (kg) *</Label>
                 <Input
-                  id="gross_weight"
-                  name="gross_weight"
+                  id="net_weight"
+                  name="net_weight"
                   type="number"
                   step="0.01"
-                  value={formData.gross_weight}
+                  value={formData.net_weight}
                   onChange={handleChange}
                   required
                   placeholder="0.00"
                   className="mt-1"
                 />
               </div>
-              <div>
-                <Label htmlFor="tare_weight">Tare Weight (kg) *</Label>
-                <Input
-                  id="tare_weight"
-                  name="tare_weight"
-                  type="number"
-                  step="0.01"
-                  value={formData.tare_weight}
-                  onChange={handleChange}
-                  required
-                  placeholder="0.00"
-                  className="mt-1"
-                />
-              </div>
-              {netWeight !== null && (
-                <div className="rounded-lg bg-success-light p-4">
-                  <Label className="text-sm text-muted-foreground">
-                    Net Weight
-                  </Label>
-                  <p className="text-2xl font-bold text-success">
-                    {netWeight.toFixed(2)} kg
-                  </p>
-                </div>
-              )}
             </div>
           </Card>
 
@@ -649,10 +399,19 @@ const CreateTicket = () => {
             type="submit"
             size="lg"
             className="w-full shadow-lg"
-            disabled={isSubmitting}
+            disabled={isSubmitting || hasActiveTicket}
+            title={
+              hasActiveTicket
+                ? "You have an active ticket. Complete it before creating a new one."
+                : ""
+            }
           >
             <Save className="mr-2 h-5 w-5" />
-            {isSubmitting ? "Creating..." : "Create & Verify Ticket"}
+            {isSubmitting
+              ? "Creating..."
+              : hasActiveTicket
+              ? "Complete Active Ticket First"
+              : "Create & Verify Ticket"}
           </Button>
         </form>
       </main>

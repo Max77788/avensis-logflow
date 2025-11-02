@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,7 +15,6 @@ import {
   Package,
   Calendar,
   User,
-  Download,
   CheckCircle,
   Loader2,
   Navigation,
@@ -38,7 +37,6 @@ const TicketDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const qrCodeRef = useRef<HTMLDivElement>(null);
 
   // Delivery confirmation state
   const [showConfirmationForm, setShowConfirmationForm] = useState(false);
@@ -64,65 +62,6 @@ const TicketDetails = () => {
     };
     loadTicket();
   }, [id, location.state]);
-
-  const handleExportQR = () => {
-    if (!qrCodeRef.current) return;
-
-    const svg = qrCodeRef.current.querySelector("svg");
-    if (!svg) return;
-
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-
-    const padding = 40;
-    const qrSize = 512;
-    const textHeight = 80;
-    const totalWidth = qrSize + padding * 2;
-    const totalHeight = qrSize + padding * 2 + textHeight;
-
-    canvas.width = totalWidth;
-    canvas.height = totalHeight;
-
-    img.onload = () => {
-      if (ctx) {
-        // White background
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw QR code
-        ctx.drawImage(img, padding, padding, qrSize, qrSize);
-
-        // Draw ticket ID text below QR code
-        ctx.fillStyle = "#000000";
-        ctx.font = "bold 32px Arial, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-
-        const textY = qrSize + padding * 2 + 15;
-        ctx.fillText(`TKT-${ticket?.ticket_id}`, totalWidth / 2, textY);
-
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `ticket-${ticket?.ticket_id}-qr.png`;
-            a.click();
-            URL.revokeObjectURL(url);
-
-            toast({
-              title: "QR Code Exported",
-              description: "QR code saved as PNG image",
-            });
-          }
-        });
-      }
-    };
-
-    img.src = "data:image/svg+xml;base64," + btoa(svgData);
-  };
 
   const handleDeliver = async () => {
     if (!signature) {
@@ -225,24 +164,22 @@ const TicketDetails = () => {
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
         <div className="mx-auto max-w-2xl space-y-4">
-          {/* QR Code Card */}
-          <Card className="overflow-hidden shadow-lg">
-            <div className="bg-primary/5 p-6 text-center">
-              <div
-                ref={qrCodeRef}
-                className="mx-auto mb-4 inline-block rounded-xl bg-white p-4 shadow-md"
-              >
-                <QRCodeSVG value={`TICKET-${ticket.ticket_id}`} size={160} />
+          {/* Driver QR Code Card */}
+          {ticket.driver_id && (
+            <Card className="overflow-hidden shadow-lg">
+              <div className="bg-primary/5 p-6 text-center">
+                <h3 className="mb-4 text-sm font-semibold text-foreground">
+                  Driver QR Code
+                </h3>
+                <div className="mx-auto mb-4 inline-block rounded-xl bg-white p-4 shadow-md">
+                  <QRCodeSVG value={ticket.driver_id} size={160} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Scan to view this ticket
+                </p>
               </div>
-              <p className="mb-3 text-sm font-medium text-muted-foreground">
-                Scan at delivery site
-              </p>
-              <Button onClick={handleExportQR} variant="outline" size="sm">
-                <Download className="mr-2 h-4 w-4" />
-                Export QR Code
-              </Button>
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {/* Truck & Product Info */}
           <Card className="shadow-md">
