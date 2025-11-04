@@ -218,7 +218,6 @@ export const TicketImageUpload = ({
             <button
               onClick={handleClear}
               className="absolute right-2 top-2 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
-              disabled={isLoading}
             >
               <X className="h-4 w-4" />
             </button>
