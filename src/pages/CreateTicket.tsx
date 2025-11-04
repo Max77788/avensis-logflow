@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SignaturePad } from "@/components/SignaturePad";
+import { TicketImageUpload } from "@/components/TicketImageUpload";
 import { ArrowLeft, Save, Truck as TruckIcon, Weight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,7 +16,7 @@ import { carrierService, type Carrier } from "@/lib/carrierService";
 import { TRUCKS, CARRIERS } from "@/lib/trucksAndCarriers";
 
 // Sample data for dropdowns
-const PICKUP_LOCATIONS = [
+const DESTINATION_SITES = [
   "Quarry A - North",
   "Quarry B - South",
   "Quarry C - East",
@@ -33,11 +34,9 @@ const CreateTicket = () => {
     truck_id: truckFromQR || "",
     driver_id: "",
     driver_name: "",
-    pickup_location: "",
+    destination_site: "",
     net_weight: "",
   });
-
-  console.log("Driver ID: ", JSON.stringify(driverProfile));
 
   const [signature, setSignature] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -173,15 +172,6 @@ const CreateTicket = () => {
       return;
     }
 
-    if (!signature) {
-      toast({
-        title: "Signature Required",
-        description: "Please provide operator signature",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsSubmitting(true);
 
     const ticket: Ticket = {
@@ -189,8 +179,8 @@ const CreateTicket = () => {
       truck_qr_id: `TRUCK-${formData.truck_id}`,
       truck_id: formData.truck_id,
       product: "", // Optional field, left empty
-      origin_site: formData.pickup_location,
-      destination_site: "", // Will be filled during delivery
+      origin_site: "", // Will be filled during delivery
+      destination_site: formData.destination_site,
       net_weight: parseFloat(formData.net_weight) || 0,
       scale_operator_signature: signature,
       status: "VERIFIED_AT_SCALE",
@@ -249,7 +239,7 @@ const CreateTicket = () => {
       {/* Form */}
       <main className="container mx-auto px-4 py-6">
         <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
-          {/* Truck Info */}
+          {/* Truck Info - Compact for Mobile */}
           <Card className="overflow-hidden shadow-md">
             <div className="bg-primary/5 p-4">
               <div className="flex items-center gap-2 text-primary">
@@ -257,90 +247,108 @@ const CreateTicket = () => {
                 <h2 className="font-semibold">Truck Information</h2>
               </div>
             </div>
-            <div className="space-y-4 p-4">
-              <>
-                {/* Carrier Selection */}
-                <div>
-                  <Label htmlFor="carrier">
-                    Carrier * (Default from Profile)
+            <div className="space-y-3 p-4">
+              {/* Always in row layout for Carrier, Truck, Driver */}
+              <div className="grid grid-cols-3 gap-2">
+                {/* Carrier - Read-only for drivers */}
+                <div className="min-w-0">
+                  <Label htmlFor="carrier" className="text-xs">
+                    Carrier
                   </Label>
-                  <SearchableSelect
-                    value={formData.carrier}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        carrier: value,
-                      })
-                    }
-                    placeholder="Select a carrier"
-                    items={[
-                      // Database carriers
-                      ...carriers.map((carrier) => ({
-                        value: carrier.name,
-                        label: carrier.name,
-                      })),
-                      // Static carriers not in database
-                      ...CARRIERS.filter(
-                        (staticCarrier) =>
-                          !carriers.some(
-                            (dbCarrier) => dbCarrier.name === staticCarrier
-                          )
-                      ).map((carrier) => ({
-                        value: carrier,
-                        label: carrier,
-                      })),
-                    ]}
-                  />
+                  {user?.role === "driver" ? (
+                    <div className="mt-1 rounded border border-border bg-muted p-1 text-xs text-foreground truncate">
+                      {formData.carrier || "Not assigned"}
+                    </div>
+                  ) : (
+                    <SearchableSelect
+                      value={formData.carrier}
+                      onValueChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          carrier: value,
+                        })
+                      }
+                      placeholder="Select"
+                      items={[
+                        // Database carriers
+                        ...carriers.map((carrier) => ({
+                          value: carrier.name,
+                          label: carrier.name,
+                        })),
+                        // Static carriers not in database
+                        ...CARRIERS.filter(
+                          (staticCarrier) =>
+                            !carriers.some(
+                              (dbCarrier) => dbCarrier.name === staticCarrier
+                            )
+                        ).map((carrier) => ({
+                          value: carrier,
+                          label: carrier,
+                        })),
+                      ]}
+                    />
+                  )}
                 </div>
 
-                {/* Truck Selection */}
-                <div>
-                  <Label htmlFor="truck_id">
-                    Truck ID * (Default from Profile)
+                {/* Truck ID - Read-only for drivers */}
+                <div className="min-w-0">
+                  <Label htmlFor="truck_id" className="text-xs">
+                    Truck ID
                   </Label>
-                  <SearchableSelect
-                    value={formData.truck_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, truck_id: value })
-                    }
-                    placeholder="Select a truck"
-                    items={TRUCKS.map((truck) => ({
-                      value: truck,
-                      label: truck,
-                    }))}
-                  />
+                  {user?.role === "driver" ? (
+                    <div className="mt-1 rounded border border-border bg-muted p-1 text-xs text-foreground truncate">
+                      {formData.truck_id || "Not assigned"}
+                    </div>
+                  ) : (
+                    <SearchableSelect
+                      value={formData.truck_id}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, truck_id: value })
+                      }
+                      placeholder="Select"
+                      items={TRUCKS.map((truck) => ({
+                        value: truck,
+                        label: truck,
+                      }))}
+                    />
+                  )}
                 </div>
 
-                {/* Driver Name */}
-                <div>
-                  <Label htmlFor="driver_name">Driver Name *</Label>
+                {/* Driver Name - Read-only for drivers */}
+                <div className="min-w-0">
+                  <Label htmlFor="driver_name" className="text-xs">
+                    Driver
+                  </Label>
                   <Input
                     id="driver_name"
                     name="driver_name"
                     type="text"
                     value={formData.driver_name}
                     onChange={handleChange}
-                    placeholder="Enter driver name"
-                    className="mt-1"
+                    placeholder="Driver"
+                    className="mt-1 text-xs"
                     readOnly={user?.role === "driver"}
                   />
                 </div>
-              </>
+              </div>
             </div>
           </Card>
 
-          {/* Pickup Location */}
+          {/* Ticket Image Upload - For drivers to store ticket images */}
+          {user?.role === "driver" && <TicketImageUpload />}
+
+          {/* Destination Site */}
           <Card className="shadow-md">
             <div className="space-y-4 p-4">
               <div>
-                <Label htmlFor="pickup_location">Pickup Location *</Label>
+                <Label htmlFor="destination_site">Destination Site *</Label>
                 <SearchableSelect
-                  value={formData.pickup_location}
+                  value={formData.destination_site}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, pickup_location: value })
+                    setFormData({ ...formData, destination_site: value })
                   }
-                  placeholder="Select pickup location"
-                  items={PICKUP_LOCATIONS.map((site) => ({
+                  placeholder="Select destination site"
+                  items={DESTINATION_SITES.map((site) => ({
                     value: site,
                     label: site,
                   }))}
@@ -359,7 +367,7 @@ const CreateTicket = () => {
             </div>
             <div className="space-y-4 p-4">
               <div>
-                <Label htmlFor="net_weight">Net Weight (kg) *</Label>
+                <Label htmlFor="net_weight">Net Weight (tons) *</Label>
                 <Input
                   id="net_weight"
                   name="net_weight"
@@ -375,10 +383,10 @@ const CreateTicket = () => {
             </div>
           </Card>
 
-          {/* Signature */}
+          {/* Signature - Optional */}
           <SignaturePad
             onSave={setSignature}
-            label="Scale Operator Signature"
+            label="Scale Operator Signature (Optional)"
           />
 
           {signature && (

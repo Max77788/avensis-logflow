@@ -53,7 +53,7 @@ const DriverProfile = () => {
         );
 
         setActiveTickets(active);
-        setCompletedTickets(completed); 
+        setCompletedTickets(completed);
       } catch (error) {
         console.error("Error loading tickets:", error);
       } finally {
@@ -64,7 +64,7 @@ const DriverProfile = () => {
     loadActiveTickets();
     const interval = setInterval(loadActiveTickets, 5000);
     return () => clearInterval(interval);
-  }, [user, navigate]);
+  }, [user, driverProfile, navigate]);
 
   const handleToggleStatus = async () => {
     if (!driverProfile) return;
@@ -261,7 +261,7 @@ const DriverProfile = () => {
               }
             >
               <Power className="mr-2 h-4 w-4" />
-              {driverProfile.status === "active" ? "Go Offline" : "Go Online"}
+              {driverProfile.status === "active" ? "Finish the Shift" : "Start the Shift"}
             </Button>
           </Card>
 
@@ -280,6 +280,7 @@ const DriverProfile = () => {
                   </p>
                 </div>
               </div>
+              {/*
               <div className="flex items-center gap-3">
                 <Building2 className="h-5 w-5 text-muted-foreground" />
                 <div>
@@ -297,8 +298,8 @@ const DriverProfile = () => {
                     {driverProfile.default_truck_id}
                   </p>
                 </div>
+                */}
               </div>
-            </div>
           </Card>
 
           {/* QR Code Card */}

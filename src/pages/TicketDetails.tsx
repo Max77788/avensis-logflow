@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { SignaturePad } from "@/components/SignaturePad";
 import { RouteMap } from "@/components/RouteMap";
 import { useGPS } from "@/hooks/useGPS";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   ArrowLeft,
   MapPin,
@@ -19,6 +20,7 @@ import {
   Loader2,
   Navigation,
   Users,
+  Compass,
 } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
@@ -32,10 +34,17 @@ const parseGPS = (gpsString?: string) => {
   return isNaN(lat) || isNaN(lng) ? null : { lat, lng };
 };
 
+// Helper function to open Google Maps with directions
+const openGoogleMaps = (lat: number, lng: number, label?: string) => {
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+  window.open(url, "_blank");
+};
+
 const TicketDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const [ticket, setTicket] = useState<Ticket | null>(null);
 
   // Delivery confirmation state
@@ -164,178 +173,272 @@ const TicketDetails = () => {
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
         <div className="mx-auto max-w-2xl space-y-4">
-          {/* Driver QR Code Card */}
-          {ticket.driver_id && (
-            <Card className="overflow-hidden shadow-lg">
-              <div className="bg-primary/5 p-6 text-center">
-                <h3 className="mb-4 text-sm font-semibold text-foreground">
-                  Driver QR Code
-                </h3>
-                <div className="mx-auto mb-4 inline-block rounded-xl bg-white p-4 shadow-md">
-                  <QRCodeSVG value={ticket.driver_id} size={160} />
+          {/* ATTENDANT VIEW - Simplified */}
+          {user?.role === "attendant" ? (
+            <>
+              {/* Weight Info - First */}
+              {ticket.net_weight && (
+                <Card className="shadow-md">
+                  <div className="bg-success-light p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Net Weight</p>
+                    <p className="text-2xl font-bold text-success">
+                      {ticket.net_weight.toFixed(2)} tons
+                    </p>
+                  </div>
+                </Card>
+              )}
+
+              {/* Origin Site - Second */}
+              <Card className="shadow-md">
+                <div className="flex items-start gap-3 p-4">
+                  <MapPin className="mt-1 h-5 w-5 text-success" />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Origin</p>
+                    <p className="font-medium text-foreground">
+                      {ticket.origin_site}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Scan to view this ticket
-                </p>
-              </div>
-            </Card>
-          )}
+              </Card>
 
-          {/* Truck & Product Info */}
-          <Card className="shadow-md">
-            <div className="flex items-start gap-4 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <Truck className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground">
-                  Truck {ticket.truck_id}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {ticket.product}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          {/* Route Info */}
-          <Card className="shadow-md">
-            <div className="space-y-3 p-4">
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-1 h-5 w-5 text-success" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Origin</p>
-                  <p className="font-medium text-foreground">
-                    {ticket.origin_site}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-1 h-5 w-5 text-destructive" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Destination</p>
-                  <p className="font-medium text-foreground">
-                    {ticket.destination_site}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Route Map */}
-          {(() => {
-            const loadGps = parseGPS(ticket.load_gps) || {
-              lat: 40.4168,
-              lng: -3.7038,
-            }; // Madrid
-            const deliveryGps = parseGPS(ticket.delivery_gps) || {
-              lat: 40.0105,
-              lng: -4.3009,
-            }; // near Toledo (~80 km)
-            return (
-              <RouteMap
-                originLat={loadGps.lat}
-                originLng={loadGps.lng}
-                destinationLat={deliveryGps.lat}
-                destinationLng={deliveryGps.lng}
-                originName={ticket.origin_site}
-                destinationName={ticket.destination_site}
-              />
-            );
-          })()}
-
-          {/* Carrier & Driver Info */}
-          {(ticket.carrier || ticket.driver_name) && (
-            <Card className="shadow-md">
-              <div className="space-y-3 p-4">
-                {ticket.carrier && (
-                  <div className="flex items-start gap-3">
-                    <Truck className="mt-1 h-5 w-5 text-primary" />
-                    <div>
+              {/* Carrier, Truck, Driver - Always in Row */}
+              <Card className="shadow-md">
+                <div className="grid grid-cols-3 gap-1 p-3">
+                  {ticket.carrier && (
+                    <div className="min-w-0 text-center">
                       <p className="text-xs text-muted-foreground">Carrier</p>
-                      <p className="font-medium text-foreground">
+                      <p className="truncate text-xs font-medium text-foreground">
                         {ticket.carrier}
                       </p>
                     </div>
-                  </div>
-                )}
-                {ticket.driver_name && (
-                  <div className="flex items-start gap-3">
-                    <Users className="mt-1 h-5 w-5 text-primary" />
-                    <div>
+                  )}
+                  {ticket.truck_id && (
+                    <div className="min-w-0 text-center">
+                      <p className="text-xs text-muted-foreground">Truck</p>
+                      <p className="truncate text-xs font-medium text-foreground">
+                        {ticket.truck_id}
+                      </p>
+                    </div>
+                  )}
+                  {ticket.driver_name && (
+                    <div className="min-w-0 text-center">
                       <p className="text-xs text-muted-foreground">Driver</p>
-                      <p className="font-medium text-foreground">
+                      <p className="truncate text-xs font-medium text-foreground">
                         {ticket.driver_name}
                       </p>
                     </div>
+                  )}
+                </div>
+              </Card>
+            </>
+          ) : (
+            <>
+              {/* DRIVER VIEW - Top section with essential info */}
+              {/* Weight Info - First */}
+
+              {/* QR Code - Bottom for drivers */}
+              {user?.role !== "attendant" && ticket.driver_id && (
+                <Card className="overflow-hidden shadow-lg">
+                  <div className="bg-primary/5 p-6 text-center">
+                    <h3 className="mb-4 text-sm font-semibold text-foreground">
+                      Driver QR Code
+                    </h3>
+                    <div className="mx-auto mb-4 inline-block rounded-xl bg-white p-4 shadow-md">
+                      <QRCodeSVG value={ticket.driver_id} size={160} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Scan to view this ticket
+                    </p>
                   </div>
-                )}
-              </div>
-            </Card>
+                </Card>
+              )}
+
+              {ticket.net_weight && (
+                <Card className="shadow-md">
+                  <div className="bg-success-light p-4 text-center">
+                    <p className="text-xs text-muted-foreground">Net Weight</p>
+                    <p className="text-2xl font-bold text-success">
+                      {ticket.net_weight.toFixed(2)} tons
+                    </p>
+                  </div>
+                </Card>
+              )}
+
+              {/* Locations - Origin and Destination */}
+              <Card className="shadow-md">
+                <div className="space-y-3 p-4">
+                  {ticket.origin_site && (
+                    <div className="flex items-start gap-3">
+                      <MapPin className="mt-1 h-5 w-5 text-success" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Origin</p>
+                        <p className="font-medium text-foreground">
+                          {ticket.origin_site}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {ticket.destination_site && (
+                    <div className="flex items-start gap-3">
+                      <MapPin className="mt-1 h-5 w-5 text-destructive" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">
+                          Destination
+                        </p>
+                        <p className="font-medium text-foreground">
+                          {ticket.destination_site}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              {/* Truck Info */}
+              <Card className="shadow-md">
+                <div className="flex items-start gap-4 p-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                    <Truck className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground">
+                      Truck {ticket.truck_id}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {ticket.product}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </>
           )}
 
-          {/* Weight Info */}
-          {ticket.net_weight && (
+          {/* Route Map - Only for drivers */}
+          {user?.role !== "attendant" &&
+            (() => {
+              const loadGps = parseGPS(ticket.load_gps) || {
+                lat: 40.4168,
+                lng: -3.7038,
+              }; // Madrid
+              const deliveryGps = parseGPS(ticket.delivery_gps) || {
+                lat: 40.0105,
+                lng: -4.3009,
+              }; // near Toledo (~80 km)
+              return (
+                <>
+                  <RouteMap
+                    originLat={loadGps.lat}
+                    originLng={loadGps.lng}
+                    destinationLat={deliveryGps.lat}
+                    destinationLng={deliveryGps.lng}
+                    originName={ticket.origin_site}
+                    destinationName={ticket.destination_site}
+                  />
+
+                  {/* Get Directions Button */}
+                  {deliveryGps && (
+                    <Button
+                      onClick={() =>
+                        openGoogleMaps(
+                          deliveryGps.lat,
+                          deliveryGps.lng,
+                          ticket.destination_site
+                        )
+                      }
+                      className="w-full"
+                      variant="outline"
+                    >
+                      <Navigation className="mr-2 h-4 w-4" />
+                      Get Directions
+                    </Button>
+                  )}
+                </>
+              );
+            })()}
+
+          {/* Carrier & Driver Info - Only for drivers 
+          {user?.role !== "attendant" &&
+            (ticket.carrier || ticket.driver_name) && (
+              <Card className="shadow-md">
+                <div className="space-y-3 p-4">
+                  {ticket.carrier && (
+                    <div className="flex items-start gap-3">
+                      <Truck className="mt-1 h-5 w-5 text-primary" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Carrier</p>
+                        <p className="font-medium text-foreground">
+                          {ticket.carrier}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {ticket.driver_name && (
+                    <div className="flex items-start gap-3">
+                      <Users className="mt-1 h-5 w-5 text-primary" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Driver</p>
+                        <p className="font-medium text-foreground">
+                          {ticket.driver_name}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+          */}
+          {/* Weight Info - Only for drivers 
+          {user?.role !== "attendant" && ticket.net_weight && (
             <Card className="shadow-md">
-              <div className="grid grid-cols-3 divide-x divide-border">
-                <div className="p-4 text-center">
-                  <p className="text-xs text-muted-foreground">Gross</p>
-                  <p className="text-lg font-bold text-foreground">
-                    {ticket.gross_weight?.toFixed(0)} kg
-                  </p>
-                </div>
-                <div className="p-4 text-center">
-                  <p className="text-xs text-muted-foreground">Tare</p>
-                  <p className="text-lg font-bold text-foreground">
-                    {ticket.tare_weight?.toFixed(0)} kg
-                  </p>
-                </div>
+              <div className="grid grid-cols-1 divide-x divide-border">
                 <div className="bg-success-light p-4 text-center">
                   <p className="text-xs text-muted-foreground">Net</p>
                   <p className="text-lg font-bold text-success">
-                    {ticket.net_weight.toFixed(0)} kg
+                    {ticket.net_weight.toFixed(2)} tons
                   </p>
                 </div>
               </div>
             </Card>
           )}
+          */}
 
-          {/* GPS Coordinates */}
-          {(ticket.load_gps || ticket.delivery_gps) && (
-            <Card className="shadow-md">
-              <div className="space-y-3 p-4">
-                {ticket.load_gps && (
-                  <div className="flex items-start gap-3">
-                    <Navigation className="mt-1 h-5 w-5 text-success" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">
-                        Load Location
-                      </p>
-                      <p className="text-sm font-mono text-foreground">
-                        {ticket.load_gps}
-                      </p>
+          {/* GPS Coordinates - Only for drivers */}
+          {user?.role !== "attendant" &&
+            (ticket.load_gps || ticket.delivery_gps) && (
+              <Card className="shadow-md">
+                <div className="space-y-3 p-4">
+                  {ticket.load_gps && (
+                    <div className="flex items-start gap-3">
+                      <Navigation className="mt-1 h-5 w-5 text-success" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">
+                          Load Location
+                        </p>
+                        <p className="text-sm font-mono text-foreground">
+                          {ticket.load_gps}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {ticket.delivery_gps && (
-                  <div className="flex items-start gap-3">
-                    <Navigation className="mt-1 h-5 w-5 text-destructive" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">
-                        Delivery Location
-                      </p>
-                      <p className="text-sm font-mono text-foreground">
-                        {ticket.delivery_gps}
-                      </p>
+                  )}
+                  {ticket.delivery_gps && (
+                    <div className="flex items-start gap-3">
+                      <Navigation className="mt-1 h-5 w-5 text-destructive" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">
+                          Delivery Location
+                        </p>
+                        <p className="text-sm font-mono text-foreground">
+                          {ticket.delivery_gps}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </Card>
-          )}
+                  )}
+                </div>
+              </Card>
+            )}
 
-          {/* Confirmer Information */}
-          {ticket.confirmer_name && (
+          {/* Confirmer Information - Only for drivers */}
+          {user?.role !== "attendant" && ticket.confirmer_name && (
             <Card className="shadow-md">
               <div className="flex items-start gap-3 p-4">
                 <User className="mt-1 h-5 w-5 text-primary" />
@@ -351,47 +454,49 @@ const TicketDetails = () => {
             </Card>
           )}
 
-          {/* Timestamps */}
-          <Card className="shadow-md">
-            <div className="space-y-3 p-4">
-              <div className="flex items-center gap-3">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <div className="flex-1">
-                  <p className="text-xs text-muted-foreground">Created</p>
-                  <p className="text-sm font-medium text-foreground">
-                    {new Date(ticket.created_at).toLocaleString()}
-                  </p>
+          {/* Timestamps - Only for drivers */}
+          {user?.role !== "attendant" && (
+            <Card className="shadow-md">
+              <div className="space-y-3 p-4">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Created</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {new Date(ticket.created_at).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
+                {ticket.verified_at_scale && (
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">
+                        Verified at Scale
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {new Date(ticket.verified_at_scale).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {ticket.delivered_at && (
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">Delivered</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {new Date(ticket.delivered_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
-              {ticket.verified_at_scale && (
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">
-                      Verified at Scale
-                    </p>
-                    <p className="text-sm font-medium text-foreground">
-                      {new Date(ticket.verified_at_scale).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {ticket.delivered_at && (
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">Delivered</p>
-                    <p className="text-sm font-medium text-foreground">
-                      {new Date(ticket.delivered_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </Card>
+            </Card>
+          )}
 
-          {/* Signatures */}
-          {ticket.scale_operator_signature && (
+          {/* Signatures - Only for drivers */}
+          {user?.role !== "attendant" && ticket.scale_operator_signature && (
             <Card className="shadow-md">
               <div className="p-4">
                 <div className="mb-2 flex items-center gap-2">
@@ -449,8 +554,8 @@ const TicketDetails = () => {
             </div>
           )}
 
-          {/* Delivery Confirmation Form */}
-          {canDeliver && (
+          {/* Delivery Confirmation Form - Only for Attendants */}
+          {canDeliver && user?.role === "attendant" && (
             <>
               {!showConfirmationForm ? (
                 <Button
@@ -469,13 +574,30 @@ const TicketDetails = () => {
                       <h3 className="font-semibold">Delivery Confirmation</h3>
                     </div>
                   </div>
-                  <div className="space-y-4 p-4">
-                    {/* Location Verification */}
+                  <div className="space-y-5 p-4">
+                    {/* Confirmer's Name - First Field */}
+                    <div>
+                      <Label
+                        htmlFor="confirmer_name"
+                        className="text-sm font-medium"
+                      >
+                        Confirmer's Name *
+                      </Label>
+                      <Input
+                        id="confirmer_name"
+                        placeholder="Enter name of person confirming delivery"
+                        value={confirmerName}
+                        onChange={(e) => setConfirmerName(e.target.value)}
+                        className="mt-2"
+                      />
+                    </div>
+
+                    {/* Location Verification - Second Field */}
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
                         <Label className="text-sm font-medium">
-                          Location Verification
+                          Delivery Location *
                         </Label>
                       </div>
                       {coordinates ? (
@@ -513,7 +635,7 @@ const TicketDetails = () => {
                       )}
                     </div>
 
-                    {/* Receiver Signature */}
+                    {/* Receiver Signature - Third Field */}
                     <div>
                       <SignaturePad
                         onSave={setSignature}
@@ -521,25 +643,8 @@ const TicketDetails = () => {
                       />
                     </div>
 
-                    {/* Confirmer's Name */}
-                    <div>
-                      <Label
-                        htmlFor="confirmer_name"
-                        className="text-sm font-medium"
-                      >
-                        Confirmer's Name *
-                      </Label>
-                      <Input
-                        id="confirmer_name"
-                        placeholder="Enter name of person confirming delivery"
-                        value={confirmerName}
-                        onChange={(e) => setConfirmerName(e.target.value)}
-                        className="mt-1"
-                      />
-                    </div>
-
                     {/* Action Buttons */}
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex gap-2 pt-4">
                       <Button
                         onClick={handleDeliver}
                         disabled={isSubmitting}
