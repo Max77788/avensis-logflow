@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,16 @@ import {
   X,
   Image as ImageIcon,
   Camera,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TicketImageUploadProps {
   onImageSelected?: (file: File) => void;
@@ -28,12 +36,41 @@ export const TicketImageUpload = ({
   const [error, setError] = useState<string | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>(
+    []
+  );
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
+
+  // Enumerate available cameras
+  const enumerateCameras = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(
+        (device) => device.kind === "videoinput"
+      );
+      setAvailableCameras(videoDevices);
+      if (videoDevices.length > 0 && !selectedCameraId) {
+        setSelectedCameraId(videoDevices[0].deviceId);
+      }
+    } catch (err) {
+      console.error("Failed to enumerate cameras:", err);
+    }
+  };
+
+  // Get cameras when component mounts
+  useEffect(() => {
+    enumerateCameras();
+  }, []);
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
+      const constraints: MediaStreamConstraints = {
+        video: selectedCameraId
+          ? { deviceId: { exact: selectedCameraId } }
+          : { facingMode: "environment" },
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setCameraStream(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -166,6 +203,31 @@ export const TicketImageUpload = ({
                 className="mt-2"
               />
             </div>
+
+            {/* Camera Selection */}
+            {availableCameras.length > 0 && (
+              <div>
+                <Label htmlFor="camera-select" className="text-sm font-medium">
+                  Select Camera
+                </Label>
+                <Select
+                  value={selectedCameraId}
+                  onValueChange={setSelectedCameraId}
+                >
+                  <SelectTrigger id="camera-select" className="mt-2">
+                    <SelectValue placeholder="Choose a camera" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCameras.map((camera) => (
+                      <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                        {camera.label ||
+                          `Camera ${availableCameras.indexOf(camera) + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Camera Button */}
             <Button
