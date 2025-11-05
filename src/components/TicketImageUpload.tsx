@@ -263,7 +263,7 @@ export const TicketImageUpload = ({
               autoPlay
               playsInline
               muted
-              className="h-64 w-full rounded border border-border bg-black object-cover"
+              className="h-100 w-full rounded border border-border bg-black object-cover"
               style={{ transform: "scaleX(-1)" }}
             />
             <canvas ref={canvasRef} className="hidden" />

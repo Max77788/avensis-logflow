@@ -239,6 +239,55 @@ const CreateTicket = () => {
       {/* Form */}
       <main className="container mx-auto px-4 py-6">
         <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
+          {/* Destination Site */}
+          <Card className="shadow-md">
+            <div className="space-y-4 p-4">
+              <div>
+                <Label htmlFor="destination_site">Destination Site *</Label>
+                <SearchableSelect
+                  value={formData.destination_site}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, destination_site: value })
+                  }
+                  placeholder="Select destination site"
+                  items={DESTINATION_SITES.map((site) => ({
+                    value: site,
+                    label: site,
+                  }))}
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Weight Info */}
+          <Card className="overflow-hidden shadow-md">
+            <div className="bg-success/5 p-4">
+              <div className="flex items-center gap-2 text-success">
+                <Weight className="h-5 w-5" />
+                <h2 className="font-semibold">Weight</h2>
+              </div>
+            </div>
+            <div className="space-y-4 p-4">
+              <div>
+                <Label htmlFor="net_weight">Net Weight (tons) *</Label>
+                <Input
+                  id="net_weight"
+                  name="net_weight"
+                  type="number"
+                  step="0.01"
+                  value={formData.net_weight}
+                  onChange={handleChange}
+                  required
+                  placeholder="0.00"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Ticket Image Upload - For drivers to store ticket images */}
+          {user?.role === "driver" && <TicketImageUpload />}
+
           {/* Truck Info - Compact for Mobile */}
           <Card className="overflow-hidden shadow-md">
             <div className="bg-primary/5 p-4">
@@ -335,55 +384,6 @@ const CreateTicket = () => {
                     />
                   )}
                 </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Ticket Image Upload - For drivers to store ticket images */}
-          {user?.role === "driver" && <TicketImageUpload />}
-
-          {/* Destination Site */}
-          <Card className="shadow-md">
-            <div className="space-y-4 p-4">
-              <div>
-                <Label htmlFor="destination_site">Destination Site *</Label>
-                <SearchableSelect
-                  value={formData.destination_site}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, destination_site: value })
-                  }
-                  placeholder="Select destination site"
-                  items={DESTINATION_SITES.map((site) => ({
-                    value: site,
-                    label: site,
-                  }))}
-                />
-              </div>
-            </div>
-          </Card>
-
-          {/* Weight Info */}
-          <Card className="overflow-hidden shadow-md">
-            <div className="bg-success/5 p-4">
-              <div className="flex items-center gap-2 text-success">
-                <Weight className="h-5 w-5" />
-                <h2 className="font-semibold">Weight</h2>
-              </div>
-            </div>
-            <div className="space-y-4 p-4">
-              <div>
-                <Label htmlFor="net_weight">Net Weight (tons) *</Label>
-                <Input
-                  id="net_weight"
-                  name="net_weight"
-                  type="number"
-                  step="0.01"
-                  value={formData.net_weight}
-                  onChange={handleChange}
-                  required
-                  placeholder="0.00"
-                  className="mt-1"
-                />
               </div>
             </div>
           </Card>
