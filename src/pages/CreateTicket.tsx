@@ -314,21 +314,26 @@ const CreateTicket = () => {
                   )}
                 </div>
 
-                {/* Driver Name - Read-only for drivers */}
+                {/* Driver - Read-only for drivers */}
                 <div className="min-w-0">
                   <Label htmlFor="driver_name" className="text-xs">
                     Driver
                   </Label>
-                  <Input
-                    id="driver_name"
-                    name="driver_name"
-                    type="text"
-                    value={formData.driver_name}
-                    onChange={handleChange}
-                    placeholder="Driver"
-                    className="mt-1 text-xs"
-                    readOnly={user?.role === "driver"}
-                  />
+                  {user?.role === "driver" ? (
+                    <div className="mt-1 rounded border border-border bg-muted p-1 text-xs text-foreground truncate">
+                      {formData.driver_name || "Not assigned"}
+                    </div>
+                  ) : (
+                    <Input
+                      id="driver_name"
+                      name="driver_name"
+                      type="text"
+                      value={formData.driver_name}
+                      onChange={handleChange}
+                      placeholder="Driver"
+                      className="mt-1 text-xs"
+                    />
+                  )}
                 </div>
               </div>
             </div>

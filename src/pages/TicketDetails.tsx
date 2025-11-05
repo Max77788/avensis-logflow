@@ -204,30 +204,24 @@ const TicketDetails = () => {
               {/* Carrier, Truck, Driver - Always in Row */}
               <Card className="shadow-md">
                 <div className="grid grid-cols-3 gap-1 p-3">
-                  {ticket.carrier && (
-                    <div className="min-w-0 text-center">
-                      <p className="text-xs text-muted-foreground">Carrier</p>
-                      <p className="truncate text-xs font-medium text-foreground">
-                        {ticket.carrier}
-                      </p>
-                    </div>
-                  )}
-                  {ticket.truck_id && (
-                    <div className="min-w-0 text-center">
-                      <p className="text-xs text-muted-foreground">Truck</p>
-                      <p className="truncate text-xs font-medium text-foreground">
-                        {ticket.truck_id}
-                      </p>
-                    </div>
-                  )}
-                  {ticket.driver_name && (
-                    <div className="min-w-0 text-center">
-                      <p className="text-xs text-muted-foreground">Driver</p>
-                      <p className="truncate text-xs font-medium text-foreground">
-                        {ticket.driver_name}
-                      </p>
-                    </div>
-                  )}
+                  <div className="min-w-0 text-center">
+                    <p className="text-xs text-muted-foreground">Carrier</p>
+                    <p className="truncate text-xs font-medium text-foreground">
+                      {ticket.carrier || "-"}
+                    </p>
+                  </div>
+                  <div className="min-w-0 text-center">
+                    <p className="text-xs text-muted-foreground">Truck</p>
+                    <p className="truncate text-xs font-medium text-foreground">
+                      {ticket.truck_id || "-"}
+                    </p>
+                  </div>
+                  <div className="min-w-0 text-center">
+                    <p className="text-xs text-muted-foreground">Driver</p>
+                    <p className="truncate text-xs font-medium text-foreground">
+                      {ticket.driver_name || "-"}
+                    </p>
+                  </div>
                 </div>
               </Card>
             </>

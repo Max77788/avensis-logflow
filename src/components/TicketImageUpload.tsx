@@ -72,11 +72,18 @@ export const TicketImageUpload = ({
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
       setShowCamera(true);
       setError(null);
+
+      // Set the stream to the video element after state update
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch((err) => {
+            console.error("Failed to play video:", err);
+          });
+        }
+      }, 0);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to access camera";
@@ -103,7 +110,10 @@ export const TicketImageUpload = ({
       if (context) {
         canvasRef.current.width = videoRef.current.videoWidth;
         canvasRef.current.height = videoRef.current.videoHeight;
-        context.drawImage(videoRef.current, 0, 0);
+
+        // Mirror the image (flip horizontally) to match what user sees
+        context.scale(-1, 1);
+        context.drawImage(videoRef.current, -videoRef.current.videoWidth, 0);
 
         canvasRef.current.toBlob((blob) => {
           if (blob) {
@@ -115,6 +125,11 @@ export const TicketImageUpload = ({
             stopCamera();
             onImageSelected?.(file);
             setError(null);
+
+            toast({
+              title: "Photo Captured",
+              description: "Image will be stored with your ticket",
+            });
           }
         }, "image/jpeg");
       }
@@ -247,7 +262,9 @@ export const TicketImageUpload = ({
               ref={videoRef}
               autoPlay
               playsInline
+              muted
               className="h-64 w-full rounded border border-border bg-black object-cover"
+              style={{ transform: "scaleX(-1)" }}
             />
             <canvas ref={canvasRef} className="hidden" />
 
