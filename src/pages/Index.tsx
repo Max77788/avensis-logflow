@@ -7,45 +7,26 @@ import {
   QrCode,
   Truck,
   ClipboardList,
-  User,
-  MapPin,
-  Package,
-  Calendar,
-  CheckCircle2,
   LogOut,
   Settings,
+  Moon,
+  Sun,
+  Inbox,
+  MapPin,
 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService } from "@/lib/carrierService";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import type { Ticket } from "@/lib/types";
-
-// Helper function to format date and time
-const formatDateTime = (dateString: string | undefined) => {
-  if (!dateString) return null;
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return null;
-  }
-};
 
 const Index = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const navigate = useNavigate();
   const { user, driverProfile, logout } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
 
   useEffect(() => {
     const loadRecentTickets = async () => {
@@ -79,10 +60,6 @@ const Index = () => {
 
     if (data.startsWith("TRUCK-")) {
       const truckId = data.replace("TRUCK-", "");
-      toast({
-        title: "Truck QR Scanned",
-        description: `Creating ticket for Truck ${truckId}`,
-      });
       navigate(`/tickets/create?truck=${truckId}`);
     } else if (data.startsWith("TICKET-")) {
       const ticketId = data.replace("TICKET-", "");
@@ -99,37 +76,11 @@ const Index = () => {
           if (activeTickets.length > 0) {
             // Show the first active ticket
             navigate(`/tickets/${activeTickets[0].ticket_id}`);
-            toast({
-              title: "Driver QR Scanned",
-              description: `Showing active ticket for ${driver.name}`,
-            });
-          } else {
-            toast({
-              title: "No Active Tickets",
-              description: `${driver.name} has no active delivery tickets`,
-            });
           }
-        } else {
-          toast({
-            title: "Driver Not Found",
-            description: "This driver QR code is not registered",
-            variant: "destructive",
-          });
         }
       } catch (error) {
         console.error("Error scanning driver QR:", error);
-        toast({
-          title: "Error",
-          description: "Failed to process driver QR code",
-          variant: "destructive",
-        });
       }
-    } else {
-      toast({
-        title: "Invalid QR Code",
-        description: "Please scan a valid Truck IT QR code",
-        variant: "destructive",
-      });
     }
   };
 
@@ -174,13 +125,22 @@ const Index = () => {
                 <Button
                   variant="ghost"
                   size="icon"
+                  onClick={toggleTheme}
+                  className="rounded-full"
+                  title={isDark ? "Light mode" : "Dark mode"}
+                >
+                  {isDark ? (
+                    <Sun className="h-5 w-5" />
+                  ) : (
+                    <Moon className="h-5 w-5" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => {
                     logout();
                     navigate("/login");
-                    toast({
-                      title: "Logged Out",
-                      description: "You have been logged out successfully",
-                    });
                   }}
                   className="rounded-full"
                   title="Logout"
@@ -204,29 +164,7 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="mx-auto max-w-2xl">
-          {/* Welcome Card */}
-          <Card className="mb-8 overflow-hidden shadow-lg">
-            <div className="bg-gradient-to-r from-primary to-primary-hover p-8 text-center text-primary-foreground">
-              <Truck className="mx-auto mb-4 h-16 w-16" />
-              <h2 className="mb-2 text-3xl font-bold">Welcome</h2>
-              <p className="text-primary-foreground/90">
-                Digital Ticketing for Modern Logistics
-              </p>
-            </div>
-            <div className="space-y-4 p-6">
-              <div className="rounded-lg bg-accent/50 p-4">
-                <h3 className="mb-2 font-semibold text-accent-foreground">
-                  Quick Start
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Scan a truck QR code to create a new delivery ticket, or scan
-                  a ticket QR to view delivery details.
-                </p>
-              </div>
-            </div>
-          </Card>
-
+        <div className="mx-auto max-w-2xl space-y-6">
           {/* Action Cards */}
           {user?.role !== "driver" && (
             <div className="grid gap-4 sm:grid-cols-1">
@@ -274,7 +212,7 @@ const Index = () => {
                       Manually create new ticket
                     </p>
                   </div>
-                  <Button variant="outline" className="w-full" size="lg">
+                  <Button className="w-full" size="lg">
                     Create New
                   </Button>
                 </div>
@@ -288,108 +226,43 @@ const Index = () => {
               <h3 className="font-semibold text-foreground">Recent Activity</h3>
             </div>
             {recentTickets.length === 0 ? (
-              <div className="p-8 text-center">
-                <ClipboardList className="mx-auto mb-3 h-12 w-12 text-muted-foreground/50" />
+              <div className="p-12 text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="rounded-full bg-muted p-4">
+                    <Inbox className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                </div>
+                <p className="font-medium text-foreground mb-1">
+                  No recent activity
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  No recent tickets. Scan a QR code or create a new ticket to
-                  get started.
+                  {user?.role === "driver"
+                    ? "Create a new ticket or scan a QR code to get started"
+                    : "Scan a driver QR code to view their tickets"}
                 </p>
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {recentTickets.map((ticket) => {
-                  const createdTime = formatDateTime(ticket.created_at);
-                  const confirmedTime = formatDateTime(ticket.delivered_at);
-                  const verifiedTime = formatDateTime(ticket.verified_at_scale);
-
-                  return (
-                    <div
-                      key={ticket.ticket_id}
-                      className="cursor-pointer p-4 transition-colors hover:bg-accent/50"
-                      onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
-                    >
-                      <div className="mb-3 flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-foreground">
-                            {ticket.ticket_id}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Truck {ticket.truck_id} • {ticket.product}
-                          </p>
-                        </div>
-                        <StatusBadge status={ticket.status} />
-                      </div>
-
-                      {/* Location and Weight */}
-                      <div className="mb-3 flex gap-4 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          <span>{ticket.origin_site}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Package className="h-3 w-3" />
-                          <span>
-                            {ticket.net_weight
-                              ? `${ticket.net_weight.toFixed(2)} kg`
-                              : "N/A"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Timeline */}
-                      <div className="space-y-2 border-t border-border/50 pt-3">
-                        {/* Created */}
-                        <div className="flex items-start gap-2 text-xs">
-                          <div className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary/20">
-                            <div className="h-2 w-2 rounded-full bg-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-foreground">
-                              Created
-                            </p>
-                            <p className="text-muted-foreground">
-                              {createdTime}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Verified at Scale */}
-                        {verifiedTime && (
-                          <div className="flex items-start gap-2 text-xs">
-                            <div className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-success/20">
-                              <CheckCircle2 className="h-2.5 w-2.5 text-success" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-foreground">
-                                Verified at Scale
-                              </p>
-                              <p className="text-muted-foreground">
-                                {verifiedTime}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Delivered */}
-                        {confirmedTime && (
-                          <div className="flex items-start gap-2 text-xs">
-                            <div className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-success/20">
-                              <CheckCircle2 className="h-2.5 w-2.5 text-success" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-foreground">
-                                Delivered
-                              </p>
-                              <p className="text-muted-foreground">
-                                {confirmedTime}
-                              </p>
-                            </div>
-                          </div>
-                        )}
+                {recentTickets.map((ticket) => (
+                  <div
+                    key={ticket.ticket_id}
+                    className="cursor-pointer p-4 transition-all duration-200 hover:bg-accent/50 active:scale-98 flex items-center justify-between gap-4"
+                    onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground">
+                        {ticket.ticket_id}
+                      </p>
+                      <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">
+                          {ticket.destination_site || "N/A"}
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
+                    <StatusBadge status={ticket.status} />
+                  </div>
+                ))}
               </div>
             )}
           </Card>

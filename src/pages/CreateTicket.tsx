@@ -7,24 +7,26 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SignaturePad } from "@/components/SignaturePad";
 import { TicketImageUpload } from "@/components/TicketImageUpload";
-import { ArrowLeft, Save, Truck as TruckIcon, Weight } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { ArrowLeft, Save, Weight, Loader2, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService, type Carrier } from "@/lib/carrierService";
-import { TRUCKS, CARRIERS } from "@/lib/trucksAndCarriers";
+import {
+  CARRIERS,
+  PICKUP_LOCATIONS,
+  DESTINATION_SITES,
+  getTrucksByCarrier,
+} from "@/lib/trucksAndCarriers";
 
-// Sample data for dropdowns
-const DESTINATION_SITES = [
-  "Quarry A - North",
-  "Quarry B - South",
-  "Quarry C - East",
-];
+// Fallback destination sites (in case database is unavailable)
+const FALLBACK_DESTINATION_SITES = DESTINATION_SITES;
 
 const CreateTicket = () => {
   const navigate = useNavigate();
   const { user, driverProfile } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const [searchParams] = useSearchParams();
   const truckFromQR = searchParams.get("truck");
 
@@ -34,6 +36,7 @@ const CreateTicket = () => {
     truck_id: truckFromQR || "",
     driver_id: "",
     driver_name: "",
+    pickup_location: "",
     destination_site: "",
     net_weight: "",
   });
@@ -41,20 +44,29 @@ const CreateTicket = () => {
   const [signature, setSignature] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
+  const [destinationSites, setDestinationSites] = useState<string[]>(
+    FALLBACK_DESTINATION_SITES
+  );
   const [
     hasShownActiveTicketNotification,
     setHasShownActiveTicketNotification,
   ] = useState(false);
   const [hasActiveTicket, setHasActiveTicket] = useState(false);
+  const [ticketImage, setTicketImage] = useState<File | null>(null);
 
-  // Fetch carriers on component mount
+  // Fetch carriers and destination sites on component mount
 
   useEffect(() => {
-    const fetchCarriers = async () => {
-      const data = await carrierService.getAllCarriers();
-      setCarriers(data);
+    const fetchData = async () => {
+      const carriersData = await carrierService.getAllCarriers();
+      setCarriers(carriersData);
+
+      const sitesData = await ticketService.getDestinationSites();
+      if (sitesData.length > 0) {
+        setDestinationSites(sitesData.map((site) => site.name));
+      }
     };
-    fetchCarriers();
+    fetchData();
   }, []);
 
   // Load driver data on mount
@@ -62,25 +74,38 @@ const CreateTicket = () => {
     const loadData = async () => {
       // If driver is logged in, auto-fill their data
       if (user?.role === "driver" && driverProfile) {
-        // Get the carrier name from the carrier ID
-        let carrierName = "";
+        // Try to load shift defaults from localStorage first
+        let shiftDefaults = null;
+        try {
+          const stored = localStorage.getItem("shiftDefaults");
+          if (stored) {
+            shiftDefaults = JSON.parse(stored);
+          }
+        } catch (e) {
+          console.error("Failed to parse shift defaults:", e);
+        }
+
+        // Get the carrier name from the carrier ID or shift defaults
+        let carrierName = shiftDefaults?.carrier || "";
         let carrierId = "";
         if (driverProfile.carrier_id) {
           const carrier = carriers.find(
             (c) => c.id === driverProfile.carrier_id
           );
-          carrierName = carrier?.name || "";
+          carrierName = carrier?.name || shiftDefaults?.carrier || "";
           carrierId = driverProfile.carrier_id;
         }
 
-        // Get the truck name from the truck UUID
-        let truckName = truckFromQR || "";
-        if (driverProfile.default_truck_id && !truckFromQR) {
-          const truck = await carrierService.getTruckById(
-            driverProfile.default_truck_id
-          );
-          truckName = truck?.truck_id || "";
-        }
+        // Get the truck name from shift defaults or driver profile
+        // Note: default_truck_id stores the truck name directly, not a UUID
+        let truckName =
+          truckFromQR ||
+          shiftDefaults?.truck_id ||
+          driverProfile.default_truck_id ||
+          "";
+
+        // Get pickup location from shift defaults
+        const pickupLocation = shiftDefaults?.pickup_location || "";
 
         setFormData((prev) => ({
           ...prev,
@@ -89,6 +114,7 @@ const CreateTicket = () => {
           truck_id: truckName,
           driver_id: driverProfile.id,
           driver_name: driverProfile.name,
+          pickup_location: pickupLocation,
         }));
       }
     };
@@ -108,12 +134,6 @@ const CreateTicket = () => {
         );
         if (activeTickets.length > 0) {
           setHasActiveTicket(true);
-          toast({
-            title: "Active Ticket",
-            description:
-              "You have an active ticket. Complete it before creating a new one.",
-            variant: "destructive",
-          });
         }
         setHasShownActiveTicketNotification(true);
       }
@@ -134,41 +154,20 @@ const CreateTicket = () => {
         driverProfile.id
       );
       if (activeTickets.length > 0) {
-        toast({
-          title: "Uh-oh!",
-          description:
-            "You already have another active delivery ticket. Please complete it before starting a new one.",
-          variant: "destructive",
-        });
         return;
       }
     }
 
     // Validation
     if (!formData.carrier) {
-      toast({
-        title: "Carrier Required",
-        description: "Please select a carrier",
-        variant: "destructive",
-      });
       return;
     }
 
     if (!formData.truck_id) {
-      toast({
-        title: "Truck Required",
-        description: "Please select a truck",
-        variant: "destructive",
-      });
       return;
     }
 
     if (!formData.driver_name) {
-      toast({
-        title: "Driver Required",
-        description: "Please enter a driver name",
-        variant: "destructive",
-      });
       return;
     }
 
@@ -183,7 +182,7 @@ const CreateTicket = () => {
       destination_site: formData.destination_site,
       net_weight: parseFloat(formData.net_weight) || 0,
       scale_operator_signature: signature,
-      status: "VERIFIED_AT_SCALE",
+      status: "VERIFIED",
       created_at: new Date().toISOString(),
       verified_at_scale: new Date().toISOString(),
       carrier: formData.carrier,
@@ -192,23 +191,16 @@ const CreateTicket = () => {
       driver_id: formData.driver_id,
     };
 
-    const result = await ticketService.createTicket(ticket);
+    const result = await ticketService.createTicket(
+      ticket,
+      ticketImage || undefined
+    );
 
     setIsSubmitting(false);
 
     if (result.success) {
-      toast({
-        title: "Ticket Created",
-        description: `Ticket ${ticket.ticket_id} created successfully`,
-      });
-      navigate(`/tickets/${ticket.ticket_id}`, { state: { ticket } });
-    } else {
-      toast({
-        title: "Error Creating Ticket",
-        description:
-          result.error || "Failed to create ticket. Please try again.",
-        variant: "destructive",
-      });
+      // Redirect to Scale House screen instead of ticket details
+      navigate(`/scale-house`, { state: { ticket } });
     }
   };
 
@@ -230,72 +222,39 @@ const CreateTicket = () => {
               </p>
             </div>
           </div>
-          <Button variant="outline" onClick={() => navigate("/")}>
-            Home
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="rounded-full"
+            >
+              {isDark ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/")}>
+              Home
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* Form */}
       <main className="container mx-auto px-4 py-6">
         <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
-          {/* Destination Site */}
-          <Card className="shadow-md">
-            <div className="space-y-4 p-4">
-              <div>
-                <Label htmlFor="destination_site">Destination Site *</Label>
-                <SearchableSelect
-                  value={formData.destination_site}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, destination_site: value })
-                  }
-                  placeholder="Select destination site"
-                  items={DESTINATION_SITES.map((site) => ({
-                    value: site,
-                    label: site,
-                  }))}
-                />
-              </div>
-            </div>
-          </Card>
-
-          {/* Weight Info */}
-          <Card className="overflow-hidden shadow-md">
-            <div className="bg-success/5 p-4">
-              <div className="flex items-center gap-2 text-success">
-                <Weight className="h-5 w-5" />
-                <h2 className="font-semibold">Weight</h2>
-              </div>
-            </div>
-            <div className="space-y-4 p-4">
-              <div>
-                <Label htmlFor="net_weight">Net Weight (tons) *</Label>
-                <Input
-                  id="net_weight"
-                  name="net_weight"
-                  type="number"
-                  step="0.01"
-                  value={formData.net_weight}
-                  onChange={handleChange}
-                  required
-                  placeholder="0.00"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-          </Card>
-
-          {/* Ticket Image Upload - For drivers to store ticket images */}
-          {user?.role === "driver" && <TicketImageUpload />}
-
           {/* Truck Info - Compact for Mobile */}
           <Card className="overflow-hidden shadow-md">
+            {/*
             <div className="bg-primary/5 p-4">
               <div className="flex items-center gap-2 text-primary">
                 <TruckIcon className="h-5 w-5" />
                 <h2 className="font-semibold">Truck Information</h2>
               </div>
             </div>
+            */}
             <div className="space-y-3 p-4">
               {/* Always in row layout for Carrier, Truck, Driver */}
               <div className="grid grid-cols-3 gap-2">
@@ -355,10 +314,12 @@ const CreateTicket = () => {
                         setFormData({ ...formData, truck_id: value })
                       }
                       placeholder="Select"
-                      items={TRUCKS.map((truck) => ({
-                        value: truck,
-                        label: truck,
-                      }))}
+                      items={getTrucksByCarrier(formData.carrier).map(
+                        (truck) => ({
+                          value: truck,
+                          label: truck,
+                        })
+                      )}
                     />
                   )}
                 </div>
@@ -388,6 +349,74 @@ const CreateTicket = () => {
             </div>
           </Card>
 
+          {/* Destination Site & Pickup Location */}
+          <Card className="shadow-md">
+            <div className="space-y-4 p-4">
+              <div>
+                <Label htmlFor="pickup_location">Pickup Location</Label>
+                <SearchableSelect
+                  value={formData.pickup_location}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, pickup_location: value })
+                  }
+                  placeholder="Select pickup location"
+                  items={PICKUP_LOCATIONS.map((location) => ({
+                    value: location,
+                    label: location,
+                  }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="destination_site">Destination Site *</Label>
+                <SearchableSelect
+                  value={formData.destination_site}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, destination_site: value })
+                  }
+                  placeholder="Select destination site"
+                  items={destinationSites.map((site) => ({
+                    value: site,
+                    label: site,
+                  }))}
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Weight Info */}
+          <Card className="overflow-hidden shadow-md">
+            <div className="bg-success/5 p-4">
+              <div className="flex items-center gap-2 text-success">
+                <Weight className="h-5 w-5" />
+                <h2 className="font-semibold">Net Weight (tons) *</h2>
+              </div>
+            </div>
+            <div className="space-y-4 p-4">
+              <div>
+                <Input
+                  id="net_weight"
+                  name="net_weight"
+                  type="number"
+                  step="0.01"
+                  value={formData.net_weight}
+                  onChange={handleChange}
+                  required
+                  placeholder="0.00"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Ticket Image Upload - For drivers to store ticket images 
+          {user?.role === "driver" && <TicketImageUpload />}
+          */}
+
+          {/* Ticket Image Upload - Optional */}
+          {user?.role === "driver" && (
+            <TicketImageUpload onImageSelected={setTicketImage} />
+          )}
+
           {/* Signature - Optional */}
           <SignaturePad
             onSave={setSignature}
@@ -411,7 +440,7 @@ const CreateTicket = () => {
           <Button
             type="submit"
             size="lg"
-            className="w-full shadow-lg"
+            className="w-full shadow-lg transition-all"
             disabled={isSubmitting || hasActiveTicket}
             title={
               hasActiveTicket
@@ -419,12 +448,22 @@ const CreateTicket = () => {
                 : ""
             }
           >
-            <Save className="mr-2 h-5 w-5" />
-            {isSubmitting
-              ? "Creating..."
-              : hasActiveTicket
-              ? "Complete Active Ticket First"
-              : "Create & Verify Ticket"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Creating Ticket...
+              </>
+            ) : hasActiveTicket ? (
+              <>
+                <Save className="mr-2 h-5 w-5" />
+                Complete Active Ticket First
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-5 w-5" />
+                Create & Verify Ticket
+              </>
+            )}
           </Button>
         </form>
       </main>

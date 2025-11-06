@@ -12,7 +12,6 @@ import {
   Camera,
   ChevronDown,
 } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -20,6 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface TicketImageUploadProps {
   onImageSelected?: (file: File) => void;
@@ -88,11 +93,6 @@ export const TicketImageUpload = ({
       const errorMessage =
         err instanceof Error ? err.message : "Failed to access camera";
       setError(errorMessage);
-      toast({
-        title: "Camera Access Denied",
-        description: errorMessage,
-        variant: "destructive",
-      });
     }
   };
 
@@ -125,11 +125,6 @@ export const TicketImageUpload = ({
             stopCamera();
             onImageSelected?.(file);
             setError(null);
-
-            toast({
-              title: "Photo Captured",
-              description: "Image will be stored with your ticket",
-            });
           }
         }, "image/jpeg");
       }
@@ -143,22 +138,12 @@ export const TicketImageUpload = ({
     // Validate file type
     if (!file.type.startsWith("image/")) {
       setError("Please select an image file");
-      toast({
-        title: "Invalid File",
-        description: "Please select an image file (JPG, PNG, etc.)",
-        variant: "destructive",
-      });
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError("File size must be less than 5MB");
-      toast({
-        title: "File Too Large",
-        description: "Please select an image smaller than 5MB",
-        variant: "destructive",
-      });
       return;
     }
 
@@ -172,12 +157,6 @@ export const TicketImageUpload = ({
       setPreview(e.target?.result as string);
     };
     reader.readAsDataURL(file);
-
-    // Show success message
-    toast({
-      title: "Image Selected",
-      description: "Image will be stored with your ticket",
-    });
   };
 
   const handleClear = () => {
@@ -205,22 +184,43 @@ export const TicketImageUpload = ({
         {/* Camera or File Input */}
         {!showCamera ? (
           <div className="space-y-3">
-            <div>
-              <Label htmlFor="ticket-image" className="text-sm font-medium">
-                Select Image
-              </Label>
-              <Input
-                ref={fileInputRef}
-                id="ticket-image"
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="mt-2"
-              />
+            {/* Upload Button with Dropdown Menu */}
+            <div className="flex gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" className="w-full">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload Image
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    <span>Choose from Files</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={startCamera}>
+                    <Camera className="mr-2 h-4 w-4" />
+                    <span>Take Photo</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
-            {/* Camera Selection */}
-            {availableCameras.length > 0 && (
+            {/* Hidden File Input */}
+            <Input
+              ref={fileInputRef}
+              id="ticket-image"
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {/* Camera Selection - Only show when multiple cameras available */}
+            {availableCameras.length > 1 && (
               <div>
                 <Label htmlFor="camera-select" className="text-sm font-medium">
                   Select Camera
@@ -243,17 +243,6 @@ export const TicketImageUpload = ({
                 </Select>
               </div>
             )}
-
-            {/* Camera Button */}
-            <Button
-              type="button"
-              onClick={startCamera}
-              variant="outline"
-              className="w-full"
-            >
-              <Camera className="mr-2 h-4 w-4" />
-              Take Photo
-            </Button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -292,7 +281,7 @@ export const TicketImageUpload = ({
             <img
               src={preview}
               alt="Ticket preview"
-              className="h-48 w-full rounded border border-border object-cover"
+              className="max-h-40 w-full rounded border border-border object-contain"
             />
             <button
               onClick={handleClear}
@@ -305,19 +294,22 @@ export const TicketImageUpload = ({
 
         {/* Error Message */}
         {error && (
-          <div className="flex gap-2 rounded border border-red-200 bg-red-50 p-3">
-            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="animate-fade-in flex gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+            <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-destructive">Error</p>
+              <p className="text-sm text-destructive/80">{error}</p>
+            </div>
           </div>
         )}
 
         {/* Image Selected Success */}
         {selectedFile && (
-          <div className="flex gap-2 rounded border border-green-200 bg-green-50 p-3">
-            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-green-700">
+          <div className="animate-fade-in flex gap-2 rounded-lg border border-success/30 bg-success/5 p-4">
+            <CheckCircle className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm text-success">
               <p className="font-medium">Image selected</p>
-              <p>{selectedFile.name}</p>
+              <p className="text-success/80 truncate">{selectedFile.name}</p>
             </div>
           </div>
         )}

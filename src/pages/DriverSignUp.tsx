@@ -6,10 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { ArrowLeft, UserPlus } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { carrierService, type Carrier, type Truck } from "@/lib/carrierService";
-import { TRUCKS, CARRIERS } from "@/lib/trucksAndCarriers";
+import { CARRIERS, getTrucksByCarrier } from "@/lib/trucksAndCarriers";
 
 const DriverSignUp = () => {
   const navigate = useNavigate();
@@ -76,7 +75,9 @@ const DriverSignUp = () => {
           value: truck.id,
           label: truck.truck_id,
         }))
-      : TRUCKS.map((truck) => ({
+      : getTrucksByCarrier(
+          carriers.find((c) => c.id === formData.carrier_id)?.name || ""
+        ).map((truck) => ({
           value: truck,
           label: truck,
         }));
@@ -92,12 +93,6 @@ const DriverSignUp = () => {
       );
 
       if (existingDriver) {
-        toast({
-          title: "Driver Already Exists",
-          description:
-            "This email is already registered. Please log in instead.",
-          variant: "destructive",
-        });
         setIsLoading(false);
         return;
       }
@@ -160,19 +155,9 @@ const DriverSignUp = () => {
         updated_at: result.data.updated_at,
       });
 
-      toast({
-        title: "Welcome!",
-        description: `Driver account created for ${result.data.name}`,
-      });
-
       navigate("/driver/profile");
     } catch (error: any) {
       console.error("Sign up error:", error);
-      toast({
-        title: "Sign Up Failed",
-        description: error.message || "An error occurred during sign up",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
     }

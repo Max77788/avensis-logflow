@@ -2,8 +2,8 @@ import * as React from "react";
 
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
-const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_LIMIT = 5;
+const TOAST_REMOVE_DELAY = 5000;
 
 type ToasterToast = ToastProps & {
   id: string;
@@ -127,6 +127,10 @@ const listeners: Array<(state: State) => void> = [];
 
 let memoryState: State = { toasts: [] };
 
+// Track recent toasts to prevent duplicates
+const recentToasts = new Map<string, number>();
+const DUPLICATE_TOAST_TIMEOUT = 5000; // 5 seconds
+
 function dispatch(action: Action) {
   memoryState = reducer(memoryState, action);
   listeners.forEach((listener) => {
@@ -137,6 +141,28 @@ function dispatch(action: Action) {
 type Toast = Omit<ToasterToast, "id">;
 
 function toast({ ...props }: Toast) {
+  // Create a key from title and description to detect duplicates
+  const toastKey = `${props.title}|${props.description}`;
+  const now = Date.now();
+  const lastToastTime = recentToasts.get(toastKey);
+
+  // Skip if same toast was shown recently
+  if (lastToastTime && now - lastToastTime < DUPLICATE_TOAST_TIMEOUT) {
+    return {
+      id: "",
+      dismiss: () => {},
+      update: () => {},
+    };
+  }
+
+  recentToasts.set(toastKey, now);
+
+  // Clean up old entries
+  if (recentToasts.size > 50) {
+    const oldestKey = recentToasts.keys().next().value;
+    recentToasts.delete(oldestKey);
+  }
+
   const id = genId();
 
   const update = (props: ToasterToast) =>

@@ -2,8 +2,65 @@ import { supabase } from "./supabase";
 import type { Ticket, AuditLog } from "./types";
 
 export const ticketService = {
+  async uploadTicketImage(
+    ticketId: string,
+    file: File
+  ): Promise<{ success: boolean; url?: string; error?: string }> {
+    try {
+      if (!supabase) {
+        throw new Error("Supabase client not initialized");
+      }
+
+      console.log(
+        "Starting image upload for ticket:",
+        ticketId,
+        "File:",
+        file.name,
+        "Size:",
+        file.size
+      );
+
+      // Create a unique filename
+      const timestamp = Date.now();
+      const filename = `${ticketId}-${timestamp}-${file.name}`;
+      const filepath = `ticket-images/${filename}`;
+
+      console.log("Upload path:", filepath);
+
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from("ticket-images")
+        .upload(filepath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (error) {
+        console.error("Upload error:", error);
+        throw error;
+      }
+
+      console.log("Upload successful, data:", data);
+
+      // Get public URL
+      const { data: publicData } = supabase.storage
+        .from("ticket-images")
+        .getPublicUrl(filepath);
+
+      console.log("Public URL:", publicData.publicUrl);
+
+      return { success: true, url: publicData.publicUrl };
+    } catch (error: any) {
+      const errorMessage = this.getErrorMessage(error);
+      console.error("Error uploading ticket image:", error);
+      console.error("Error message:", errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  },
+
   async createTicket(
-    ticket: Ticket
+    ticket: Ticket,
+    imageFile?: File
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Verify Supabase connection
@@ -11,6 +68,20 @@ export const ticketService = {
         throw new Error(
           "Supabase client not initialized. Check your environment variables."
         );
+      }
+
+      // Upload image if provided
+      let imageUrl: string | null = null;
+      if (imageFile) {
+        const uploadResult = await this.uploadTicketImage(
+          ticket.ticket_id,
+          imageFile
+        );
+        if (uploadResult.success && uploadResult.url) {
+          imageUrl = uploadResult.url;
+        } else {
+          console.warn("Failed to upload image:", uploadResult.error);
+        }
       }
 
       const { error } = await supabase.from("tickets").insert({
@@ -41,6 +112,7 @@ export const ticketService = {
         driver_name: ticket.driver_name || null,
         driver_id: ticket.driver_id || null,
         carrier_id: ticket.carrier_id || null,
+        ticket_image_url: imageUrl,
       });
 
       if (error) throw error;
@@ -48,6 +120,7 @@ export const ticketService = {
       await this.logAction(ticket.ticket_id, "CREATED", "System", {
         truck_id: ticket.truck_id,
         product: ticket.product,
+        has_image: !!imageUrl,
       });
 
       return { success: true };
@@ -70,7 +143,9 @@ export const ticketService = {
       if (error) throw error;
       if (!data) return null;
 
-      return this.mapDbTicketToTicket(data);
+      // Map the ticket data
+      const ticket = this.mapDbTicketToTicket(data as any);
+      return ticket;
     } catch (error) {
       console.error("Error getting ticket:", error);
       return null;
@@ -85,7 +160,10 @@ export const ticketService = {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []).map(this.mapDbTicketToTicket);
+      return (data || []).map((item: any) => {
+        const ticket = this.mapDbTicketToTicket(item);
+        return ticket;
+      });
     } catch (error) {
       console.error("Error getting all tickets:", error);
       return [];
@@ -98,11 +176,14 @@ export const ticketService = {
         .from("tickets")
         .select("*")
         .eq("driver_id", driverId)
-        .in("status", ["CREATED", "VERIFIED_AT_SCALE", "IN_TRANSIT"])
+        .in("status", ["CREATED", "VERIFIED", "DELIVERED"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []).map(this.mapDbTicketToTicket);
+      return (data || []).map((item: any) => {
+        const ticket = this.mapDbTicketToTicket(item);
+        return ticket;
+      });
     } catch (error) {
       console.error("Error getting active tickets for driver:", error);
       return [];
@@ -118,7 +199,10 @@ export const ticketService = {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []).map(this.mapDbTicketToTicket);
+      return (data || []).map((item: any) => {
+        const ticket = this.mapDbTicketToTicket(item);
+        return ticket;
+      });
     } catch (error) {
       console.error("Error getting tickets for driver:", error);
       return [];
@@ -130,6 +214,24 @@ export const ticketService = {
     updates: Partial<Ticket>
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // If status is being updated, validate the transition
+      if (updates.status !== undefined) {
+        const currentTicket = await this.getTicket(ticketId);
+        if (!currentTicket) {
+          return { success: false, error: "Ticket not found" };
+        }
+
+        // Validate status transition
+        if (
+          !this.isValidStatusTransition(currentTicket.status, updates.status)
+        ) {
+          return {
+            success: false,
+            error: `Invalid status transition from ${currentTicket.status} to ${updates.status}`,
+          };
+        }
+      }
+
       const updateData: Record<string, unknown> = {};
 
       if (updates.status !== undefined) updateData.status = updates.status;
@@ -145,6 +247,8 @@ export const ticketService = {
       if (updates.carrier !== undefined) updateData.carrier = updates.carrier;
       if (updates.driver_name !== undefined)
         updateData.driver_name = updates.driver_name;
+      if (updates.ticket_image_url !== undefined)
+        updateData.ticket_image_url = updates.ticket_image_url;
 
       const { error } = await supabase
         .from("tickets")
@@ -242,7 +346,26 @@ export const ticketService = {
       driver_name: dbTicket.driver_name,
       driver_id: dbTicket.driver_id,
       carrier_id: dbTicket.carrier_id,
+      ticket_image_url: dbTicket.ticket_image_url,
     };
+  },
+
+  async getDestinationSites(): Promise<
+    Array<{ id: string; name: string; location?: string; description?: string }>
+  > {
+    try {
+      const { data, error } = await supabase
+        .from("destination_sites")
+        .select("id, name, location, description")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error: any) {
+      console.error("Error fetching destination sites:", error);
+      // Return empty array on error, will fall back to hardcoded sites
+      return [];
+    }
   },
 
   getErrorMessage(error: any): string {
@@ -266,5 +389,16 @@ export const ticketService = {
 
     // Fallback
     return "An unexpected error occurred. Please try again.";
+  },
+
+  isValidStatusTransition(currentStatus: string, newStatus: string): boolean {
+    const validTransitions: Record<string, string[]> = {
+      CREATED: ["VERIFIED"],
+      VERIFIED: ["DELIVERED"],
+      DELIVERED: ["CLOSED"],
+      CLOSED: [],
+    };
+
+    return validTransitions[currentStatus]?.includes(newStatus) ?? false;
   },
 };

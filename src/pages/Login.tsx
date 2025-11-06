@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Truck, User, QrCode, LogIn } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { carrierService } from "@/lib/carrierService";
 
@@ -18,10 +17,6 @@ const Login = () => {
 
   const handleAttendantClick = () => {
     login("attendant");
-    toast({
-      title: "Welcome",
-      description: "Destination Attendant mode activated",
-    });
     navigate("/");
   };
 
@@ -49,26 +44,14 @@ const Login = () => {
           updated_at: driver.updated_at,
         });
 
-        toast({
-          title: "Welcome Back",
-          description: `Logged in as ${driver.name}`,
-        });
-        navigate("/driver/profile");
+        // Redirect to Start Shift screen
+        navigate("/driver/start-shift");
       } else {
         // Driver doesn't exist, redirect to sign up
-        toast({
-          title: "New Driver",
-          description: "Let's create your driver account",
-        });
         navigate("/driver/signup", { state: { email: driverEmail } });
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast({
-        title: "Login Failed",
-        description: "An error occurred during login",
-        variant: "destructive",
-      });
     } finally {
       setIsLoading(false);
     }

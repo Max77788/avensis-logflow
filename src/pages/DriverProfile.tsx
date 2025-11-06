@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   QrCode,
   LogOut,
@@ -13,21 +16,59 @@ import {
   Download,
   Power,
   Home,
+  Edit2,
+  AlertCircle,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { carrierService } from "@/lib/carrierService";
 import { ticketService } from "@/lib/ticketService";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { Ticket } from "@/lib/types";
+import { CARRIERS, getTrucksByCarrier } from "@/lib/trucksAndCarriers";
 
 const DriverProfile = () => {
   const navigate = useNavigate();
-  const { user, driverProfile, logout, updateDriverStatus } = useAuth();
+  const { user, driverProfile, logout, updateDriverStatus, setDriverProfile } =
+    useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
-  const [completedTickets, setCompletedTickets] = useState<Ticket[]>([]);
   const [isLoadingTickets, setIsLoadingTickets] = useState(true);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [carrierName, setCarrierName] = useState<string>("");
+  const [editFormData, setEditFormData] = useState({
+    truck_id: driverProfile?.default_truck_id || "",
+    carrier_id: driverProfile?.carrier_id || "",
+  });
+
+  // Load carrier name from UUID
+  useEffect(() => {
+    const loadCarrierName = async () => {
+      if (driverProfile?.carrier_id) {
+        try {
+          const carriers = await carrierService.getAllCarriers();
+          const carrier = carriers.find(
+            (c) => c.id === driverProfile.carrier_id
+          );
+          if (carrier) {
+            setCarrierName(carrier.name);
+            setEditFormData((prev) => ({
+              ...prev,
+              carrier_id: carrier.name,
+            }));
+          }
+        } catch (error) {
+          console.error("Error loading carrier name:", error);
+        }
+      }
+    };
+    loadCarrierName();
+  }, [driverProfile?.carrier_id]);
 
   useEffect(() => {
     if (!user || user.role !== "driver") {
@@ -44,16 +85,11 @@ const DriverProfile = () => {
           (t) =>
             t.driver_id === driverProfile?.id &&
             (t.status === "CREATED" ||
-              t.status === "VERIFIED_AT_SCALE" ||
-              t.status === "IN_TRANSIT")
-        );
-
-        const completed = allTickets.filter(
-          (t) => t.driver_id === driverProfile?.id && t.status === "DELIVERED"
+              t.status === "VERIFIED" ||
+              t.status === "DELIVERED")
         );
 
         setActiveTickets(active);
-        setCompletedTickets(completed);
       } catch (error) {
         console.error("Error loading tickets:", error);
       } finally {
@@ -72,7 +108,7 @@ const DriverProfile = () => {
     setIsTogglingStatus(true);
     try {
       const newStatus =
-        driverProfile.status === "active" ? "inactive" : "active";
+        driverProfile.status === "inactive" ? "active" : "inactive";
       const result = await carrierService.updateDriverStatus(
         driverProfile.id,
         newStatus
@@ -80,21 +116,56 @@ const DriverProfile = () => {
 
       if (result.success) {
         updateDriverStatus(newStatus);
-        toast({
-          title: "Status Updated",
-          description: `You are now ${newStatus}`,
-        });
       } else {
         throw new Error(result.error);
       }
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update status",
-        variant: "destructive",
-      });
+      console.error("Error updating status:", error);
     } finally {
       setIsTogglingStatus(false);
+    }
+  };
+
+  const handleSaveProfileChanges = async () => {
+    if (!driverProfile || !editFormData.truck_id) {
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    try {
+      const updates: any = {
+        default_truck_id: editFormData.truck_id,
+      };
+
+      // If carrier is selected, look up its ID or create it
+      if (editFormData.carrier_id) {
+        const carrierResult = await carrierService.getOrCreateCarrier(
+          editFormData.carrier_id
+        );
+        if (carrierResult.success && carrierResult.data) {
+          updates.carrier_id = carrierResult.data.id;
+        } else {
+          throw new Error(
+            carrierResult.error || `Failed to get or create carrier`
+          );
+        }
+      }
+
+      const result = await carrierService.updateDriverProfile(
+        driverProfile.id,
+        updates
+      );
+
+      if (result.success && result.data) {
+        setDriverProfile(result.data);
+        setIsEditingProfile(false);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+    } finally {
+      setIsUpdatingProfile(false);
     }
   };
 
@@ -107,11 +178,6 @@ const DriverProfile = () => {
         "driver-qr-code"
       ) as SVGElement;
       if (!svgElement) {
-        toast({
-          title: "Error",
-          description: "Could not find QR code to download",
-          variant: "destructive",
-        });
         return;
       }
 
@@ -157,29 +223,15 @@ const DriverProfile = () => {
         link.href = canvas.toDataURL("image/png");
         link.download = `driver-qr-${driverProfile.id}.png`;
         link.click();
-
-        toast({
-          title: "Downloaded",
-          description: "QR code saved to your downloads",
-        });
       };
       img.src = "data:image/svg+xml;base64," + btoa(svgString);
     } catch (error) {
       console.error("Error downloading QR code:", error);
-      toast({
-        title: "Error",
-        description: "Failed to download QR code",
-        variant: "destructive",
-      });
     }
   };
 
   const handleLogout = () => {
     logout();
-    toast({
-      title: "Logged Out",
-      description: "See you next time!",
-    });
     navigate("/login");
   };
 
@@ -216,6 +268,18 @@ const DriverProfile = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="rounded-full"
+            >
+              {isDark ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -261,154 +325,243 @@ const DriverProfile = () => {
               }
             >
               <Power className="mr-2 h-4 w-4" />
-              {driverProfile.status === "active" ? "Finish the Shift" : "Start the Shift"}
+              {driverProfile.status === "active"
+                ? "Finish the Shift"
+                : "Start the Shift"}
             </Button>
           </Card>
 
-          {/* Driver Info Card */}
-          <Card className="p-6">
-            <h2 className="text-lg font-bold text-foreground mb-4">
-              Driver Information
-            </h2>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <User className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Name</p>
-                  <p className="font-medium text-foreground">
-                    {driverProfile.name}
-                  </p>
+          {/* Edit Profile Card */}
+          <Card className="p-6 border-primary/50 bg-primary/5">
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-foreground">
+                My Truck & Carrier
+              </h3>
+
+              {isEditingProfile ? (
+                <div className="space-y-4">
+                  {/* Carrier Selection */}
+                  <div>
+                    <Label className="text-sm font-medium">
+                      Select Carrier
+                    </Label>
+                    <SearchableSelect
+                      value={editFormData.carrier_id}
+                      onValueChange={(value) =>
+                        setEditFormData({ ...editFormData, carrier_id: value })
+                      }
+                      items={CARRIERS.map((carrier) => ({
+                        value: carrier,
+                        label: carrier,
+                      }))}
+                      placeholder="Choose a carrier (optional)"
+                    />
+                  </div>
+
+                  {/* Truck Selection */}
+                  <div>
+                    <Label className="text-sm font-medium">
+                      Select Truck *
+                    </Label>
+                    <SearchableSelect
+                      value={editFormData.truck_id}
+                      onValueChange={(value) =>
+                        setEditFormData({ ...editFormData, truck_id: value })
+                      }
+                      items={getTrucksByCarrier(editFormData.carrier_id).map(
+                        (truck) => ({
+                          value: truck,
+                          label: truck,
+                        })
+                      )}
+                      placeholder="Choose a truck"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      onClick={handleSaveProfileChanges}
+                      disabled={isUpdatingProfile || !editFormData.truck_id}
+                      className="flex-1"
+                    >
+                      {isUpdatingProfile ? "Saving..." : "Save Changes"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsEditingProfile(false)}
+                      disabled={isUpdatingProfile}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              {/*
-              <div className="flex items-center gap-3">
-                <Building2 className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Carrier</p>
-                  <p className="font-medium text-foreground">
-                    {driverProfile.carrier_id}
-                  </p>
+              ) : (
+                <div className="space-y-4">
+                  {/* Carrier Display */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      Carrier
+                    </Label>
+                    <div className="p-3 border border-border rounded-md bg-muted/30">
+                      <p className="font-medium text-foreground">
+                        {carrierName || "Not set"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Truck Display */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">
+                      Current Truck
+                    </Label>
+                    <div className="p-3 border border-border rounded-md bg-muted/30">
+                      <p className="font-medium text-foreground">
+                        {driverProfile.default_truck_id || "Not set"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Edit Button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditFormData({
+                        truck_id: driverProfile.default_truck_id || "",
+                        carrier_id: driverProfile.carrier_id || "",
+                      });
+                      setIsEditingProfile(true);
+                    }}
+                    className="w-full"
+                  >
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit Truck & Carrier
+                  </Button>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Truck className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Default Truck</p>
-                  <p className="font-medium text-foreground">
-                    {driverProfile.default_truck_id}
-                  </p>
-                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Show different content based on shift status */}
+          {driverProfile.status === "inactive" ? (
+            // INACTIVE STATE: Show minimal info
+            <Card className="p-6 border-muted-foreground/20 bg-muted/30">
+              <div className="text-center space-y-4">
+                {/*
+                <p className="text-muted-foreground">
+                  Start your shift to begin creating tickets
+                </p>
+                <Button
+                  onClick={handleToggleStatus}
+                  disabled={isTogglingStatus}
+                  className="w-full"
+                >
+                  <Power className="mr-2 h-4 w-4" />
+                  Start the Shift
+                </Button>
                 */}
               </div>
-          </Card>
-
-          {/* QR Code Card */}
-          <Card className="p-6">
-            <h2 className="text-lg font-bold text-foreground mb-4">
-              My QR Code
-            </h2>
-            <div className="bg-white p-6 rounded-lg text-center mb-4 flex justify-center">
-              <QRCodeSVG
-                id="driver-qr-code"
-                value={driverProfile.driver_qr_code}
-                size={200}
-                level="H"
-                includeMargin={true}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground text-center mb-4 break-all">
-              {driverProfile.driver_qr_code}
-            </p>
-            <Button
-              onClick={handleDownloadQR}
-              className="w-full"
-              variant="outline"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download QR Code
-            </Button>
-          </Card>
-
-          {/* Active Tickets */}
-          <Card className="p-6">
-            <h2 className="text-lg font-bold text-foreground mb-4">
-              Active Tickets ({activeTickets.length})
-            </h2>
-            {isLoadingTickets ? (
-              <p className="text-muted-foreground">Loading tickets...</p>
-            ) : activeTickets.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">No active tickets</p>
-                <Button onClick={() => navigate("/tickets/create")}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create New Ticket
+            </Card>
+          ) : (
+            // ACTIVE STATE: Show full dashboard
+            <>
+              {/* QR Code Card */}
+              <Card className="p-6">
+                <h2 className="text-lg font-bold text-foreground mb-4">
+                  My QR Code
+                </h2>
+                <div className="bg-white p-6 rounded-lg text-center mb-4 flex justify-center">
+                  <QRCodeSVG
+                    id="driver-qr-code"
+                    value={driverProfile.driver_qr_code}
+                    size={200}
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-center mb-4 break-all">
+                  {driverProfile.driver_qr_code}
+                </p>
+                <Button
+                  onClick={handleDownloadQR}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download QR Code
                 </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {activeTickets.map((ticket) => (
-                  <div
-                    key={ticket.ticket_id}
-                    className="p-3 border border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
-                  >
-                    <p className="font-medium text-foreground">
-                      {ticket.ticket_id}
+              </Card>
+
+              {/* Active Tickets */}
+              <Card className="p-6">
+                <h2 className="text-lg font-bold text-foreground mb-4">
+                  Active Tickets ({activeTickets.length})
+                </h2>
+                {isLoadingTickets ? (
+                  <div className="space-y-2">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                    ))}
+                  </div>
+                ) : activeTickets.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="flex justify-center mb-3">
+                      <div className="rounded-full bg-muted p-3">
+                        <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground font-medium mb-1">
+                      No active tickets
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      {ticket.product} • {ticket.origin_site} →{" "}
-                      {ticket.destination_site}
+                    <p className="text-xs text-muted-foreground">
+                      Create a new ticket to get started
                     </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </Card>
+                ) : (
+                  <div className="space-y-2">
+                    {activeTickets.map((ticket) => (
+                      <div
+                        key={ticket.ticket_id}
+                        className="p-3 border border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-all hover:shadow-sm active:scale-95"
+                        onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
+                      >
+                        <p className="font-medium text-foreground">
+                          {ticket.ticket_id}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {ticket.destination_site}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
 
-          <Card className="p-6">
-            <h2 className="text-lg font-bold text-foreground mb-4">
-              Completed Tickets ({completedTickets.length})
-            </h2>
-            {isLoadingTickets ? (
-              <p className="text-muted-foreground">Loading tickets...</p>
-            ) : completedTickets.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">No active tickets</p>
-                <Button onClick={() => navigate("/tickets/create")}>
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => navigate("/tickets/create")}
+                  className="flex-1"
+                  size="lg"
+                >
                   <Plus className="mr-2 h-4 w-4" />
-                  Create New Ticket
+                  Create Ticket
+                </Button>
+                <Button
+                  onClick={handleToggleStatus}
+                  disabled={isTogglingStatus}
+                  variant="destructive"
+                  className="flex-1"
+                  size="lg"
+                >
+                  <Power className="mr-2 h-4 w-4" />
+                  End Shift
                 </Button>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {completedTickets.map((ticket) => (
-                  <div
-                    key={ticket.ticket_id}
-                    className="p-3 border border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
-                  >
-                    <p className="font-medium text-foreground">
-                      {ticket.ticket_id}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {ticket.product} • {ticket.origin_site} →{" "}
-                      {ticket.destination_site}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-
-          {/* Create Ticket Button */}
-          <Button
-            onClick={() => navigate("/tickets/create")}
-            className="w-full"
-            size="lg"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create New Ticket
-          </Button>
+            </>
+          )}
         </div>
       </main>
     </div>

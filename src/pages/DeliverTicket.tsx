@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/SignaturePad";
 import { useGPS } from "@/hooks/useGPS";
 import { ArrowLeft, MapPin, CheckCircle, Loader2, User } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
 
@@ -34,29 +33,14 @@ const DeliverTicket = () => {
 
   const handleDeliver = async () => {
     if (!signature) {
-      toast({
-        title: "Signature Required",
-        description: "Please provide receiver signature",
-        variant: "destructive",
-      });
       return;
     }
 
     if (!coordinates) {
-      toast({
-        title: "GPS Required",
-        description: "Location must be captured for delivery confirmation",
-        variant: "destructive",
-      });
       return;
     }
 
     if (!confirmerName.trim()) {
-      toast({
-        title: "Confirmer Name Required",
-        description: "Please enter the name of the person confirming delivery",
-        variant: "destructive",
-      });
       return;
     }
 
@@ -73,22 +57,12 @@ const DeliverTicket = () => {
     setIsSubmitting(false);
 
     if (result.success) {
-      toast({
-        title: "Delivery Confirmed",
-        description: `Ticket ${id} is marked as delivered`,
-      });
       // Show success animation
       setShowSuccessAnimation(true);
       // Redirect after animation completes (3 seconds)
       setTimeout(() => {
         navigate("/");
       }, 3000);
-    } else {
-      toast({
-        title: "Error",
-        description: "Failed to update ticket. Please try again.",
-        variant: "destructive",
-      });
     }
   };
 

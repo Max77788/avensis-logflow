@@ -1,0 +1,31 @@
+-- Insert all carriers from the application
+INSERT INTO carriers (name) VALUES
+  ('2SM'),
+  ('ISM'),
+  ('4K'),
+  ('Truck IT'),
+  ('K Kay''s Trucking'),
+  ('Fox Transportation'),
+  ('Tru Avant'),
+  ('Bross'),
+  ('Dry River Logistics'),
+  ('T&F Sand'),
+  ('Ball Farms'),
+  ('Bowen Services'),
+  ('Araies'),
+  ('RMC'),
+  ('Culpepper'),
+  ('Joat One Enterprises'),
+  ('Smash Industries'),
+  ('Maavs'),
+  ('Schlucht'),
+  ('Haskell'),
+  ('CL Trucking'),
+  ('NewRise Enterprises'),
+  ('4HR Trucking'),
+  ('AFS'),
+  ('Express Logistics'),
+  ('Premium Transport'),
+  ('Standard Delivery')
+ON CONFLICT (name) DO NOTHING;
+

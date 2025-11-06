@@ -1,8 +1,4 @@
-export type TicketStatus =
-  | "CREATED"
-  | "VERIFIED_AT_SCALE"
-  | "IN_TRANSIT"
-  | "DELIVERED";
+export type TicketStatus = "CREATED" | "VERIFIED" | "DELIVERED" | "CLOSED";
 
 export type UserRole = "driver" | "attendant";
 
@@ -35,6 +31,7 @@ export interface Ticket {
   carrier_id?: string;
   driver_name?: string;
   driver_id?: string;
+  ticket_image_url?: string;
 }
 
 export interface GPSCoordinates {

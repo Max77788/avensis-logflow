@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { SignaturePad } from "@/components/SignaturePad";
 import { RouteMap } from "@/components/RouteMap";
 import { useGPS } from "@/hooks/useGPS";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   ArrowLeft,
   MapPin,
@@ -19,13 +20,24 @@ import {
   CheckCircle,
   Loader2,
   Navigation,
-  Users,
-  Compass,
+  Upload,
+  Camera,
+  X,
+  Download,
+  Moon,
+  Sun,
 } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
 import { ticketService } from "@/lib/ticketService";
 import { toast } from "@/hooks/use-toast";
+import { CARRIER_VEHICLES_MAP } from "@/lib/trucksAndCarriers";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Helper function to parse GPS coordinates
 const parseGPS = (gpsString?: string) => {
@@ -40,12 +52,45 @@ const openGoogleMaps = (lat: number, lng: number, label?: string) => {
   window.open(url, "_blank");
 };
 
+// Helper function to get carrier name from ticket
+const getCarrierName = (ticket: Ticket): string => {
+  if (!ticket.carrier) return "-";
+
+  // If carrier is already a name (not a UUID), return it
+  if (!ticket.carrier.includes("-")) {
+    return ticket.carrier;
+  }
+
+  // If it's a UUID, try to find the carrier name from the mapping
+  // This is a fallback - ideally the carrier field should already contain the name
+  return ticket.carrier;
+};
+
+// Helper function to validate status transitions
+const isValidStatusTransition = (
+  currentStatus: string,
+  newStatus: string
+): boolean => {
+  const validTransitions: Record<string, string[]> = {
+    CREATED: ["VERIFIED"],
+    VERIFIED: ["DELIVERED"],
+    DELIVERED: ["CLOSED"],
+    CLOSED: [],
+  };
+
+  return validTransitions[currentStatus]?.includes(newStatus) ?? false;
+};
+
 const TicketDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Delivery confirmation state
   const [showConfirmationForm, setShowConfirmationForm] = useState(false);
@@ -53,7 +98,15 @@ const TicketDetails = () => {
   const [confirmerName, setConfirmerName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
-  const { captureLocation, coordinates, loading } = useGPS();
+  const [isClosingTicket, setIsClosingTicket] = useState(false);
+  const { captureLocation, coordinates, loading, error } = useGPS();
+
+  // Image upload state
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showFullscreenImage, setShowFullscreenImage] = useState(false);
 
   useEffect(() => {
     const loadTicket = async () => {
@@ -70,7 +123,7 @@ const TicketDetails = () => {
       }
     };
     loadTicket();
-  }, [id, location.state]);
+  }, [id]);
 
   const handleDeliver = async () => {
     if (!signature) {
@@ -132,25 +185,179 @@ const TicketDetails = () => {
     }
   };
 
+  const handleCloseTicket = async () => {
+    if (!ticket) return;
+
+    // Validate status transition
+    if (!isValidStatusTransition(ticket.status, "CLOSED")) {
+      toast({
+        title: "Invalid Status Transition",
+        description: `Cannot close ticket with status ${ticket.status}. Ticket must be DELIVERED first.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsClosingTicket(true);
+
+    const result = await ticketService.updateTicket(id!, {
+      status: "CLOSED",
+    });
+
+    setIsClosingTicket(false);
+
+    if (result.success) {
+      toast({
+        title: "Ticket Closed",
+        description: `Ticket ${id} has been closed`,
+      });
+      // Reload ticket to show updated status
+      const updated = await ticketService.getTicket(id!);
+      if (updated) {
+        setTicket(updated);
+      }
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to close ticket. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !ticket) return;
+
+    if (!file.type.startsWith("image/")) {
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return;
+    }
+
+    setIsUploadingImage(true);
+    const result = await ticketService.uploadTicketImage(
+      ticket.ticket_id,
+      file
+    );
+    setIsUploadingImage(false);
+
+    if (result.success && result.url) {
+      const updateResult = await ticketService.updateTicket(ticket.ticket_id, {
+        ticket_image_url: result.url,
+      });
+
+      if (updateResult.success) {
+        setTicket({ ...ticket, ticket_image_url: result.url });
+        setShowImageUpload(false);
+      }
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      setCameraStream(stream);
+      setShowCamera(true);
+
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch((err) => {
+            console.error("Failed to play video:", err);
+          });
+        }
+      }, 0);
+    } catch (err) {
+      toast({
+        title: "Camera Error",
+        description: "Unable to access camera. Please check permissions.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+    setShowCamera(false);
+  };
+
+  const capturePhoto = async () => {
+    if (!videoRef.current || !canvasRef.current || !ticket) return;
+
+    const context = canvasRef.current.getContext("2d");
+    if (context) {
+      canvasRef.current.width = videoRef.current.videoWidth;
+      canvasRef.current.height = videoRef.current.videoHeight;
+
+      context.scale(-1, 1);
+      context.drawImage(videoRef.current, -videoRef.current.videoWidth, 0);
+
+      canvasRef.current.toBlob(async (blob) => {
+        if (blob) {
+          const file = new File([blob], "ticket-photo.jpg", {
+            type: "image/jpeg",
+          });
+
+          setIsUploadingImage(true);
+          const result = await ticketService.uploadTicketImage(
+            ticket.ticket_id,
+            file
+          );
+          setIsUploadingImage(false);
+
+          if (result.success && result.url) {
+            const updateResult = await ticketService.updateTicket(
+              ticket.ticket_id,
+              {
+                ticket_image_url: result.url,
+              }
+            );
+
+            if (updateResult.success) {
+              setTicket({ ...ticket, ticket_image_url: result.url });
+              stopCamera();
+              setShowImageUpload(false);
+            }
+          }
+        }
+      }, "image/jpeg");
+    }
+  };
+
   if (!ticket) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Card className="p-8 text-center shadow-lg">
-          <Package className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
+          <div className="mb-4 flex justify-center">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+          </div>
           <h2 className="mb-2 text-xl font-bold text-foreground">
-            Ticket Not Found
+            Loading Ticket...
           </h2>
-          <p className="mb-4 text-muted-foreground">
-            The ticket you're looking for doesn't exist
+          <p className="text-muted-foreground">
+            Please wait while we fetch the ticket details
           </p>
-          <Button onClick={() => navigate("/")}>Return Home</Button>
         </Card>
       </div>
     );
   }
 
   const canDeliver =
-    ticket.status === "VERIFIED_AT_SCALE" || ticket.status === "IN_TRANSIT";
+    ticket.status === "VERIFIED" || ticket.status === "DELIVERED";
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,7 +373,21 @@ const TicketDetails = () => {
             </h1>
             <p className="text-sm text-muted-foreground">{ticket.ticket_id}</p>
           </div>
-          <StatusBadge status={ticket.status} />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="rounded-full"
+            >
+              {isDark ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
+            <StatusBadge status={ticket.status} />
+          </div>
         </div>
       </header>
 
@@ -188,16 +409,33 @@ const TicketDetails = () => {
                 </Card>
               )}
 
-              {/* Origin Site - Second */}
+              {/* Locations - Origin and Destination */}
               <Card className="shadow-md">
-                <div className="flex items-start gap-3 p-4">
-                  <MapPin className="mt-1 h-5 w-5 text-success" />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">Origin</p>
-                    <p className="font-medium text-foreground">
-                      {ticket.origin_site}
-                    </p>
-                  </div>
+                <div className="space-y-3 p-4">
+                  {ticket.origin_site && (
+                    <div className="flex items-start gap-3">
+                      <MapPin className="mt-1 h-5 w-5 text-success" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Origin</p>
+                        <p className="font-medium text-foreground">
+                          {ticket.origin_site}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {ticket.destination_site && (
+                    <div className="flex items-start gap-3">
+                      <MapPin className="mt-1 h-5 w-5 text-destructive" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">
+                          Destination
+                        </p>
+                        <p className="font-medium text-foreground">
+                          {ticket.destination_site}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
 
@@ -207,7 +445,7 @@ const TicketDetails = () => {
                   <div className="min-w-0 text-center">
                     <p className="text-xs text-muted-foreground">Carrier</p>
                     <p className="truncate text-xs font-medium text-foreground">
-                      {ticket.carrier || "-"}
+                      {getCarrierName(ticket)}
                     </p>
                   </div>
                   <div className="min-w-0 text-center">
@@ -230,8 +468,8 @@ const TicketDetails = () => {
               {/* DRIVER VIEW - Top section with essential info */}
               {/* Weight Info - First */}
 
-              {/* QR Code - Bottom for drivers */}
-              {user?.role !== "attendant" && ticket.driver_id && (
+              {/* QR Code - Only for drivers */}
+              {user?.role === "driver" && ticket.driver_id && (
                 <Card className="overflow-hidden shadow-lg">
                   <div className="bg-primary/5 p-6 text-center">
                     <h3 className="mb-4 text-sm font-semibold text-foreground">
@@ -288,10 +526,199 @@ const TicketDetails = () => {
                 </div>
               </Card>
 
-              {/* Truck Info */}
-              <Card className="shadow-md">
+              {/* Route Map - Only for drivers */}
+              {user?.role === "driver" &&
+                (() => {
+                  const loadGps = parseGPS(ticket.load_gps) || {
+                    lat: 40.4168,
+                    lng: -3.7038,
+                  }; // Madrid
+                  const deliveryGps = parseGPS(ticket.delivery_gps) || {
+                    lat: 40.0105,
+                    lng: -4.3009,
+                  }; // near Toledo (~80 km)
+                  return (
+                    <>
+                      {/* Get Directions Button */}
+                      {deliveryGps && (
+                        <Button
+                          onClick={() =>
+                            openGoogleMaps(
+                              deliveryGps.lat,
+                              deliveryGps.lng,
+                              ticket.destination_site
+                            )
+                          }
+                          className="w-full"
+                          variant="outline"
+                        >
+                          <Navigation className="mr-2 h-4 w-4" />
+                          Get Directions
+                        </Button>
+                      )}
+
+                      <RouteMap
+                        originLat={loadGps.lat}
+                        originLng={loadGps.lng}
+                        destinationLat={deliveryGps.lat}
+                        destinationLng={deliveryGps.lng}
+                        originName={ticket.origin_site}
+                        destinationName={ticket.destination_site}
+                      />
+                    </>
+                  );
+                })()}
+
+              {/* Image Upload Section - For drivers */}
+              {user?.role === "driver" && (
+                <>
+                  {!ticket.ticket_image_url && (
+                    <Card className="overflow-hidden shadow-md border-dashed border-2">
+                      <div className="bg-blue-50 p-4">
+                        <h3 className="font-semibold text-blue-600">
+                          Add Ticket Image
+                        </h3>
+                        <p className="mt-1 text-xs text-blue-600/70">
+                          Upload a photo of the ticket
+                        </p>
+                      </div>
+                      <div className="p-4">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button type="button" className="w-full">
+                              <Upload className="mr-2 h-4 w-4" />
+                              Upload Image
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuItem
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              <span>Choose from Files</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={startCamera}>
+                              <Camera className="mr-2 h-4 w-4" />
+                              <span>Take Photo</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                        />
+                      </div>
+                    </Card>
+                  )}
+
+                  {showCamera && (
+                    <Card className="overflow-hidden shadow-md">
+                      <div className="bg-blue-50 p-4">
+                        <h3 className="font-semibold text-blue-600">
+                          Take Photo
+                        </h3>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="h-96 w-full rounded border border-border bg-black object-cover"
+                          style={{ transform: "scaleX(-1)" }}
+                        />
+                        <canvas ref={canvasRef} className="hidden" />
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            onClick={capturePhoto}
+                            disabled={isUploadingImage}
+                            className="flex-1"
+                          >
+                            {isUploadingImage ? "Uploading..." : "Capture"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={stopCamera}
+                            disabled={isUploadingImage}
+                            className="flex-1"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+
+                  {ticket.ticket_image_url && (
+                    <Card className="overflow-hidden shadow-md">
+                      <div className="bg-blue-50 p-4">
+                        <h3 className="font-semibold text-blue-600">
+                          Ticket Image
+                        </h3>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        <div
+                          className="cursor-pointer rounded border border-border overflow-hidden"
+                          onClick={() => setShowFullscreenImage(true)}
+                        >
+                          <img
+                            src={ticket.ticket_image_url}
+                            alt="Ticket"
+                            className="w-full h-auto object-cover max-h-96"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Click to enlarge
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowImageUpload(true)}
+                          className="w-full"
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          Replace Image
+                        </Button>
+                      </div>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Fullscreen Image Modal */}
+              {showFullscreenImage && ticket.ticket_image_url && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+                  onClick={() => setShowFullscreenImage(false)}
+                >
+                  <div className="relative max-w-4xl max-h-screen">
+                    <img
+                      src={ticket.ticket_image_url}
+                      alt="Ticket"
+                      className="w-full h-auto object-contain"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowFullscreenImage(false)}
+                      className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                    >
+                      <X className="h-6 w-6" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Truck Info
+              <Card className="shadow-md transition-all duration-300 hover:shadow-lg">
                 <div className="flex items-start gap-4 p-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 transition-colors duration-200">
                     <Truck className="h-6 w-6 text-primary" />
                   </div>
                   <div className="flex-1">
@@ -304,51 +731,9 @@ const TicketDetails = () => {
                   </div>
                 </div>
               </Card>
+              */}
             </>
           )}
-
-          {/* Route Map - Only for drivers */}
-          {user?.role !== "attendant" &&
-            (() => {
-              const loadGps = parseGPS(ticket.load_gps) || {
-                lat: 40.4168,
-                lng: -3.7038,
-              }; // Madrid
-              const deliveryGps = parseGPS(ticket.delivery_gps) || {
-                lat: 40.0105,
-                lng: -4.3009,
-              }; // near Toledo (~80 km)
-              return (
-                <>
-                  <RouteMap
-                    originLat={loadGps.lat}
-                    originLng={loadGps.lng}
-                    destinationLat={deliveryGps.lat}
-                    destinationLng={deliveryGps.lng}
-                    originName={ticket.origin_site}
-                    destinationName={ticket.destination_site}
-                  />
-
-                  {/* Get Directions Button */}
-                  {deliveryGps && (
-                    <Button
-                      onClick={() =>
-                        openGoogleMaps(
-                          deliveryGps.lat,
-                          deliveryGps.lng,
-                          ticket.destination_site
-                        )
-                      }
-                      className="w-full"
-                      variant="outline"
-                    >
-                      <Navigation className="mr-2 h-4 w-4" />
-                      Get Directions
-                    </Button>
-                  )}
-                </>
-              );
-            })()}
 
           {/* Carrier & Driver Info - Only for drivers 
           {user?.role !== "attendant" &&
@@ -430,6 +815,130 @@ const TicketDetails = () => {
                 </div>
               </Card>
             )}
+
+          {/* Ticket Image - If available */}
+          {ticket.ticket_image_url && (
+            <Card className="overflow-hidden shadow-md">
+              <div className="bg-primary/5 p-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Ticket Image
+                </h3>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      const link = document.createElement("a");
+                      link.href = ticket.ticket_image_url;
+                      link.download = `ticket-${ticket.ticket_id}.jpg`;
+                      link.click();
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Download
+                  </Button>
+                  {user?.role === "driver" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowImageUpload(!showImageUpload)}
+                    >
+                      Replace
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div
+                className="p-4 flex justify-center cursor-pointer"
+                onClick={() => setShowFullscreenImage(true)}
+              >
+                <img
+                  src={ticket.ticket_image_url}
+                  alt="Ticket"
+                  className="max-h-48 rounded border border-border object-contain hover:opacity-80 transition-opacity"
+                />
+              </div>
+            </Card>
+          )}
+
+          {/* Fullscreen Image Modal */}
+          {showFullscreenImage && ticket.ticket_image_url && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-4">
+              <div className="relative max-h-screen max-w-4xl w-full flex flex-col">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute -top-10 right-0 text-white hover:bg-white/20"
+                  onClick={() => setShowFullscreenImage(false)}
+                >
+                  <X className="h-6 w-6" />
+                </Button>
+                <img
+                  src={ticket.ticket_image_url}
+                  alt="Ticket Fullscreen"
+                  className="w-full h-full object-contain rounded"
+                />
+              </div>
+            </div>
+          )}
+
+          {showImageUpload && (
+            <Card className="overflow-hidden shadow-md">
+              <div className="bg-blue-50 p-4">
+                <h3 className="font-semibold text-blue-600">
+                  {ticket.ticket_image_url
+                    ? "Replace Ticket Image"
+                    : "Add Ticket Image"}
+                </h3>
+              </div>
+              <div className="p-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      disabled={isUploadingImage}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      {isUploadingImage ? "Uploading..." : "Upload Image"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingImage}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      <span>Choose from Files</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={startCamera}
+                      disabled={isUploadingImage}
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      <span>Take Photo</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full mt-2"
+                  onClick={() => setShowImageUpload(false)}
+                  disabled={isUploadingImage}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </Card>
+          )}
 
           {/* Confirmer Information - Only for drivers */}
           {user?.role !== "attendant" && ticket.confirmer_name && (
@@ -551,66 +1060,59 @@ const TicketDetails = () => {
           {/* Delivery Confirmation Form - Only for Attendants */}
           {canDeliver && user?.role === "attendant" && (
             <>
-              {!showConfirmationForm ? (
-                <Button
-                  size="lg"
-                  className="w-full shadow-lg"
-                  onClick={() => setShowConfirmationForm(true)}
-                >
-                  <Package className="mr-2 h-5 w-5" />
-                  Confirm Delivery
-                </Button>
-              ) : (
-                <Card className="overflow-hidden border-primary/50 bg-primary/5 shadow-md">
-                  <div className="bg-primary/10 p-4">
-                    <div className="flex items-center gap-2 text-primary">
-                      <User className="h-5 w-5" />
-                      <h3 className="font-semibold">Delivery Confirmation</h3>
-                    </div>
+              <Card className="overflow-hidden border-primary/50 bg-primary/5 shadow-md">
+                <div className="bg-primary/10 p-4">
+                  <div className="flex items-center gap-2 text-primary">
+                    <User className="h-5 w-5" />
+                    <h3 className="font-semibold">Delivery Confirmation</h3>
                   </div>
-                  <div className="space-y-5 p-4">
-                    {/* Confirmer's Name - First Field */}
-                    <div>
-                      <Label
-                        htmlFor="confirmer_name"
-                        className="text-sm font-medium"
-                      >
-                        Confirmer's Name *
-                      </Label>
-                      <Input
-                        id="confirmer_name"
-                        placeholder="Enter name of person confirming delivery"
-                        value={confirmerName}
-                        onChange={(e) => setConfirmerName(e.target.value)}
-                        className="mt-2"
-                      />
-                    </div>
+                </div>
+                <div className="space-y-5 p-4">
+                  {/* Confirmer's Name - First Field */}
+                  <div>
+                    <Label
+                      htmlFor="confirmer_name"
+                      className="text-sm font-medium"
+                    >
+                      Confirmer's Name *
+                    </Label>
+                    <Input
+                      id="confirmer_name"
+                      placeholder="Enter name of person confirming delivery"
+                      value={confirmerName}
+                      onChange={(e) => setConfirmerName(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>
 
-                    {/* Location Verification - Second Field */}
-                    <div>
-                      <div className="mb-2 flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <Label className="text-sm font-medium">
-                          Delivery Location *
-                        </Label>
+                  {/* Location Verification - Second Field */}
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <Label className="text-sm font-medium">
+                        Delivery Location *
+                      </Label>
+                    </div>
+                    {coordinates ? (
+                      <div className="rounded border border-success/30 bg-success/5 p-3">
+                        <p className="text-xs text-muted-foreground">
+                          ✓ Location Captured
+                        </p>
+                        <p className="text-xs text-foreground">
+                          Lat: {coordinates.latitude.toFixed(6)}
+                        </p>
+                        <p className="text-xs text-foreground">
+                          Lon: {coordinates.longitude.toFixed(6)}
+                        </p>
                       </div>
-                      {coordinates ? (
-                        <div className="rounded border border-success/30 bg-success/5 p-3">
-                          <p className="text-xs text-muted-foreground">
-                            ✓ Location Captured
-                          </p>
-                          <p className="text-xs text-foreground">
-                            Lat: {coordinates.latitude.toFixed(6)}
-                          </p>
-                          <p className="text-xs text-foreground">
-                            Lon: {coordinates.longitude.toFixed(6)}
-                          </p>
-                        </div>
-                      ) : (
+                    ) : (
+                      <>
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={captureLocation}
+                          onClick={() => {
+                            captureLocation();
+                          }}
                           disabled={loading}
                           className="w-full"
                         >
@@ -626,53 +1128,93 @@ const TicketDetails = () => {
                             </>
                           )}
                         </Button>
-                      )}
-                    </div>
-
-                    {/* Receiver Signature - Third Field */}
-                    <div>
-                      <SignaturePad
-                        onSave={setSignature}
-                        label="Receiver Signature *"
-                      />
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2 pt-4">
-                      <Button
-                        onClick={handleDeliver}
-                        disabled={isSubmitting}
-                        className="flex-1"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Confirming...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Confirm
-                          </>
+                        {error && (
+                          <div className="mt-2 rounded border border-destructive/30 bg-destructive/5 p-3">
+                            <p className="text-xs text-destructive">{error}</p>
+                          </div>
                         )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setShowConfirmationForm(false);
-                          setSignature(null);
-                          setConfirmerName("");
-                        }}
-                        disabled={isSubmitting}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
+                      </>
+                    )}
                   </div>
-                </Card>
-              )}
+
+                  {/* Receiver Signature - Third Field */}
+                  <div>
+                    <SignaturePad
+                      onSave={setSignature}
+                      label="Receiver Signature *"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      onClick={handleDeliver}
+                      disabled={isSubmitting}
+                      className="flex-1"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Confirming...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Confirm
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowConfirmationForm(false);
+                        setSignature(null);
+                        setConfirmerName("");
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             </>
+          )}
+
+          {/* Close Ticket Button - Only for DELIVERED tickets */}
+          {ticket?.status === "DELIVERED" && user?.role === "driver" && (
+            <Card className="overflow-hidden border-warning/50 bg-warning/5 shadow-md">
+              <div className="bg-warning/10 p-4">
+                <div className="flex items-center gap-2 text-warning">
+                  <Package className="h-5 w-5" />
+                  <h3 className="font-semibold">Close Ticket</h3>
+                </div>
+              </div>
+              <div className="space-y-4 p-4">
+                <p className="text-sm text-muted-foreground">
+                  Mark this ticket as closed after delivery has been confirmed.
+                </p>
+                <Button
+                  onClick={handleCloseTicket}
+                  disabled={isClosingTicket}
+                  className="w-full h-12 text-base font-semibold"
+                  variant="outline"
+                >
+                  {isClosingTicket ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Closing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Close Ticket
+                    </>
+                  )}
+                </Button>
+              </div>
+            </Card>
           )}
         </div>
       </main>

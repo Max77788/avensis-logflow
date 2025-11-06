@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ArrowLeft, Search, Download, Package, Filter } from "lucide-react";
 import type { Ticket } from "@/lib/types";
-import { toast } from "@/hooks/use-toast";
 import { ticketService } from "@/lib/ticketService";
 
 const Admin = () => {
@@ -37,11 +36,6 @@ const Admin = () => {
 
   const exportCSV = () => {
     if (tickets.length === 0) {
-      toast({
-        title: "No Data",
-        description: "No tickets to export",
-        variant: "destructive",
-      });
       return;
     }
 
@@ -74,11 +68,6 @@ const Admin = () => {
     a.href = url;
     a.download = `tickets-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
-
-    toast({
-      title: "Export Complete",
-      description: `${tickets.length} tickets exported to CSV`,
-    });
   };
 
   return (
@@ -91,7 +80,9 @@ const Admin = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-foreground">Admin Dashboard</h1>
+              <h1 className="text-xl font-bold text-foreground">
+                Admin Dashboard
+              </h1>
               <p className="text-sm text-muted-foreground">
                 {tickets.length} total tickets
               </p>
@@ -138,8 +129,8 @@ const Admin = () => {
                 </Button>
                 <Button
                   size="sm"
-                  variant={filterStatus === "VERIFIED_AT_SCALE" ? "default" : "outline"}
-                  onClick={() => setFilterStatus("VERIFIED_AT_SCALE")}
+                  variant={filterStatus === "VERIFIED" ? "default" : "outline"}
+                  onClick={() => setFilterStatus("VERIFIED")}
                 >
                   Verified
                 </Button>
@@ -150,6 +141,13 @@ const Admin = () => {
                 >
                   Delivered
                 </Button>
+                <Button
+                  size="sm"
+                  variant={filterStatus === "CLOSED" ? "default" : "outline"}
+                  onClick={() => setFilterStatus("CLOSED")}
+                >
+                  Closed
+                </Button>
               </div>
             </div>
           </Card>
@@ -159,7 +157,9 @@ const Admin = () => {
             <Card className="shadow-md">
               <div className="p-12 text-center">
                 <Package className="mx-auto mb-4 h-16 w-16 text-muted-foreground/50" />
-                <p className="text-lg font-medium text-foreground">No Tickets Found</p>
+                <p className="text-lg font-medium text-foreground">
+                  No Tickets Found
+                </p>
                 <p className="text-sm text-muted-foreground">
                   {searchQuery || filterStatus !== "all"
                     ? "Try adjusting your filters"
@@ -209,7 +209,9 @@ const Admin = () => {
                       </div>
                       {ticket.net_weight && (
                         <div>
-                          <span className="text-muted-foreground">Net Weight:</span>{" "}
+                          <span className="text-muted-foreground">
+                            Net Weight:
+                          </span>{" "}
                           <span className="font-medium text-foreground">
                             {ticket.net_weight.toFixed(0)} kg
                           </span>

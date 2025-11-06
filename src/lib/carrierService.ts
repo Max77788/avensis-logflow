@@ -302,6 +302,30 @@ export const carrierService = {
     }
   },
 
+  async updateDriverProfile(
+    driverId: string,
+    updates: {
+      default_truck_id?: string;
+      carrier_id?: string;
+    }
+  ): Promise<{ success: boolean; data?: Driver; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from("drivers")
+        .update(updates)
+        .eq("id", driverId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to update driver profile";
+      console.error("Error updating driver profile:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
   async getAllDrivers(): Promise<Driver[]> {
     try {
       const { data, error } = await supabase

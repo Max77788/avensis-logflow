@@ -63,11 +63,19 @@ All colors MUST be HSL.
     --status-pending: 30 95% 55%;
     --status-verified: 214 85% 35%;
     --status-delivered: 145 65% 45%;
-    
+
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(214 85% 35%) 0%, hsl(214 85% 45%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(145 65% 45%) 0%, hsl(145 70% 55%) 100%);
-    
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(214 85% 35%) 0%,
+      hsl(214 85% 45%) 100%
+    );
+    --gradient-success: linear-gradient(
+      135deg,
+      hsl(145 65% 45%) 0%,
+      hsl(145 70% 55%) 100%
+    );
+
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 hsl(215 25% 15% / 0.05);
     --shadow-md: 0 4px 6px -1px hsl(215 25% 15% / 0.1);
@@ -145,5 +153,56 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Smooth transitions for interactive elements */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    @apply transition-all duration-200;
+  }
+
+  /* Card hover effects */
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg;
+  }
+
+  /* Smooth fade in animation */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  /* Enhanced input focus states */
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply ring-2 ring-primary/50;
+  }
+
+  /* Smooth scale animation for active elements */
+  @keyframes scaleIn {
+    from {
+      transform: scale(0.98);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  .active\:scale-98:active {
+    transform: scale(0.98);
   }
 }
