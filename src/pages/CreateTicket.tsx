@@ -219,6 +219,12 @@ const CreateTicket = () => {
   const isDriverInactive =
     user?.role === "driver" && driverProfile?.status === "inactive";
 
+  // Check if shift has all required fields (carrier, truck, pickup location)
+  const isShiftComplete =
+    user?.role === "driver"
+      ? shift.carrier && shift.truck_id && shift.pickupLocation
+      : true;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -267,6 +273,27 @@ const CreateTicket = () => {
                 <p className="text-sm font-medium text-red-900 dark:text-red-100">
                   ⛔ Your driver status is inactive. Please start your shift at
                   your profile page to create tickets.
+                </p>
+                <Button
+                  onClick={() => navigate("/driver/profile")}
+                  className="mt-3 w-full"
+                  variant="default"
+                >
+                  Go to Profile
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Shift Not Complete Warning */}
+        {!isShiftComplete && !isDriverInactive && (
+          <div className="mx-auto max-w-2xl mb-6">
+            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+              <div className="p-4">
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  ⚠️ Please complete your shift setup (carrier, truck, and
+                  pickup location) at your profile page to create tickets.
                 </p>
                 <Button
                   onClick={() => navigate("/driver/profile")}
@@ -507,10 +534,17 @@ const CreateTicket = () => {
             type="submit"
             size="lg"
             className="w-full shadow-lg transition-all"
-            disabled={isSubmitting || hasActiveTicket}
+            disabled={
+              isSubmitting ||
+              hasActiveTicket ||
+              !isShiftComplete ||
+              isDriverInactive
+            }
             title={
               isDriverInactive
                 ? "Your driver status is inactive. Please start your shift at your profile page."
+                : !isShiftComplete
+                ? "Please complete your shift setup (carrier, truck, and pickup location) to create tickets."
                 : hasActiveTicket
                 ? "You have an active ticket. Complete it before creating a new one."
                 : ""
