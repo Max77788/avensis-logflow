@@ -139,23 +139,54 @@ const TicketDetails = () => {
     }
 
     setIsSubmitting(true);
+    console.log("[DELIVER] Starting delivery confirmation...");
 
     // Add a small delay before capturing location to ensure GPS is ready
+    console.log("[DELIVER] Waiting 500ms for GPS to initialize...");
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Capture location automatically when confirming
-    const capturedCoords = await captureLocation();
+    console.log("[DELIVER] Calling captureLocation()...");
+    let capturedCoords = await captureLocation();
+    console.log("[DELIVER] captureLocation returned:", capturedCoords);
+    console.log("[DELIVER] coordinates state:", coordinates);
+
+    // If function returned null but state has coordinates, use state
+    // This handles the race condition where GPS succeeds after promise resolves
+    if (!capturedCoords && coordinates) {
+      console.log("[DELIVER] Using state coordinates due to timing issue");
+      capturedCoords = coordinates;
+    }
+
+    // If still no coordinates, retry once more
+    if (!capturedCoords) {
+      console.log(
+        "[DELIVER] First attempt failed, retrying after 2 seconds..."
+      );
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      capturedCoords = await captureLocation();
+      console.log("[DELIVER] Second attempt returned:", capturedCoords);
+
+      // Again, check state if return is null
+      if (!capturedCoords && coordinates) {
+        console.log("[DELIVER] Using state coordinates from second attempt");
+        capturedCoords = coordinates;
+      }
+    }
 
     // Check if location was captured
     if (!capturedCoords) {
+      console.error("[DELIVER] No coordinates captured after retry!");
       setIsSubmitting(false);
       toast({
         title: "Location Required",
-        description: "Failed to capture your location. Please try again.",
+        description:
+          "Failed to capture your location. Please ensure location services are enabled and try again.",
         variant: "destructive",
       });
       return;
     }
+    console.log("[DELIVER] Location captured successfully:", capturedCoords);
 
     const result = await ticketService.updateTicket(id!, {
       destination_signature: signature,
@@ -207,23 +238,54 @@ const TicketDetails = () => {
     }
 
     setIsSigningOff(true);
+    console.log("[SIGNOFF] Starting driver sign-off...");
 
     // Add a small delay before capturing location to ensure GPS is ready
+    console.log("[SIGNOFF] Waiting 500ms for GPS to initialize...");
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Capture location simultaneously with sign-off
-    const capturedCoords = await captureLocation();
+    console.log("[SIGNOFF] Calling captureLocation()...");
+    let capturedCoords = await captureLocation();
+    console.log("[SIGNOFF] captureLocation returned:", capturedCoords);
+    console.log("[SIGNOFF] coordinates state:", coordinates);
+
+    // If function returned null but state has coordinates, use state
+    // This handles the race condition where GPS succeeds after promise resolves
+    if (!capturedCoords && coordinates) {
+      console.log("[SIGNOFF] Using state coordinates due to timing issue");
+      capturedCoords = coordinates;
+    }
+
+    // If still no coordinates, retry once more
+    if (!capturedCoords) {
+      console.log(
+        "[SIGNOFF] First attempt failed, retrying after 2 seconds..."
+      );
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      capturedCoords = await captureLocation();
+      console.log("[SIGNOFF] Second attempt returned:", capturedCoords);
+
+      // Again, check state if return is null
+      if (!capturedCoords && coordinates) {
+        console.log("[SIGNOFF] Using state coordinates from second attempt");
+        capturedCoords = coordinates;
+      }
+    }
 
     // Check if location was captured
     if (!capturedCoords) {
+      console.error("[SIGNOFF] No coordinates captured after retry!");
       setIsSigningOff(false);
       toast({
         title: "Location Required",
-        description: "Failed to capture your location. Please try again.",
+        description:
+          "Failed to capture your location. Please ensure location services are enabled and try again.",
         variant: "destructive",
       });
       return;
     }
+    console.log("[SIGNOFF] Location captured successfully:", capturedCoords);
 
     const result = await ticketService.updateTicket(id!, {
       driver_signature: driverSignature,
@@ -246,6 +308,13 @@ const TicketDetails = () => {
       // Reload ticket to show updated data
       const found = await ticketService.getTicket(id!);
       setTicket(found);
+
+      // Redirect to home page if user is a driver
+      if (user?.role === "driver") {
+        setTimeout(() => {
+          navigate("/");
+        }, 1500);
+      }
     } else {
       toast({
         title: "Error",
@@ -540,25 +609,26 @@ const TicketDetails = () => {
                       {/* Ticket ID Section */}
                       <div className="space-y-2 pt-2 border-t border-amber-200 dark:border-amber-800">
                         <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                          2. Or Enter Ticket ID
+                          2. Or Enter Ticket URL
                         </p>
                         <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-                          Alternatively, the destination attendant can type this
-                          ticket ID in their system to access and approve this
-                          ticket.
+                          Alternatively, the destination attendant can add this
+                          ticket URL to their system to approve the delivery.
                         </p>
                         <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-amber-200 dark:border-amber-800 dark:bg-amber-950/30">
                           <span className="text-xs text-muted-foreground">
                             Ticket ID:
                           </span>
                           <span className="font-mono font-bold text-foreground flex-1">
-                            {ticket.ticket_id}
+                            {`${window.location.origin}/tickets/${ticket.ticket_id}`}
                           </span>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              navigator.clipboard.writeText(ticket.ticket_id);
+                              navigator.clipboard.writeText(
+                                `${window.location.origin}/tickets/${ticket.ticket_id}`
+                              );
                               toast({
                                 title: "Copied",
                                 description: "Ticket ID copied to clipboard",

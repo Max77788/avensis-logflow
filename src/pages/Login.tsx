@@ -82,7 +82,7 @@ const Login = () => {
               className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
               onClick={() => setStep("driver-login")}
             >
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-4 flex flex-col items-center text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 group-hover:bg-green-200 transition-colors">
                   <User className="h-6 w-6 text-green-600" />
                 </div>
@@ -104,7 +104,7 @@ const Login = () => {
               className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
               onClick={handleAttendantClick}
             >
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-4 flex flex-col items-center text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 group-hover:bg-blue-200 transition-colors">
                   <QrCode className="h-6 w-6 text-blue-600" />
                 </div>
@@ -126,7 +126,7 @@ const Login = () => {
               className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
               onClick={() => navigate("/overview")}
             >
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-4 flex flex-col items-center text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 group-hover:bg-purple-200 transition-colors">
                   <QrCode className="h-6 w-6 text-purple-600" />
                 </div>

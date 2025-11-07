@@ -673,7 +673,7 @@ const CreateTicket = () => {
               ) : (
                 <>
                   <Save className="mr-2 h-5 w-5" />
-                  Create & Verify Ticket
+                  Activate Ticket
                 </>
               )}
             </Button>
