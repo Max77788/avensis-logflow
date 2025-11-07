@@ -209,8 +209,8 @@ const CreateTicket = () => {
     setIsSubmitting(false);
 
     if (result.success) {
-      // Redirect to Scale House screen instead of ticket details
-      navigate(`/scale-house`, { state: { ticket } });
+      // Redirect to ticket details page
+      navigate(`/ticket/${ticket.ticket_id}`);
     }
   };
 
