@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SignaturePad } from "@/components/SignaturePad";
 import { TicketImageUpload } from "@/components/TicketImageUpload";
 import { ArrowLeft, Save, Weight, Loader2, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useShift } from "@/contexts/ShiftContext";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService, type Carrier } from "@/lib/carrierService";
@@ -27,6 +29,7 @@ const CreateTicket = () => {
   const navigate = useNavigate();
   const { user, driverProfile } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { shift } = useShift();
   const [searchParams] = useSearchParams();
   const truckFromQR = searchParams.get("truck");
 
@@ -74,38 +77,45 @@ const CreateTicket = () => {
     const loadData = async () => {
       // If driver is logged in, auto-fill their data
       if (user?.role === "driver" && driverProfile) {
-        // Try to load shift defaults from localStorage first
-        let shiftDefaults = null;
-        try {
-          const stored = localStorage.getItem("shiftDefaults");
-          if (stored) {
-            shiftDefaults = JSON.parse(stored);
-          }
-        } catch (e) {
-          console.error("Failed to parse shift defaults:", e);
-        }
-
-        // Get the carrier name from the carrier ID or shift defaults
-        let carrierName = shiftDefaults?.carrier || "";
+        // Get the carrier name from the carrier ID
+        let carrierName = "";
         let carrierId = "";
-        if (driverProfile.carrier_id) {
+
+        // First, check if there's an active shift
+        if (shift.isActive && shift.carrier) {
+          carrierName = shift.carrier;
+          carrierId = shift.carrier_id || "";
+        } else if (driverProfile.carrier_id) {
+          // Fall back to driver profile carrier
           const carrier = carriers.find(
             (c) => c.id === driverProfile.carrier_id
           );
-          carrierName = carrier?.name || shiftDefaults?.carrier || "";
+          carrierName = carrier?.name || "";
           carrierId = driverProfile.carrier_id;
         }
 
-        // Get the truck name from shift defaults or driver profile
-        // Note: default_truck_id stores the truck name directly, not a UUID
-        let truckName =
-          truckFromQR ||
-          shiftDefaults?.truck_id ||
-          driverProfile.default_truck_id ||
-          "";
+        // Get the truck name from active shift or QR code
+        let truckName = "";
+        if (truckFromQR) {
+          truckName = truckFromQR;
+        } else if (shift.isActive && shift.truck_id) {
+          // Use truck from active shift
+          truckName = shift.truck_id;
+        } else {
+          // Fall back to driver profile default truck
+          truckName = driverProfile.default_truck_id || "";
+        }
 
-        // Get pickup location from shift defaults
-        const pickupLocation = shiftDefaults?.pickup_location || "";
+        // Get pickup location from active shift
+        const pickupLocation =
+          shift.isActive && shift.pickupLocation ? shift.pickupLocation : "";
+
+        console.log("CreateTicket loading data:", {
+          carrierName,
+          truckName,
+          pickupLocation,
+          shiftActive: shift.isActive,
+        });
 
         setFormData((prev) => ({
           ...prev,
@@ -119,7 +129,7 @@ const CreateTicket = () => {
       }
     };
     loadData();
-  }, [user, driverProfile, carriers, truckFromQR]);
+  }, [user, driverProfile, carriers, truckFromQR, shift]);
 
   // Check for active tickets only once when driver profile is loaded
   useEffect(() => {
@@ -178,7 +188,7 @@ const CreateTicket = () => {
       truck_qr_id: `TRUCK-${formData.truck_id}`,
       truck_id: formData.truck_id,
       product: "", // Optional field, left empty
-      origin_site: "", // Will be filled during delivery
+      origin_site: formData.pickup_location, // Pickup location as origin
       destination_site: formData.destination_site,
       net_weight: parseFloat(formData.net_weight) || 0,
       scale_operator_signature: signature,
@@ -203,6 +213,13 @@ const CreateTicket = () => {
       navigate(`/scale-house`, { state: { ticket } });
     }
   };
+
+  // Check if driver's shift is active
+  const isShiftActive = user?.role === "driver" ? shift.isActive : true;
+
+  // Check if driver is inactive
+  const isDriverInactive =
+    user?.role === "driver" && driverProfile?.status === "inactive";
 
   return (
     <div className="min-h-screen bg-background">
@@ -242,8 +259,51 @@ const CreateTicket = () => {
         </div>
       </header>
 
-      {/* Form */}
+      {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
+        {/* Driver Inactive Warning */}
+        {isDriverInactive && (
+          <div className="mx-auto max-w-2xl mb-6">
+            <Card className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
+              <div className="p-4">
+                <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                  ⛔ Your driver status is inactive. Please start your shift at
+                  your profile page to create tickets.
+                </p>
+                <Button
+                  onClick={() => navigate("/driver/profile")}
+                  className="mt-3 w-full"
+                  variant="default"
+                >
+                  Go to Profile
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Shift Not Active Warning */}
+        {!isShiftActive && !isDriverInactive && (
+          <div className="mx-auto max-w-2xl mb-6">
+            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+              <div className="p-4">
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                  ⚠️ Your shift is not active. Please start your shift first to
+                  create tickets.
+                </p>
+                <Button
+                  onClick={() => navigate("/driver/profile")}
+                  className="mt-3 w-full"
+                  variant="default"
+                >
+                  Start Shift
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Form */}
         <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
           {/* Truck Info - Compact for Mobile */}
           <Card className="overflow-hidden shadow-md">
@@ -274,6 +334,7 @@ const CreateTicket = () => {
                         setFormData({
                           ...formData,
                           carrier: value,
+                          truck_id: "", // Clear truck when carrier changes
                         })
                       }
                       placeholder="Select"
@@ -293,7 +354,12 @@ const CreateTicket = () => {
                           value: carrier,
                           label: carrier,
                         })),
-                      ]}
+                      ].sort((a, b) =>
+                        a.label.localeCompare(b.label, undefined, {
+                          numeric: true,
+                          sensitivity: "base",
+                        })
+                      )}
                     />
                   )}
                 </div>
@@ -313,13 +379,21 @@ const CreateTicket = () => {
                       onValueChange={(value) =>
                         setFormData({ ...formData, truck_id: value })
                       }
-                      placeholder="Select"
-                      items={getTrucksByCarrier(formData.carrier).map(
-                        (truck) => ({
+                      placeholder="Select Truck"
+                      className={cn(
+                        !formData.truck_id && "border-red-500 border-2"
+                      )}
+                      items={getTrucksByCarrier(formData.carrier)
+                        .map((truck) => ({
                           value: truck,
                           label: truck,
-                        })
-                      )}
+                        }))
+                        .sort((a, b) =>
+                          a.label.localeCompare(b.label, undefined, {
+                            numeric: true,
+                            sensitivity: "base",
+                          })
+                        )}
                     />
                   )}
                 </div>
@@ -363,7 +437,12 @@ const CreateTicket = () => {
                   items={PICKUP_LOCATIONS.map((location) => ({
                     value: location,
                     label: location,
-                  }))}
+                  })).sort((a, b) =>
+                    a.label.localeCompare(b.label, undefined, {
+                      numeric: true,
+                      sensitivity: "base",
+                    })
+                  )}
                 />
               </div>
               <div>
@@ -374,10 +453,17 @@ const CreateTicket = () => {
                     setFormData({ ...formData, destination_site: value })
                   }
                   placeholder="Select destination site"
-                  items={destinationSites.map((site) => ({
-                    value: site,
-                    label: site,
-                  }))}
+                  items={destinationSites
+                    .map((site) => ({
+                      value: site,
+                      label: site,
+                    }))
+                    .sort((a, b) =>
+                      a.label.localeCompare(b.label, undefined, {
+                        numeric: true,
+                        sensitivity: "base",
+                      })
+                    )}
                 />
               </div>
             </div>
@@ -402,7 +488,10 @@ const CreateTicket = () => {
                   onChange={handleChange}
                   required
                   placeholder="0.00"
-                  className="mt-1"
+                  className={cn(
+                    "mt-1",
+                    !formData.net_weight && "border-red-500 border-2"
+                  )}
                 />
               </div>
             </div>
@@ -441,9 +530,18 @@ const CreateTicket = () => {
             type="submit"
             size="lg"
             className="w-full shadow-lg transition-all"
-            disabled={isSubmitting || hasActiveTicket}
+            disabled={
+              isSubmitting ||
+              hasActiveTicket ||
+              !isShiftActive ||
+              isDriverInactive
+            }
             title={
-              hasActiveTicket
+              isDriverInactive
+                ? "Your driver status is inactive. Please start your shift at your profile page."
+                : !isShiftActive
+                ? "Please start your shift first to create tickets."
+                : hasActiveTicket
                 ? "You have an active ticket. Complete it before creating a new one."
                 : ""
             }

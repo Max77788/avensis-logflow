@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/SignaturePad";
+import { TicketImageDisplay } from "@/components/TicketImageDisplay";
 import {
   ArrowLeft,
   Weight,
@@ -84,7 +85,7 @@ const DestinationAttendant = () => {
       destination_signature: signature,
       delivery_gps: `${coordinates.latitude},${coordinates.longitude}`,
       delivered_at: new Date().toISOString(),
-      status: "DELIVERED",
+      status: "CLOSED",
       confirmer_name: confirmerName.trim(),
     });
 
@@ -150,7 +151,9 @@ const DestinationAttendant = () => {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Delivery Confirmation</h1>
-            <p className="text-sm text-muted-foreground">Ticket {ticket.ticket_id}</p>
+            <p className="text-sm text-muted-foreground">
+              Ticket {ticket.ticket_id}
+            </p>
           </div>
         </div>
 
@@ -164,7 +167,9 @@ const DestinationAttendant = () => {
           <div className="space-y-3 p-4">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Driver:</span>
-              <span className="font-semibold">{ticket.driver_name || "N/A"}</span>
+              <span className="font-semibold">
+                {ticket.driver_name || "N/A"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Carrier:</span>
@@ -262,10 +267,7 @@ const DestinationAttendant = () => {
 
             {/* Signature */}
             <div>
-              <SignaturePad
-                onSave={setSignature}
-                label="Your Signature *"
-              />
+              <SignaturePad onSave={setSignature} label="Your Signature *" />
             </div>
 
             {/* Action Buttons */}
@@ -300,6 +302,14 @@ const DestinationAttendant = () => {
           </div>
         </Card>
 
+        {/* Ticket Image - If available */}
+        {ticket.ticket_image_url && (
+          <TicketImageDisplay
+            imageUrl={ticket.ticket_image_url}
+            ticketId={ticket.ticket_id}
+          />
+        )}
+
         {/* Success Animation */}
         {showSuccessAnimation && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -327,4 +337,3 @@ const DestinationAttendant = () => {
 };
 
 export default DestinationAttendant;
-

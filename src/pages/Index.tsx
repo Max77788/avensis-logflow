@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { QRScanner } from "@/components/QRScanner";
 import {
   QrCode,
@@ -13,6 +14,7 @@ import {
   Sun,
   Inbox,
   MapPin,
+  Search,
 } from "lucide-react";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService } from "@/lib/carrierService";
@@ -24,9 +26,19 @@ import type { Ticket } from "@/lib/types";
 const Index = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
+  const [ticketIdInput, setTicketIdInput] = useState("");
   const navigate = useNavigate();
   const { user, driverProfile, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+
+  const handleTicketIdSearch = () => {
+    if (ticketIdInput.trim()) {
+      // Remove "TKT-" prefix if present and navigate
+      const ticketId = ticketIdInput.trim().toUpperCase();
+      navigate(`/tickets/${ticketId}`);
+      setTicketIdInput("");
+    }
+  };
 
   useEffect(() => {
     const loadRecentTickets = async () => {
@@ -191,6 +203,47 @@ const Index = () => {
                   </Button>
                 </div>
               </Card>
+
+              {/* Ticket ID Search - For Attendants */}
+              {user?.role === "attendant" && (
+                <Card className="overflow-hidden shadow-md">
+                  <div className="space-y-4 p-6">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-100 transition-colors">
+                      <Search className="h-7 w-7 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="mb-1 text-lg font-bold text-foreground">
+                        Enter Ticket ID
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Type ticket ID (e.g., TKT-12345) to access a ticket
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="TKT-12345"
+                        value={ticketIdInput}
+                        onChange={(e) =>
+                          setTicketIdInput(e.target.value.toUpperCase())
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleTicketIdSearch();
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={handleTicketIdSearch}
+                        disabled={!ticketIdInput.trim()}
+                        size="lg"
+                      >
+                        Search
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
             </div>
           )}
 
@@ -213,7 +266,7 @@ const Index = () => {
                     </p>
                   </div>
                   <Button className="w-full" size="lg">
-                    Create New
+                    Create New Ticket +
                   </Button>
                 </div>
               </Card>

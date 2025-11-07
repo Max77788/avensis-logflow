@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/SignaturePad";
+import { TicketImageDisplay } from "@/components/TicketImageDisplay";
 import { useGPS } from "@/hooks/useGPS";
 import { ArrowLeft, MapPin, CheckCircle, Loader2, User } from "lucide-react";
 import type { Ticket } from "@/lib/types";
@@ -50,7 +51,7 @@ const DeliverTicket = () => {
       destination_signature: signature,
       delivery_gps: `${coordinates.latitude},${coordinates.longitude}`,
       delivered_at: new Date().toISOString(),
-      status: "DELIVERED",
+      status: "CLOSED",
       confirmer_name: confirmerName.trim(),
     });
 
@@ -278,6 +279,14 @@ const DeliverTicket = () => {
                 </Card>
               )}
             </div>
+
+            {/* Ticket Image - If available */}
+            {ticket.ticket_image_url && (
+              <TicketImageDisplay
+                imageUrl={ticket.ticket_image_url}
+                ticketId={ticket.ticket_id}
+              />
+            )}
 
             {/* Confirmation Form - Inline Expansion */}
             {!showConfirmationForm ? (

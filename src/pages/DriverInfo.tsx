@@ -179,7 +179,12 @@ const DriverInfo = () => {
                   items={CARRIERS.map((carrier) => ({
                     value: carrier,
                     label: carrier,
-                  }))}
+                  })).sort((a, b) =>
+                    a.label.localeCompare(b.label, undefined, {
+                      numeric: true,
+                      sensitivity: "base",
+                    })
+                  )}
                   placeholder="Select carrier"
                 />
               ) : (
@@ -204,10 +209,17 @@ const DriverInfo = () => {
                   onValueChange={(value) =>
                     setEditData({ ...editData, truck: value })
                   }
-                  items={getTrucksByCarrier(editData.carrier).map((truck) => ({
-                    value: truck,
-                    label: truck,
-                  }))}
+                  items={getTrucksByCarrier(editData.carrier)
+                    .map((truck) => ({
+                      value: truck,
+                      label: truck,
+                    }))
+                    .sort((a, b) =>
+                      a.label.localeCompare(b.label, undefined, {
+                        numeric: true,
+                        sensitivity: "base",
+                      })
+                    )}
                   placeholder="Select truck"
                 />
               ) : (
@@ -238,7 +250,12 @@ const DriverInfo = () => {
                   items={PICKUP_LOCATIONS.map((location) => ({
                     value: location,
                     label: location,
-                  }))}
+                  })).sort((a, b) =>
+                    a.label.localeCompare(b.label, undefined, {
+                      numeric: true,
+                      sensitivity: "base",
+                    })
+                  )}
                   placeholder="Select pickup location"
                 />
               ) : (

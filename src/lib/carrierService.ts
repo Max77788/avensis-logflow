@@ -283,6 +283,22 @@ export const carrierService = {
     }
   },
 
+  async getDriverById(driverId: string): Promise<Driver | null> {
+    try {
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("*")
+        .eq("id", driverId)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data || null;
+    } catch (error) {
+      console.error("Error fetching driver by ID:", error);
+      return null;
+    }
+  },
+
   async updateDriverStatus(
     driverId: string,
     status: "active" | "inactive"
@@ -310,15 +326,29 @@ export const carrierService = {
     }
   ): Promise<{ success: boolean; data?: Driver; error?: string }> {
     try {
+      console.log("updateDriverProfile called with:", { driverId, updates });
+
+      // Perform the update directly without checking first
       const { data, error } = await supabase
         .from("drivers")
         .update(updates)
         .eq("id", driverId)
-        .select()
-        .single();
+        .select();
 
-      if (error) throw error;
-      return { success: true, data };
+      console.log("Update response:", { data, error });
+
+      if (error) {
+        console.error("Update error:", error);
+        throw error;
+      }
+
+      // Return the first updated record (should be only one)
+      if (!data || data.length === 0) {
+        throw new Error("Update returned no rows - driver may not exist");
+      }
+
+      console.log("Update successful:", data[0]);
+      return { success: true, data: data[0] };
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to update driver profile";
       console.error("Error updating driver profile:", error);

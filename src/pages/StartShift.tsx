@@ -10,8 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, ArrowRight, Truck, MapPin, Building2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
+import {
+  Loader2,
+  ArrowRight,
+  Truck as TruckIcon,
+  MapPin,
+  Building2,
+} from "lucide-react";
 import { useShift } from "@/contexts/ShiftContext";
 import { carrierService } from "@/lib/carrierService";
 import {
@@ -20,18 +26,15 @@ import {
   getTrucksByCarrier,
 } from "@/lib/trucksAndCarriers";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import type { Carrier, Truck } from "@/lib/carrierService";
+import type { Carrier } from "@/lib/carrierService";
 
 const StartShift = () => {
   const navigate = useNavigate();
-  const { driverProfile } = useAuth();
   const { startShift } = useShift();
   const [isLoading, setIsLoading] = useState(false);
   const [dbCarriers, setDbCarriers] = useState<Carrier[]>([]);
   const [selectedCarrier, setSelectedCarrier] = useState<string>("");
-  const [selectedTruck, setSelectedTruck] = useState<string>(
-    driverProfile?.default_truck_id || ""
-  );
+  const [selectedTruck, setSelectedTruck] = useState<string>("");
   const [pickupLocation, setPickupLocation] = useState<string>("");
 
   // Fetch database carriers on mount
@@ -85,7 +88,7 @@ const StartShift = () => {
           truckId,
           pickupLocation
         );
-        navigate("/driver/dashboard");
+        navigate("/driver/profile");
       }
     } catch (error) {
       console.error("Error starting shift:", error);
@@ -117,7 +120,12 @@ const StartShift = () => {
               items={CARRIERS.map((carrier) => ({
                 value: carrier,
                 label: carrier,
-              }))}
+              })).sort((a, b) =>
+                a.label.localeCompare(b.label, undefined, {
+                  numeric: true,
+                  sensitivity: "base",
+                })
+              )}
               placeholder="Select carrier"
             />
           </div>
@@ -125,16 +133,23 @@ const StartShift = () => {
           {/* Truck Selection */}
           <div className="space-y-2">
             <Label htmlFor="truck" className="flex items-center gap-2">
-              <Truck className="h-4 w-4" />
+              <TruckIcon className="h-4 w-4" />
               Truck
             </Label>
             <SearchableSelect
               value={selectedTruck}
               onValueChange={setSelectedTruck}
-              items={getTrucksByCarrier(selectedCarrier).map((truck) => ({
-                value: truck,
-                label: truck,
-              }))}
+              items={getTrucksByCarrier(selectedCarrier)
+                .map((truck) => ({
+                  value: truck,
+                  label: truck,
+                }))
+                .sort((a, b) =>
+                  a.label.localeCompare(b.label, undefined, {
+                    numeric: true,
+                    sensitivity: "base",
+                  })
+                )}
               placeholder="Select truck"
             />
           </div>
@@ -146,15 +161,25 @@ const StartShift = () => {
               Pickup Location
             </Label>
             <Select value={pickupLocation} onValueChange={setPickupLocation}>
-              <SelectTrigger id="pickup">
+              <SelectTrigger
+                id="pickup"
+                className={cn(!pickupLocation && "border-red-500 border-2")}
+              >
                 <SelectValue placeholder="Select pickup location" />
               </SelectTrigger>
               <SelectContent>
-                {PICKUP_LOCATIONS.map((location) => (
-                  <SelectItem key={location} value={location}>
-                    {location}
-                  </SelectItem>
-                ))}
+                {[...PICKUP_LOCATIONS]
+                  .sort((a, b) =>
+                    a.localeCompare(b, undefined, {
+                      numeric: true,
+                      sensitivity: "base",
+                    })
+                  )
+                  .map((location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

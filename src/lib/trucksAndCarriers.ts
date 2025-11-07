@@ -499,8 +499,30 @@ export const searchCarriers = (query: string): string[] => {
   );
 };
 
-// Pickup locations
-export const PICKUP_LOCATIONS = ["Enzo"];
+// Pickup locations - sorted alphabetically A to Z
+export const PICKUP_LOCATIONS = [
+  "Double EE",
+  "Enzo",
+  "Funston Solar",
+  "Impact Site",
+  "Jones City",
+  "Return Mountain",
+  "Sea Bank",
+  "Tiger Solar",
+].sort((a, b) =>
+  a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+);
 
-// Destination sites
-export const DESTINATION_SITES = ["Kiewit", "Mccarthy", "Tindol"];
+// Destination sites - sorted alphabetically A to Z
+export const DESTINATION_SITES = [
+  "Double EE",
+  "Impact Site",
+  "Kiewit",
+  "McCarthy",
+  "McCarthy Log",
+  "Return Mountain",
+  "Sea Bank",
+  "Tindol",
+].sort((a, b) =>
+  a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+);

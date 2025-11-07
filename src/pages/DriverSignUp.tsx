@@ -51,7 +51,7 @@ const DriverSignUp = () => {
     }
   }, [formData.carrier_id]);
 
-  // Combine database carriers with static list
+  // Combine database carriers with static list - sorted alphabetically
   const carriersList = [
     // First add database carriers
     ...carriers.map((carrier) => ({
@@ -66,10 +66,15 @@ const DriverSignUp = () => {
       value: carrier,
       label: carrier,
     })),
-  ];
+  ].sort((a, b) =>
+    a.label.localeCompare(b.label, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    })
+  );
 
-  // Fallback to static trucks if database trucks are empty
-  const trucksList =
+  // Fallback to static trucks if database trucks are empty - sorted alphabetically
+  const trucksList = (
     trucks.length > 0
       ? trucks.map((truck) => ({
           value: truck.id,
@@ -80,7 +85,13 @@ const DriverSignUp = () => {
         ).map((truck) => ({
           value: truck,
           label: truck,
-        }));
+        }))
+  ).sort((a, b) =>
+    a.label.localeCompare(b.label, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    })
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

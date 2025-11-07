@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,34 +17,40 @@ import {
   Download,
   Power,
   Home,
-  Edit2,
   AlertCircle,
   Moon,
   Sun,
+  MapPin,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useShift } from "@/contexts/ShiftContext";
 import { carrierService } from "@/lib/carrierService";
 import { ticketService } from "@/lib/ticketService";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { Ticket } from "@/lib/types";
-import { CARRIERS, getTrucksByCarrier } from "@/lib/trucksAndCarriers";
+import {
+  CARRIERS,
+  getTrucksByCarrier,
+  PICKUP_LOCATIONS,
+} from "@/lib/trucksAndCarriers";
 
 const DriverProfile = () => {
   const navigate = useNavigate();
   const { user, driverProfile, logout, updateDriverStatus, setDriverProfile } =
     useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { shift, updateShift } = useShift();
   const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
   const [isLoadingTickets, setIsLoadingTickets] = useState(true);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [carrierName, setCarrierName] = useState<string>("");
   const [editFormData, setEditFormData] = useState({
     truck_id: driverProfile?.default_truck_id || "",
     carrier_id: driverProfile?.carrier_id || "",
+    pickup_location: shift?.pickupLocation || "",
   });
 
   // Load carrier name from UUID
@@ -98,8 +105,6 @@ const DriverProfile = () => {
     };
 
     loadActiveTickets();
-    const interval = setInterval(loadActiveTickets, 5000);
-    return () => clearInterval(interval);
   }, [user, driverProfile, navigate]);
 
   const handleToggleStatus = async () => {
@@ -126,10 +131,8 @@ const DriverProfile = () => {
     }
   };
 
-  const handleSaveProfileChanges = async () => {
-    if (!driverProfile || !editFormData.truck_id) {
-      return;
-    }
+  const handleCarrierChange = async (carrierName: string) => {
+    if (!driverProfile) return;
 
     setIsUpdatingProfile(true);
     try {
@@ -137,13 +140,17 @@ const DriverProfile = () => {
         default_truck_id: editFormData.truck_id,
       };
 
-      // If carrier is selected, look up its ID or create it
-      if (editFormData.carrier_id) {
+      let carrierIdForShift = driverProfile.carrier_id;
+      let carrierNameForShift = carrierName;
+
+      if (carrierName) {
         const carrierResult = await carrierService.getOrCreateCarrier(
-          editFormData.carrier_id
+          carrierName
         );
         if (carrierResult.success && carrierResult.data) {
           updates.carrier_id = carrierResult.data.id;
+          carrierIdForShift = carrierResult.data.id;
+          carrierNameForShift = carrierResult.data.name;
         } else {
           throw new Error(
             carrierResult.error || `Failed to get or create carrier`
@@ -158,12 +165,150 @@ const DriverProfile = () => {
 
       if (result.success && result.data) {
         setDriverProfile(result.data);
-        setIsEditingProfile(false);
+        setCarrierName(carrierNameForShift);
+
+        // Sync with ShiftContext
+        updateShift({
+          carrier: carrierNameForShift,
+          carrier_id: carrierIdForShift,
+          truck_id: editFormData.truck_id,
+          truck: editFormData.truck_id,
+          pickupLocation: editFormData.pickup_location,
+        });
+
+        console.log("Carrier updated successfully");
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || "Failed to update carrier");
+      }
+    } catch (error: any) {
+      console.error("Error updating carrier:", error);
+      alert(`Error updating carrier: ${error.message}`);
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handleTruckChange = async (truckId: string) => {
+    if (!driverProfile || !truckId) return;
+
+    setIsUpdatingProfile(true);
+    try {
+      const updates = {
+        default_truck_id: truckId,
+      };
+
+      const result = await carrierService.updateDriverProfile(
+        driverProfile.id,
+        updates
+      );
+
+      if (result.success && result.data) {
+        setDriverProfile(result.data);
+
+        // Sync with ShiftContext
+        updateShift({
+          carrier: editFormData.carrier_id,
+          carrier_id: driverProfile.carrier_id,
+          truck_id: truckId,
+          truck: truckId,
+          pickupLocation: editFormData.pickup_location,
+        });
+
+        console.log("Truck updated successfully");
+      } else {
+        throw new Error(result.error || "Failed to update truck");
+      }
+    } catch (error: any) {
+      console.error("Error updating truck:", error);
+      alert(`Error updating truck: ${error.message}`);
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handlePickupLocationChange = (location: string) => {
+    // Update ShiftContext immediately for pickup location
+    updateShift({
+      carrier: editFormData.carrier_id,
+      carrier_id: driverProfile?.carrier_id,
+      truck_id: editFormData.truck_id,
+      truck: editFormData.truck_id,
+      pickupLocation: location,
+    });
+
+    console.log("Pickup location updated successfully");
+  };
+
+  const handleSaveProfileChanges = async () => {
+    if (!driverProfile || !editFormData.truck_id) {
+      alert("Please select a truck");
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    try {
+      // First, verify the driver exists in the database
+      console.log("Verifying driver exists:", driverProfile.id);
+      const dbDriver = await carrierService.getDriverById(driverProfile.id);
+
+      if (!dbDriver) {
+        throw new Error("Driver not found in database. Please log in again.");
+      }
+
+      console.log("Driver verified:", dbDriver);
+
+      const updates: any = {
+        default_truck_id: editFormData.truck_id,
+      };
+
+      // If carrier is selected, look up its ID or create it
+      let carrierIdForShift = driverProfile.carrier_id;
+      let carrierNameForShift = editFormData.carrier_id;
+
+      if (editFormData.carrier_id) {
+        const carrierResult = await carrierService.getOrCreateCarrier(
+          editFormData.carrier_id
+        );
+        if (carrierResult.success && carrierResult.data) {
+          updates.carrier_id = carrierResult.data.id;
+          carrierIdForShift = carrierResult.data.id;
+          carrierNameForShift = carrierResult.data.name;
+        } else {
+          throw new Error(
+            carrierResult.error || `Failed to get or create carrier`
+          );
+        }
+      }
+
+      console.log("Updating driver profile with:", {
+        driverId: driverProfile.id,
+        updates,
+      });
+
+      const result = await carrierService.updateDriverProfile(
+        driverProfile.id,
+        updates
+      );
+
+      if (result.success && result.data) {
+        setDriverProfile(result.data);
+
+        // Sync with ShiftContext
+        updateShift({
+          carrier: carrierNameForShift,
+          carrier_id: carrierIdForShift,
+          truck_id: editFormData.truck_id,
+          truck: editFormData.truck_id,
+          pickupLocation: editFormData.pickup_location,
+        });
+
+        console.log("Profile updated successfully and synced with shift");
+      } else {
+        throw new Error(result.error || "Failed to update profile");
       }
     } catch (error: any) {
       console.error("Error updating profile:", error);
+      alert(`Error updating profile: ${error.message}`);
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -338,133 +483,86 @@ const DriverProfile = () => {
                 My Truck & Carrier
               </h3>
 
-              {isEditingProfile ? (
-                <div className="space-y-4">
-                  {/* Carrier Selection */}
-                  <div>
-                    <Label className="text-sm font-medium">
-                      Select Carrier
-                    </Label>
-                    <SearchableSelect
-                      value={editFormData.carrier_id}
-                      onValueChange={(value) =>
-                        setEditFormData({ ...editFormData, carrier_id: value })
-                      }
-                      items={CARRIERS.map((carrier) => ({
-                        value: carrier,
-                        label: carrier,
-                      }))}
-                      placeholder="Choose a carrier (optional)"
-                    />
-                  </div>
+              <div className="space-y-4">
+                {/* Carrier Selection - Always Editable */}
+                <div>
+                  <Label className="text-sm font-medium">Select Carrier</Label>
+                  <SearchableSelect
+                    value={editFormData.carrier_id}
+                    onValueChange={(value) => {
+                      setEditFormData({ ...editFormData, carrier_id: value });
+                      handleCarrierChange(value);
+                    }}
+                    items={CARRIERS.map((carrier) => ({
+                      value: carrier,
+                      label: carrier,
+                    })).sort((a, b) =>
+                      a.label.localeCompare(b.label, undefined, {
+                        numeric: true,
+                        sensitivity: "base",
+                      })
+                    )}
+                    placeholder="Choose a carrier (optional)"
+                  />
+                </div>
 
-                  {/* Truck Selection */}
-                  <div>
-                    <Label className="text-sm font-medium">
-                      Select Truck *
-                    </Label>
-                    <SearchableSelect
-                      value={editFormData.truck_id}
-                      onValueChange={(value) =>
-                        setEditFormData({ ...editFormData, truck_id: value })
-                      }
-                      items={getTrucksByCarrier(editFormData.carrier_id).map(
-                        (truck) => ({
-                          value: truck,
-                          label: truck,
+                {/* Truck Selection - Always Editable */}
+                <div>
+                  <Label className="text-sm font-medium">Select Truck *</Label>
+                  <SearchableSelect
+                    value={editFormData.truck_id}
+                    onValueChange={(value) => {
+                      setEditFormData({ ...editFormData, truck_id: value });
+                      handleTruckChange(value);
+                    }}
+                    items={getTrucksByCarrier(editFormData.carrier_id)
+                      .map((truck) => ({
+                        value: truck,
+                        label: truck,
+                      }))
+                      .sort((a, b) =>
+                        a.label.localeCompare(b.label, undefined, {
+                          numeric: true,
+                          sensitivity: "base",
                         })
                       )}
-                      placeholder="Choose a truck"
-                    />
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 pt-4">
-                    <Button
-                      onClick={handleSaveProfileChanges}
-                      disabled={isUpdatingProfile || !editFormData.truck_id}
-                      className="flex-1"
-                    >
-                      {isUpdatingProfile ? "Saving..." : "Save Changes"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsEditingProfile(false)}
-                      disabled={isUpdatingProfile}
-                      className="flex-1"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
+                    placeholder="Choose a truck"
+                  />
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Carrier Display */}
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">
-                      Carrier
-                    </Label>
-                    <div className="p-3 border border-border rounded-md bg-muted/30">
-                      <p className="font-medium text-foreground">
-                        {carrierName || "Not set"}
-                      </p>
-                    </div>
-                  </div>
 
-                  {/* Truck Display */}
-                  <div>
-                    <Label className="text-sm font-medium mb-2 block">
-                      Current Truck
-                    </Label>
-                    <div className="p-3 border border-border rounded-md bg-muted/30">
-                      <p className="font-medium text-foreground">
-                        {driverProfile.default_truck_id || "Not set"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Edit Button */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
+                {/* Pickup Location Selection - Always Editable */}
+                <div>
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Pickup Location
+                  </Label>
+                  <SearchableSelect
+                    value={editFormData.pickup_location}
+                    onValueChange={(value) => {
                       setEditFormData({
-                        truck_id: driverProfile.default_truck_id || "",
-                        carrier_id: driverProfile.carrier_id || "",
+                        ...editFormData,
+                        pickup_location: value,
                       });
-                      setIsEditingProfile(true);
+                      handlePickupLocationChange(value);
                     }}
-                    className="w-full"
-                  >
-                    <Edit2 className="h-4 w-4 mr-2" />
-                    Edit Truck & Carrier
-                  </Button>
+                    items={PICKUP_LOCATIONS.map((location) => ({
+                      value: location,
+                      label: location,
+                    })).sort((a, b) =>
+                      a.label.localeCompare(b.label, undefined, {
+                        numeric: true,
+                        sensitivity: "base",
+                      })
+                    )}
+                    placeholder="Choose pickup location"
+                  />
                 </div>
-              )}
+              </div>
             </div>
           </Card>
 
           {/* Show different content based on shift status */}
-          {driverProfile.status === "inactive" ? (
-            // INACTIVE STATE: Show minimal info
-            <Card className="p-6 border-muted-foreground/20 bg-muted/30">
-              <div className="text-center space-y-4">
-                {/*
-                <p className="text-muted-foreground">
-                  Start your shift to begin creating tickets
-                </p>
-                <Button
-                  onClick={handleToggleStatus}
-                  disabled={isTogglingStatus}
-                  className="w-full"
-                >
-                  <Power className="mr-2 h-4 w-4" />
-                  Start the Shift
-                </Button>
-                */}
-              </div>
-            </Card>
-          ) : (
+          {driverProfile.status === "inactive" ? null : (
             // ACTIVE STATE: Show full dashboard
             <>
               {/* QR Code Card */}

@@ -176,7 +176,7 @@ export const ticketService = {
         .from("tickets")
         .select("*")
         .eq("driver_id", driverId)
-        .in("status", ["CREATED", "VERIFIED", "DELIVERED"])
+        .in("status", ["CREATED", "VERIFIED"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -394,8 +394,7 @@ export const ticketService = {
   isValidStatusTransition(currentStatus: string, newStatus: string): boolean {
     const validTransitions: Record<string, string[]> = {
       CREATED: ["VERIFIED"],
-      VERIFIED: ["DELIVERED"],
-      DELIVERED: ["CLOSED"],
+      VERIFIED: ["CLOSED"],
       CLOSED: [],
     };
 

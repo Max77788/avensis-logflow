@@ -14,7 +14,6 @@ import {
   ArrowLeft,
   MapPin,
   Truck,
-  Package,
   Calendar,
   User,
   CheckCircle,
@@ -26,6 +25,8 @@ import {
   Download,
   Moon,
   Sun,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
@@ -66,21 +67,6 @@ const getCarrierName = (ticket: Ticket): string => {
   return ticket.carrier;
 };
 
-// Helper function to validate status transitions
-const isValidStatusTransition = (
-  currentStatus: string,
-  newStatus: string
-): boolean => {
-  const validTransitions: Record<string, string[]> = {
-    CREATED: ["VERIFIED"],
-    VERIFIED: ["DELIVERED"],
-    DELIVERED: ["CLOSED"],
-    CLOSED: [],
-  };
-
-  return validTransitions[currentStatus]?.includes(newStatus) ?? false;
-};
-
 const TicketDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -93,12 +79,10 @@ const TicketDetails = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Delivery confirmation state
-  const [showConfirmationForm, setShowConfirmationForm] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [confirmerName, setConfirmerName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
-  const [isClosingTicket, setIsClosingTicket] = useState(false);
   const { captureLocation, coordinates, loading, error } = useGPS();
 
   // Image upload state
@@ -108,18 +92,22 @@ const TicketDetails = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showFullscreenImage, setShowFullscreenImage] = useState(false);
 
+  // Destination attendant section state
+  const [showAttendantSection, setShowAttendantSection] = useState(false);
+
   useEffect(() => {
     const loadTicket = async () => {
       if (id) {
         // Check if ticket was passed via navigation state
         const state = location.state as { ticket?: Ticket } | null;
-        if (state?.ticket) {
+        /*if (state?.ticket) {
+          console.log("Ticket passed via navigation state:", state.ticket);
           setTicket(state.ticket);
-        } else {
-          // Otherwise fetch from service
-          const found = await ticketService.getTicket(id);
-          setTicket(found);
-        }
+        } else { */
+        console.log("Fetching ticket from service...");
+        // Otherwise fetch from service
+        const found = await ticketService.getTicket(id);
+        setTicket(found);
       }
     };
     loadTicket();
@@ -159,7 +147,7 @@ const TicketDetails = () => {
       destination_signature: signature,
       delivery_gps: `${coordinates.latitude},${coordinates.longitude}`,
       delivered_at: new Date().toISOString(),
-      status: "DELIVERED",
+      status: "CLOSED",
       confirmer_name: confirmerName.trim(),
     });
 
@@ -180,46 +168,6 @@ const TicketDetails = () => {
       toast({
         title: "Error",
         description: "Failed to update ticket. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleCloseTicket = async () => {
-    if (!ticket) return;
-
-    // Validate status transition
-    if (!isValidStatusTransition(ticket.status, "CLOSED")) {
-      toast({
-        title: "Invalid Status Transition",
-        description: `Cannot close ticket with status ${ticket.status}. Ticket must be DELIVERED first.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsClosingTicket(true);
-
-    const result = await ticketService.updateTicket(id!, {
-      status: "CLOSED",
-    });
-
-    setIsClosingTicket(false);
-
-    if (result.success) {
-      toast({
-        title: "Ticket Closed",
-        description: `Ticket ${id} has been closed`,
-      });
-      // Reload ticket to show updated status
-      const updated = await ticketService.getTicket(id!);
-      if (updated) {
-        setTicket(updated);
-      }
-    } else {
-      toast({
-        title: "Error",
-        description: "Failed to close ticket. Please try again.",
         variant: "destructive",
       });
     }
@@ -466,9 +414,85 @@ const TicketDetails = () => {
           ) : (
             <>
               {/* DRIVER VIEW - Top section with essential info */}
-              {/* Weight Info - First */}
 
-              {/* QR Code - Only for drivers */}
+              {/* For Destination Attendant - Collapsible Section */}
+              {user?.role === "driver" && (
+                <Card className="overflow-hidden shadow-lg border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+                  <button
+                    onClick={() =>
+                      setShowAttendantSection(!showAttendantSection)
+                    }
+                    className="w-full"
+                  >
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-2">
+                        <User className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        <h3 className="font-semibold text-amber-900 dark:text-amber-100">
+                          For Destination Attendant
+                        </h3>
+                      </div>
+                      {showAttendantSection ? (
+                        <ChevronUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {showAttendantSection && (
+                    <div className="border-t border-amber-200 dark:border-amber-800 space-y-4 p-4">
+                      {/* QR Code Section */}
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                          1. Scan Driver QR Code
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
+                          Ask the driver to show this QR code. Scan it to verify
+                          the driver and access this ticket.
+                        </p>
+                        <div className="flex justify-center bg-white p-4 rounded-lg">
+                          <QRCodeSVG value={ticket.driver_id} size={140} />
+                        </div>
+                      </div>
+
+                      {/* Ticket ID Section */}
+                      <div className="space-y-2 pt-2 border-t border-amber-200 dark:border-amber-800">
+                        <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                          2. Or Enter Ticket ID
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
+                          Alternatively, the destination attendant can type this
+                          ticket ID in their system to access and approve this
+                          ticket.
+                        </p>
+                        <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-amber-200 dark:border-amber-800 dark:bg-amber-950/30">
+                          <span className="text-xs text-muted-foreground">
+                            Ticket ID:
+                          </span>
+                          <span className="font-mono font-bold text-foreground flex-1">
+                            {ticket.ticket_id}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              navigator.clipboard.writeText(ticket.ticket_id);
+                              toast({
+                                title: "Copied",
+                                description: "Ticket ID copied to clipboard",
+                              });
+                            }}
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {/* QR Code - Only for drivers 
               {user?.role === "driver" && ticket.driver_id && (
                 <Card className="overflow-hidden shadow-lg">
                   <div className="bg-primary/5 p-6 text-center">
@@ -484,6 +508,7 @@ const TicketDetails = () => {
                   </div>
                 </Card>
               )}
+              */}
 
               {ticket.net_weight && (
                 <Card className="shadow-md">
@@ -650,40 +675,6 @@ const TicketDetails = () => {
                             Cancel
                           </Button>
                         </div>
-                      </div>
-                    </Card>
-                  )}
-
-                  {ticket.ticket_image_url && (
-                    <Card className="overflow-hidden shadow-md">
-                      <div className="bg-blue-50 p-4">
-                        <h3 className="font-semibold text-blue-600">
-                          Ticket Image
-                        </h3>
-                      </div>
-                      <div className="p-4 space-y-3">
-                        <div
-                          className="cursor-pointer rounded border border-border overflow-hidden"
-                          onClick={() => setShowFullscreenImage(true)}
-                        >
-                          <img
-                            src={ticket.ticket_image_url}
-                            alt="Ticket"
-                            className="w-full h-auto object-cover max-h-96"
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground text-center">
-                          Click to enlarge
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setShowImageUpload(true)}
-                          className="w-full"
-                        >
-                          <Upload className="mr-2 h-4 w-4" />
-                          Replace Image
-                        </Button>
                       </div>
                     </Card>
                   )}
@@ -1168,7 +1159,6 @@ const TicketDetails = () => {
                       type="button"
                       variant="outline"
                       onClick={() => {
-                        setShowConfirmationForm(false);
                         setSignature(null);
                         setConfirmerName("");
                       }}
@@ -1180,41 +1170,6 @@ const TicketDetails = () => {
                 </div>
               </Card>
             </>
-          )}
-
-          {/* Close Ticket Button - Only for DELIVERED tickets */}
-          {ticket?.status === "DELIVERED" && user?.role === "driver" && (
-            <Card className="overflow-hidden border-warning/50 bg-warning/5 shadow-md">
-              <div className="bg-warning/10 p-4">
-                <div className="flex items-center gap-2 text-warning">
-                  <Package className="h-5 w-5" />
-                  <h3 className="font-semibold">Close Ticket</h3>
-                </div>
-              </div>
-              <div className="space-y-4 p-4">
-                <p className="text-sm text-muted-foreground">
-                  Mark this ticket as closed after delivery has been confirmed.
-                </p>
-                <Button
-                  onClick={handleCloseTicket}
-                  disabled={isClosingTicket}
-                  className="w-full h-12 text-base font-semibold"
-                  variant="outline"
-                >
-                  {isClosingTicket ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Closing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Close Ticket
-                    </>
-                  )}
-                </Button>
-              </div>
-            </Card>
           )}
         </div>
       </main>

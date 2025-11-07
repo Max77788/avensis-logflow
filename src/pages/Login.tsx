@@ -44,8 +44,8 @@ const Login = () => {
           updated_at: driver.updated_at,
         });
 
-        // Redirect to Start Shift screen
-        navigate("/driver/start-shift");
+        // Redirect to Driver Profile
+        navigate("/driver/profile");
       } else {
         // Driver doesn't exist, redirect to sign up
         navigate("/driver/signup", { state: { email: driverEmail } });
@@ -112,8 +112,30 @@ const Login = () => {
                     Log in or sign up to create tickets
                   </p>
                 </div>
-                <Button className="w-full" size="lg" variant="outline">
+                <Button className="w-full" size="lg">
                   Continue as Driver
+                </Button>
+              </div>
+            </Card>
+
+            <Card
+              className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
+              onClick={() => navigate("/overview")}
+            >
+              <div className="p-6 space-y-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 group-hover:bg-purple-200 transition-colors">
+                  <QrCode className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground mb-1">
+                    Overview
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    View all tickets and drivers
+                  </p>
+                </div>
+                <Button className="w-full" size="lg">
+                  View Overview
                 </Button>
               </div>
             </Card>

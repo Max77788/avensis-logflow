@@ -11,9 +11,6 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import DriverSignUp from "./pages/DriverSignUp";
 import DriverProfile from "./pages/DriverProfile";
-import StartShift from "./pages/StartShift";
-import DriverDashboard from "./pages/DriverDashboard";
-import DriverInfo from "./pages/DriverInfo";
 import CreateTicket from "./pages/CreateTicket";
 import ScaleHouse from "./pages/ScaleHouse";
 import TicketDetails from "./pages/TicketDetails";
@@ -43,6 +40,7 @@ const App = () => {
                   {/* Public routes */}
                   <Route path="/login" element={<Login />} />
                   <Route path="/driver/signup" element={<DriverSignUp />} />
+                  <Route path="/overview" element={<Overview />} />
 
                   {/* Protected routes - require authentication */}
                   <Route
@@ -58,30 +56,6 @@ const App = () => {
                     element={
                       <ProtectedRoute requiredRole="driver">
                         <DriverProfile />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/driver/start-shift"
-                    element={
-                      <ProtectedRoute requiredRole="driver">
-                        <StartShift />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/driver/dashboard"
-                    element={
-                      <ProtectedRoute requiredRole="driver">
-                        <DriverDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/driver/info"
-                    element={
-                      <ProtectedRoute requiredRole="driver">
-                        <DriverInfo />
                       </ProtectedRoute>
                     }
                   />
@@ -130,14 +104,6 @@ const App = () => {
                     element={
                       <ProtectedRoute>
                         <Admin />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/overview"
-                    element={
-                      <ProtectedRoute>
-                        <Overview />
                       </ProtectedRoute>
                     }
                   />

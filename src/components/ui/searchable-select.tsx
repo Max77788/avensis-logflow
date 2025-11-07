@@ -22,6 +22,7 @@ interface SearchableSelectProps {
   placeholder?: string;
   items: Array<{ value: string; label: string }>;
   disabled?: boolean;
+  className?: string;
 }
 
 export const SearchableSelect = React.forwardRef<
@@ -35,6 +36,7 @@ export const SearchableSelect = React.forwardRef<
       placeholder = "Select an option...",
       items,
       disabled = false,
+      className,
     },
     ref
   ) => {
@@ -50,12 +52,14 @@ export const SearchableSelect = React.forwardRef<
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            className={cn(
+              "w-full justify-between",
+              !value && "border-red-500 border-2",
+              className
+            )}
             disabled={disabled}
           >
-            <span className="truncate">
-              {selectedLabel || placeholder}
-            </span>
+            <span className="truncate">{selectedLabel || placeholder}</span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -70,18 +74,14 @@ export const SearchableSelect = React.forwardRef<
                     key={item.value}
                     value={item.value}
                     onSelect={(currentValue) => {
-                      onValueChange(
-                        currentValue === value ? "" : currentValue
-                      );
+                      onValueChange(currentValue === value ? "" : currentValue);
                       setOpen(false);
                     }}
                   >
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        value === item.value
-                          ? "opacity-100"
-                          : "opacity-0"
+                        value === item.value ? "opacity-100" : "opacity-0"
                       )}
                     />
                     {item.label}
@@ -97,4 +97,3 @@ export const SearchableSelect = React.forwardRef<
 );
 
 SearchableSelect.displayName = "SearchableSelect";
-
