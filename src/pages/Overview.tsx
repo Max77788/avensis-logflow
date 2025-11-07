@@ -40,6 +40,9 @@ const Overview = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [carrierFilter, setCarrierFilter] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<string>("today");
+  const [driverStatusFilter, setDriverStatusFilter] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     const loadData = async () => {
@@ -98,12 +101,17 @@ const Overview = () => {
 
   // Memoize filtered drivers for better performance
   const filteredDrivers = useMemo(() => {
-    return allDrivers.filter(
-      (driver) =>
+    return allDrivers.filter((driver) => {
+      const matchesSearch =
         driver.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-        driver.email.toLowerCase().includes(driverSearch.toLowerCase())
-    );
-  }, [allDrivers, driverSearch]);
+        driver.email.toLowerCase().includes(driverSearch.toLowerCase());
+
+      const matchesStatus =
+        !driverStatusFilter || driver.status === driverStatusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [allDrivers, driverSearch, driverStatusFilter]);
 
   // Memoize unique carriers for filter
   const uniqueCarriers = useMemo(() => {
@@ -333,15 +341,34 @@ const Overview = () => {
         {/* Drivers Tab */}
         {activeTab === "drivers" && (
           <div className="space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search drivers..."
-                value={driverSearch}
-                onChange={(e) => setDriverSearch(e.target.value)}
-                className="pl-10"
-              />
+            {/* Search and Filter */}
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search drivers..."
+                  value={driverSearch}
+                  onChange={(e) => setDriverSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <Select
+                value={driverStatusFilter || ""}
+                onValueChange={(value) =>
+                  setDriverStatusFilter(value === "" ? null : value)
+                }
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Drivers List */}

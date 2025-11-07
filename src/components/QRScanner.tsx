@@ -22,6 +22,7 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
   const [error, setError] = useState<string | null>(null);
   const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string>("");
+  const [hasScanned, setHasScanned] = useState(false);
 
   useEffect(() => {
     const initCameras = async () => {
@@ -102,9 +103,13 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
             aspectRatio: 1.0,
           },
           (decodedText) => {
-            console.log("QR Code detected:", decodedText);
-            onScan(decodedText);
-            stopScanner();
+            // Only process the scan once
+            if (!hasScanned) {
+              console.log("QR Code detected:", decodedText);
+              setHasScanned(true);
+              onScan(decodedText);
+              stopScanner();
+            }
           },
           (errorMessage) => {
             if (!errorMessage.includes("NotFoundException")) {

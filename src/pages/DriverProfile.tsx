@@ -53,7 +53,7 @@ const DriverProfile = () => {
     pickup_location: shift?.pickupLocation || "",
   });
 
-  // Load carrier name from UUID
+  // Load carrier name from UUID and sync truck_id
   useEffect(() => {
     const loadCarrierName = async () => {
       if (driverProfile?.carrier_id) {
@@ -67,6 +67,7 @@ const DriverProfile = () => {
             setEditFormData((prev) => ({
               ...prev,
               carrier_id: carrier.name,
+              truck_id: driverProfile?.default_truck_id || "", // Sync truck_id from driverProfile
             }));
           }
         } catch (error) {
@@ -75,7 +76,7 @@ const DriverProfile = () => {
       }
     };
     loadCarrierName();
-  }, [driverProfile?.carrier_id]);
+  }, [driverProfile?.carrier_id, driverProfile?.default_truck_id]);
 
   useEffect(() => {
     if (!user || user.role !== "driver") {
@@ -136,8 +137,9 @@ const DriverProfile = () => {
 
     setIsUpdatingProfile(true);
     try {
+      // Reset truck_id when carrier changes since trucks are carrier-specific
       const updates: any = {
-        default_truck_id: editFormData.truck_id,
+        default_truck_id: "", // Clear truck when carrier changes
       };
 
       let carrierIdForShift = driverProfile.carrier_id;
@@ -167,16 +169,22 @@ const DriverProfile = () => {
         setDriverProfile(result.data);
         setCarrierName(carrierNameForShift);
 
+        // Reset truck_id in editFormData when carrier changes
+        setEditFormData((prev) => ({
+          ...prev,
+          truck_id: "", // Clear truck selection
+        }));
+
         // Sync with ShiftContext
         updateShift({
           carrier: carrierNameForShift,
           carrier_id: carrierIdForShift,
-          truck_id: editFormData.truck_id,
-          truck: editFormData.truck_id,
+          truck_id: "", // Clear truck in shift context
+          truck: "",
           pickupLocation: editFormData.pickup_location,
         });
 
-        console.log("Carrier updated successfully");
+        console.log("Carrier updated successfully, truck selection cleared");
       } else {
         throw new Error(result.error || "Failed to update carrier");
       }
@@ -563,7 +571,7 @@ const DriverProfile = () => {
           </Card>
 
           {/* Show different content based on shift status */}
-          {driverProfile.status === "inactive" ? null : (
+          {true === false ? null : (
             // ACTIVE STATE: Show full dashboard
             <>
               {/* QR Code Card */}

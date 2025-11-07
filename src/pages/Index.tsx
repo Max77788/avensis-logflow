@@ -311,7 +311,7 @@ const Index = () => {
           )}
 
           {user?.role === "driver" && (
-            <div className="grid gap-4 sm:grid-cols-1">
+            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
               {/* Start/End Shift Button with Dynamic Status */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-4 py-2 bg-muted rounded-lg">
@@ -369,7 +369,7 @@ const Index = () => {
               </Card>
 
               {/* Recent Activity */}
-              <Card className="mt-8 shadow-md">
+              <Card className="mt-8 shadow-md md:col-span-2">
                 <div className="border-b border-border p-4">
                   <h3 className="font-semibold text-foreground">
                     Recent Activity
