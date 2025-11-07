@@ -214,9 +214,6 @@ const CreateTicket = () => {
     }
   };
 
-  // Check if driver's shift is active
-  const isShiftActive = user?.role === "driver" ? shift.isActive : true;
-
   // Check if driver is inactive
   const isDriverInactive =
     user?.role === "driver" && driverProfile?.status === "inactive";
@@ -509,17 +506,10 @@ const CreateTicket = () => {
             type="submit"
             size="lg"
             className="w-full shadow-lg transition-all"
-            disabled={
-              isSubmitting ||
-              hasActiveTicket ||
-              !isShiftActive ||
-              isDriverInactive
-            }
+            disabled={isSubmitting || hasActiveTicket}
             title={
               isDriverInactive
                 ? "Your driver status is inactive. Please start your shift at your profile page."
-                : !isShiftActive
-                ? "Please start your shift first to create tickets."
                 : hasActiveTicket
                 ? "You have an active ticket. Complete it before creating a new one."
                 : ""
