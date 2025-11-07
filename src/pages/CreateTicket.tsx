@@ -282,27 +282,6 @@ const CreateTicket = () => {
           </div>
         )}
 
-        {/* Shift Not Active Warning */}
-        {!isShiftActive && !isDriverInactive && (
-          <div className="mx-auto max-w-2xl mb-6">
-            <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-              <div className="p-4">
-                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                  ⚠️ Your shift is not active. Please start your shift first to
-                  create tickets.
-                </p>
-                <Button
-                  onClick={() => navigate("/driver/profile")}
-                  className="mt-3 w-full"
-                  variant="default"
-                >
-                  Start Shift
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-
         {/* Form */}
         <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
           {/* Truck Info - Compact for Mobile */}
