@@ -209,8 +209,10 @@ const CreateTicket = () => {
     setIsSubmitting(false);
 
     if (result.success) {
-      // Redirect to ticket details page
-      navigate(`/ticket/${ticket.ticket_id}`);
+      // Wait for ticket to be fully registered in Supabase before redirecting
+      setTimeout(() => {
+        navigate(`/`);
+      }, 2500);
     }
   };
 
