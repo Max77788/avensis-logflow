@@ -95,6 +95,12 @@ const TicketDetails = () => {
   // Destination attendant section state
   const [showAttendantSection, setShowAttendantSection] = useState(false);
 
+  // Driver sign-off section state
+  const [showDriverSignOff, setShowDriverSignOff] = useState(false);
+  const [driverSignature, setDriverSignature] = useState<string | null>(null);
+  const [driverConfirmerName, setDriverConfirmerName] = useState("");
+  const [isSigningOff, setIsSigningOff] = useState(false);
+
   useEffect(() => {
     const loadTicket = async () => {
       if (id) {
@@ -123,15 +129,6 @@ const TicketDetails = () => {
       return;
     }
 
-    if (!coordinates) {
-      toast({
-        title: "GPS Required",
-        description: "Location must be captured for delivery confirmation",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!confirmerName.trim()) {
       toast({
         title: "Confirmer Name Required",
@@ -143,9 +140,26 @@ const TicketDetails = () => {
 
     setIsSubmitting(true);
 
+    // Add a small delay before capturing location to ensure GPS is ready
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Capture location automatically when confirming
+    const capturedCoords = await captureLocation();
+
+    // Check if location was captured
+    if (!capturedCoords) {
+      setIsSubmitting(false);
+      toast({
+        title: "Location Required",
+        description: "Failed to capture your location. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const result = await ticketService.updateTicket(id!, {
       destination_signature: signature,
-      delivery_gps: `${coordinates.latitude},${coordinates.longitude}`,
+      delivery_gps: `${capturedCoords.latitude},${capturedCoords.longitude}`,
       delivered_at: new Date().toISOString(),
       status: "CLOSED",
       confirmer_name: confirmerName.trim(),
@@ -168,6 +182,74 @@ const TicketDetails = () => {
       toast({
         title: "Error",
         description: "Failed to update ticket. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDriverSignOff = async () => {
+    if (!driverSignature) {
+      toast({
+        title: "Signature Required",
+        description: "Please provide your signature to sign off the ticket",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!driverConfirmerName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter your name to sign off the ticket",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSigningOff(true);
+
+    // Add a small delay before capturing location to ensure GPS is ready
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Capture location simultaneously with sign-off
+    const capturedCoords = await captureLocation();
+
+    // Check if location was captured
+    if (!capturedCoords) {
+      setIsSigningOff(false);
+      toast({
+        title: "Location Required",
+        description: "Failed to capture your location. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const result = await ticketService.updateTicket(id!, {
+      driver_signature: driverSignature,
+      signed_off_at: new Date().toISOString(),
+      driver_gps: `${capturedCoords.latitude},${capturedCoords.longitude}`,
+      driver_confirmer_name: driverConfirmerName.trim(),
+      status: "CLOSED",
+    });
+
+    setIsSigningOff(false);
+
+    if (result.success) {
+      toast({
+        title: "Ticket Signed Off",
+        description: "You have successfully signed off the ticket",
+      });
+      setDriverSignature(null);
+      setDriverConfirmerName("");
+      setShowDriverSignOff(false);
+      // Reload ticket to show updated data
+      const found = await ticketService.getTicket(id!);
+      setTicket(found);
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to sign off ticket. Please try again.",
         variant: "destructive",
       });
     }
@@ -359,7 +441,7 @@ const TicketDetails = () => {
 
               {/* Locations - Origin and Destination */}
               <Card className="shadow-md">
-                <div className="space-y-3 p-4">
+                <div className="flex justify-center items-start gap-6 p-4">
                   {ticket.origin_site && (
                     <div className="flex items-start gap-3">
                       <MapPin className="mt-1 h-5 w-5 text-success" />
@@ -487,12 +569,90 @@ const TicketDetails = () => {
                           </Button>
                         </div>
                       </div>
+
+                      {/* Driver Sign-Off Section - Nested Collapsible */}
+                      <div className="space-y-2 pt-2 border-t border-amber-200 dark:border-amber-800">
+                        <button
+                          onClick={() =>
+                            setShowDriverSignOff(!showDriverSignOff)
+                          }
+                          className="w-full"
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                              3. Sign-Off Here
+                            </p>
+                            {showDriverSignOff ? (
+                              <ChevronUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            )}
+                          </div>
+                        </button>
+
+                        {showDriverSignOff && (
+                          <div className="space-y-3 mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                              Destination attendant can sign off the ticket here
+                              to confirm completion of delivery.
+                            </p>
+
+                            {/* Confirmer Name */}
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium text-blue-900 dark:text-blue-100">
+                                Confirmer's Name *
+                              </Label>
+                              <Input
+                                type="text"
+                                placeholder="Enter driver name"
+                                value={driverConfirmerName}
+                                onChange={(e) =>
+                                  setDriverConfirmerName(e.target.value)
+                                }
+                                className="border-blue-200 dark:border-blue-800 text-sm"
+                              />
+                            </div>
+
+                            {/* Signature Pad */}
+                            <div className="space-y-2">
+                              <SignaturePad
+                                onSave={setDriverSignature}
+                                label="Confirmer's Signature *"
+                              />
+                            </div>
+
+                            {/* Sign Off Button */}
+                            <Button
+                              onClick={handleDriverSignOff}
+                              disabled={
+                                !driverSignature ||
+                                !driverConfirmerName.trim() ||
+                                isSigningOff
+                              }
+                              className="w-full"
+                              size="sm"
+                            >
+                              {isSigningOff ? (
+                                <>
+                                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                  Signing Off...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="mr-2 h-3 w-3" />
+                                  Sign Off Ticket
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </Card>
               )}
 
-              {/* QR Code - Only for drivers 
+              {/* QR Code - Only for drivers
               {user?.role === "driver" && ticket.driver_id && (
                 <Card className="overflow-hidden shadow-lg">
                   <div className="bg-primary/5 p-6 text-center">
@@ -523,7 +683,7 @@ const TicketDetails = () => {
 
               {/* Locations - Origin and Destination */}
               <Card className="shadow-md">
-                <div className="space-y-3 p-4">
+                <div className="flex justify-center items-start gap-8 p-4">
                   {ticket.origin_site && (
                     <div className="flex items-start gap-3">
                       <MapPin className="mt-1 h-5 w-5 text-success" />
@@ -564,6 +724,15 @@ const TicketDetails = () => {
                   }; // near Toledo (~80 km)
                   return (
                     <>
+                      <RouteMap
+                        originLat={loadGps.lat}
+                        originLng={loadGps.lng}
+                        destinationLat={deliveryGps.lat}
+                        destinationLng={deliveryGps.lng}
+                        originName={ticket.origin_site}
+                        destinationName={ticket.destination_site}
+                      />
+
                       {/* Get Directions Button */}
                       {deliveryGps && (
                         <Button
@@ -581,15 +750,6 @@ const TicketDetails = () => {
                           Get Directions
                         </Button>
                       )}
-
-                      <RouteMap
-                        originLat={loadGps.lat}
-                        originLng={loadGps.lng}
-                        destinationLat={deliveryGps.lat}
-                        destinationLng={deliveryGps.lng}
-                        originName={ticket.origin_site}
-                        destinationName={ticket.destination_site}
-                      />
                     </>
                   );
                 })()}
@@ -790,6 +950,7 @@ const TicketDetails = () => {
                       </div>
                     </div>
                   )}
+                  {/*
                   {ticket.delivery_gps && (
                     <div className="flex items-start gap-3">
                       <Navigation className="mt-1 h-5 w-5 text-destructive" />
@@ -803,6 +964,7 @@ const TicketDetails = () => {
                       </div>
                     </div>
                   )}
+                  */}
                 </div>
               </Card>
             )}
@@ -1076,57 +1238,22 @@ const TicketDetails = () => {
                     />
                   </div>
 
-                  {/* Location Verification - Second Field */}
+                  {/* Location Verification - Second Field 
                   <div>
                     <div className="mb-2 flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-muted-foreground" />
                       <Label className="text-sm font-medium">
-                        Delivery Location *
+                        Delivery Location
                       </Label>
                     </div>
-                    {coordinates ? (
-                      <div className="rounded border border-success/30 bg-success/5 p-3">
-                        <p className="text-xs text-muted-foreground">
-                          ✓ Location Captured
-                        </p>
-                        <p className="text-xs text-foreground">
-                          Lat: {coordinates.latitude.toFixed(6)}
-                        </p>
-                        <p className="text-xs text-foreground">
-                          Lon: {coordinates.longitude.toFixed(6)}
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            captureLocation();
-                          }}
-                          disabled={loading}
-                          className="w-full"
-                        >
-                          {loading ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Capturing Location...
-                            </>
-                          ) : (
-                            <>
-                              <MapPin className="mr-2 h-4 w-4" />
-                              Capture Location
-                            </>
-                          )}
-                        </Button>
-                        {error && (
-                          <div className="mt-2 rounded border border-destructive/30 bg-destructive/5 p-3">
-                            <p className="text-xs text-destructive">{error}</p>
-                          </div>
-                        )}
-                      </>
-                    )}
+                    <div className="rounded border border-primary/30 bg-primary/5 p-3">
+                      <p className="text-xs text-muted-foreground">
+                        📍 Location will be captured automatically when you
+                        confirm the delivery.
+                      </p>
+                    </div>
                   </div>
+                  */}
 
                   {/* Receiver Signature - Third Field */}
                   <div>

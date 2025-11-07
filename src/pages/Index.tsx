@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { QRScanner } from "@/components/QRScanner";
 import {
   QrCode,
@@ -15,7 +16,19 @@ import {
   Inbox,
   MapPin,
   Search,
+  Home,
+  Power,
+  AlertCircle,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService } from "@/lib/carrierService";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -27,8 +40,11 @@ const Index = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const [ticketIdInput, setTicketIdInput] = useState("");
+  const [showEndShiftWarning, setShowEndShiftWarning] = useState(false);
+  const [hasActiveTicket, setHasActiveTicket] = useState(false);
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
   const navigate = useNavigate();
-  const { user, driverProfile, logout } = useAuth();
+  const { user, driverProfile, logout, updateDriverStatus } = useAuth();
   const { isDark, toggleTheme } = useTheme();
 
   const handleTicketIdSearch = () => {
@@ -47,6 +63,12 @@ const Index = () => {
       if (user?.role === "driver" && driverProfile?.id) {
         // For drivers, show only their tickets
         tickets = await ticketService.getTicketsByDriver(driverProfile.id);
+
+        // Check for active tickets
+        const activeTickets = tickets.filter(
+          (t) => t.status === "CREATED" || t.status === "VERIFIED"
+        );
+        setHasActiveTicket(activeTickets.length > 0);
       } else if (user?.role === "attendant") {
         // For attendants, don't show any tickets
         tickets = [];
@@ -64,6 +86,38 @@ const Index = () => {
     const interval = setInterval(loadRecentTickets, 5000);
     return () => clearInterval(interval);
   }, [user, driverProfile]);
+
+  const handleToggleShift = () => {
+    if (driverProfile?.status === "active" && hasActiveTicket) {
+      setShowEndShiftWarning(true);
+    } else {
+      confirmToggleShift();
+    }
+  };
+
+  const confirmToggleShift = async () => {
+    if (!driverProfile) return;
+
+    setIsTogglingStatus(true);
+    try {
+      const newStatus =
+        driverProfile.status === "inactive" ? "active" : "inactive";
+      const result = await carrierService.updateDriverStatus(
+        driverProfile.id,
+        newStatus
+      );
+
+      if (result.success) {
+        updateDriverStatus(newStatus);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      console.error("Error updating status:", error);
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
 
   const handleScan = async (data: string) => {
     console.log("Scanned QR:", data);
@@ -102,6 +156,15 @@ const Index = () => {
       <header className="border-b border-border bg-card/80 backdrop-blur-sm">
         <div className="container mx-auto flex items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/")}
+              className="rounded-full"
+              title="Home"
+            >
+              <Home className="h-5 w-5" />
+            </Button>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
               <Truck className="h-6 w-6 text-primary-foreground" />
             </div>
@@ -249,6 +312,40 @@ const Index = () => {
 
           {user?.role === "driver" && (
             <div className="grid gap-4 sm:grid-cols-1">
+              {/* Start/End Shift Button with Dynamic Status */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-4 py-2 bg-muted rounded-lg">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Shift Status
+                  </span>
+                  <Badge
+                    variant={
+                      driverProfile?.status === "active"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
+                    {driverProfile?.status?.toUpperCase() || "INACTIVE"}
+                  </Badge>
+                </div>
+                <Button
+                  onClick={handleToggleShift}
+                  disabled={isTogglingStatus}
+                  variant={
+                    driverProfile?.status === "active"
+                      ? "destructive"
+                      : "default"
+                  }
+                  className="w-full h-12 gap-2"
+                  size="lg"
+                >
+                  <Power className="h-5 w-5" />
+                  {driverProfile?.status === "active"
+                    ? "End Shift"
+                    : "Start Shift"}
+                </Button>
+              </div>
+
               <Card
                 className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
                 onClick={() => navigate("/tickets/create")}
@@ -270,57 +367,91 @@ const Index = () => {
                   </Button>
                 </div>
               </Card>
-            </div>
-          )}
 
-          {/* Recent Activity */}
-          <Card className="mt-8 shadow-md">
-            <div className="border-b border-border p-4">
-              <h3 className="font-semibold text-foreground">Recent Activity</h3>
-            </div>
-            {recentTickets.length === 0 ? (
-              <div className="p-12 text-center">
-                <div className="flex justify-center mb-4">
-                  <div className="rounded-full bg-muted p-4">
-                    <Inbox className="h-8 w-8 text-muted-foreground" />
-                  </div>
+              {/* Recent Activity */}
+              <Card className="mt-8 shadow-md">
+                <div className="border-b border-border p-4">
+                  <h3 className="font-semibold text-foreground">
+                    Recent Activity
+                  </h3>
                 </div>
-                <p className="font-medium text-foreground mb-1">
-                  No recent activity
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {user?.role === "driver"
-                    ? "Create a new ticket or scan a QR code to get started"
-                    : "Scan a driver QR code to view their tickets"}
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {recentTickets.map((ticket) => (
-                  <div
-                    key={ticket.ticket_id}
-                    className="cursor-pointer p-4 transition-all duration-200 hover:bg-accent/50 active:scale-98 flex items-center justify-between gap-4"
-                    onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground">
-                        {ticket.ticket_id}
-                      </p>
-                      <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
-                        <MapPin className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">
-                          {ticket.destination_site || "N/A"}
-                        </span>
+                {recentTickets.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <div className="flex justify-center mb-4">
+                      <div className="rounded-full bg-muted p-4">
+                        <Inbox className="h-8 w-8 text-muted-foreground" />
                       </div>
                     </div>
-                    <StatusBadge status={ticket.status} />
+                    <p className="font-medium text-foreground mb-1">
+                      No recent activity
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {user?.role === "driver"
+                        ? "Create a new ticket or scan a QR code to get started"
+                        : "Scan a driver QR code to view their tickets"}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </Card>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {recentTickets.map((ticket) => (
+                      <div
+                        key={ticket.ticket_id}
+                        className="cursor-pointer p-4 transition-all duration-200 hover:bg-accent/50 active:scale-98 flex items-center justify-between gap-4"
+                        onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-foreground">
+                            {ticket.ticket_id}
+                          </p>
+                          <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+                            <MapPin className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate">
+                              {ticket.destination_site || "N/A"}
+                            </span>
+                          </div>
+                        </div>
+                        <StatusBadge status={ticket.status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          )}
         </div>
       </main>
+
+      {/* End Shift Warning Dialog */}
+      <AlertDialog
+        open={showEndShiftWarning}
+        onOpenChange={setShowEndShiftWarning}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <AlertDialogTitle>Active Ticket Found</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription>
+              You have an active ticket. Are you sure you want to end your
+              shift? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 text-sm text-destructive">
+            ⚠️ Ending your shift with an active ticket may cause issues with
+            ticket delivery tracking.
+          </div>
+          <div className="flex gap-3 justify-end">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmToggleShift}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              End Shift Anyway
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* QR Scanner Modal */}
       {showScanner && (

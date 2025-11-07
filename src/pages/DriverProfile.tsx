@@ -449,7 +449,7 @@ const DriverProfile = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="mx-auto max-w-2xl space-y-6">
-          {/* Status Card */}
+          {/* Status Card 
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-foreground">Status</h2>
@@ -475,6 +475,7 @@ const DriverProfile = () => {
                 : "Start the Shift"}
             </Button>
           </Card>
+          */}
 
           {/* Edit Profile Card */}
           <Card className="p-6 border-primary/50 bg-primary/5">
@@ -486,7 +487,7 @@ const DriverProfile = () => {
               <div className="space-y-4">
                 {/* Carrier Selection - Always Editable */}
                 <div>
-                  <Label className="text-sm font-medium">Select Carrier</Label>
+                  <Label className="text-sm font-medium">Select Carrier*</Label>
                   <SearchableSelect
                     value={editFormData.carrier_id}
                     onValueChange={(value) => {
@@ -502,7 +503,7 @@ const DriverProfile = () => {
                         sensitivity: "base",
                       })
                     )}
-                    placeholder="Choose a carrier (optional)"
+                    placeholder="Choose a carrier"
                   />
                 </div>
 
@@ -534,7 +535,7 @@ const DriverProfile = () => {
                 <div>
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
-                    Pickup Location
+                    Pickup Location*
                   </Label>
                   <SearchableSelect
                     value={editFormData.pickup_location}
@@ -592,7 +593,7 @@ const DriverProfile = () => {
                 </Button>
               </Card>
 
-              {/* Active Tickets */}
+              {/* Active Tickets 
               <Card className="p-6">
                 <h2 className="text-lg font-bold text-foreground mb-4">
                   Active Tickets ({activeTickets.length})
@@ -636,8 +637,9 @@ const DriverProfile = () => {
                   </div>
                 )}
               </Card>
+              */}
 
-              {/* Action Buttons */}
+              {/* Action Buttons 
               <div className="flex gap-2">
                 <Button
                   onClick={() => navigate("/tickets/create")}
@@ -658,6 +660,7 @@ const DriverProfile = () => {
                   End Shift
                 </Button>
               </div>
+              */}
             </>
           )}
         </div>

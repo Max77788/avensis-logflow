@@ -44,8 +44,12 @@ const Login = () => {
           updated_at: driver.updated_at,
         });
 
-        // Redirect to Driver Profile
-        navigate("/driver/profile");
+        // Redirect based on driver status
+        if (driver.status === "active") {
+          navigate("/");
+        } else {
+          navigate("/driver/profile");
+        }
       } else {
         // Driver doesn't exist, redirect to sign up
         navigate("/driver/signup", { state: { email: driverEmail } });
@@ -76,28 +80,6 @@ const Login = () => {
           <div className="space-y-4">
             <Card
               className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
-              onClick={handleAttendantClick}
-            >
-              <div className="p-6 space-y-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 group-hover:bg-blue-200 transition-colors">
-                  <QrCode className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground mb-1">
-                    Destination Attendant
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Scan QR codes and confirm deliveries
-                  </p>
-                </div>
-                <Button className="w-full" size="lg">
-                  Continue as Attendant
-                </Button>
-              </div>
-            </Card>
-
-            <Card
-              className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
               onClick={() => setStep("driver-login")}
             >
               <div className="p-6 space-y-4">
@@ -114,6 +96,28 @@ const Login = () => {
                 </div>
                 <Button className="w-full" size="lg">
                   Continue as Driver
+                </Button>
+              </div>
+            </Card>
+
+            <Card
+              className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
+              onClick={handleAttendantClick}
+            >
+              <div className="p-6 space-y-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 group-hover:bg-blue-200 transition-colors">
+                  <QrCode className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground mb-1">
+                    Destination Attendant
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Scan QR codes and confirm deliveries
+                  </p>
+                </div>
+                <Button className="w-full" size="lg">
+                  Continue as Attendant
                 </Button>
               </div>
             </Card>

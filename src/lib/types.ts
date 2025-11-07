@@ -16,12 +16,16 @@ export interface Ticket {
   net_weight?: number;
   scale_operator_signature?: string;
   destination_signature?: string;
+  driver_signature?: string;
   status: TicketStatus;
   created_at: string;
   verified_at_scale?: string;
   delivered_at?: string;
+  signed_off_at?: string;
   load_gps?: string;
   delivery_gps?: string;
+  driver_gps?: string;
+  driver_confirmer_name?: string;
   pdf_url?: string;
   customer_email?: string;
   scale_ticket_file_url?: string;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,11 +14,19 @@ import {
   User,
   Filter,
   X,
+  ChevronDown,
 } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService } from "@/lib/carrierService";
 import type { Ticket } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Overview = () => {
   const navigate = useNavigate();
@@ -27,23 +35,30 @@ const Overview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [ticketSearch, setTicketSearch] = useState("");
   const [driverSearch, setDriverSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"tickets" | "drivers">("tickets");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [carrierFilter, setCarrierFilter] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<string>("today");
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // Load all tickets
-        const tickets = await ticketService.getAllTickets();
+        // Load tickets and drivers in parallel for faster loading
+        const [tickets, carriers] = await Promise.all([
+          ticketService.getAllTickets(),
+          carrierService.getAllCarriers(),
+        ]);
+
         setAllTickets(tickets);
 
-        // Load all drivers from all carriers
-        const carriers = await carrierService.getAllCarriers();
-        const allDriversList: any[] = [];
-        for (const carrier of carriers) {
-          const drivers = await carrierService.getDriversByCarrier(carrier.id);
-          allDriversList.push(...drivers);
-        }
+        // Load all drivers from all carriers in parallel
+        const driverPromises = carriers.map((carrier) =>
+          carrierService.getDriversByCarrier(carrier.id)
+        );
+        const driversArrays = await Promise.all(driverPromises);
+        const allDriversList = driversArrays.flat();
         setAllDrivers(allDriversList);
       } catch (error) {
         console.error("Error loading overview data:", error);
@@ -54,33 +69,57 @@ const Overview = () => {
     loadData();
   }, []);
 
-  // Filter tickets
-  const filteredTickets = allTickets.filter((ticket) => {
-    const matchesSearch =
-      ticket.ticket_id.toLowerCase().includes(ticketSearch.toLowerCase()) ||
-      ticket.truck_id.toLowerCase().includes(ticketSearch.toLowerCase()) ||
-      (ticket.carrier || "").toLowerCase().includes(ticketSearch.toLowerCase());
+  // Helper function to check if ticket is from today
+  const isTicketFromToday = (ticket: Ticket): boolean => {
+    if (!ticket.created_at) return false;
+    const ticketDate = new Date(ticket.created_at).toDateString();
+    const today = new Date().toDateString();
+    return ticketDate === today;
+  };
 
-    const matchesStatus = !statusFilter || ticket.status === statusFilter;
+  // Memoize filtered tickets for better performance
+  const filteredTickets = useMemo(() => {
+    return allTickets.filter((ticket) => {
+      const matchesSearch =
+        ticket.ticket_id.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+        ticket.truck_id.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+        (ticket.carrier || "")
+          .toLowerCase()
+          .includes(ticketSearch.toLowerCase());
 
-    return matchesSearch && matchesStatus;
-  });
+      const matchesStatus = !statusFilter || ticket.status === statusFilter;
+      const matchesCarrier = !carrierFilter || ticket.carrier === carrierFilter;
+      const matchesDate =
+        dateFilter === "today" ? isTicketFromToday(ticket) : true;
 
-  // Filter drivers
-  const filteredDrivers = allDrivers.filter(
-    (driver) =>
-      driver.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-      driver.email.toLowerCase().includes(driverSearch.toLowerCase())
-  );
+      return matchesSearch && matchesStatus && matchesCarrier && matchesDate;
+    });
+  }, [allTickets, ticketSearch, statusFilter, carrierFilter, dateFilter]);
 
-  const statuses = ["CREATED", "VERIFIED", "DELIVERED", "CLOSED"];
+  // Memoize filtered drivers for better performance
+  const filteredDrivers = useMemo(() => {
+    return allDrivers.filter(
+      (driver) =>
+        driver.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
+        driver.email.toLowerCase().includes(driverSearch.toLowerCase())
+    );
+  }, [allDrivers, driverSearch]);
+
+  // Memoize unique carriers for filter
+  const uniqueCarriers = useMemo(() => {
+    return Array.from(
+      new Set(allTickets.map((t) => t.carrier).filter(Boolean))
+    ).sort();
+  }, [allTickets]);
+
+  const statuses = ["CREATED", "VERIFIED", "CLOSED"];
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card shadow-sm">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
                 <ArrowLeft className="h-5 w-5" />
@@ -100,55 +139,124 @@ const Overview = () => {
               <span>{allDrivers.length} Drivers</span>
             </div>
           </div>
+
+          {/* Tabs */}
+          <div className="flex gap-2 border-b border-border">
+            <Button
+              variant={activeTab === "tickets" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTab("tickets")}
+              className="rounded-b-none"
+            >
+              <Truck className="h-4 w-4 mr-2" />
+              Tickets ({filteredTickets.length})
+            </Button>
+            <Button
+              variant={activeTab === "drivers" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveTab("drivers")}
+              className="rounded-b-none"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Drivers ({filteredDrivers.length})
+            </Button>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Tickets Section - Takes 2 columns on large screens */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                <Truck className="h-5 w-5 text-primary" />
-                All Tickets ({filteredTickets.length})
-              </h2>
-            </div>
-
+        {/* Tickets Tab */}
+        {activeTab === "tickets" && (
+          <div className="space-y-4">
             {/* Search and Filters */}
             <div className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by ticket ID, truck, or carrier..."
-                  value={ticketSearch}
-                  onChange={(e) => setTicketSearch(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by ticket ID, truck, or carrier..."
+                    value={ticketSearch}
+                    onChange={(e) => setTicketSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  variant={showAdvancedFilters ? "default" : "outline"}
+                  size="icon"
+                  title="Advanced Filters"
+                >
+                  <Filter className="h-4 w-4" />
+                </Button>
               </div>
 
-              {/* Status Filter */}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant={statusFilter === null ? "default" : "outline"}
-                  onClick={() => setStatusFilter(null)}
-                  className="gap-2"
-                >
-                  <Filter className="h-3 w-3" />
-                  All
-                </Button>
-                {statuses.map((status) => (
-                  <Button
-                    key={status}
-                    size="sm"
-                    variant={statusFilter === status ? "default" : "outline"}
-                    onClick={() => setStatusFilter(status)}
-                  >
-                    {status.replace(/_/g, " ")}
-                  </Button>
-                ))}
-              </div>
+              {/* Advanced Filters */}
+              {showAdvancedFilters && (
+                <Card className="p-4 space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Status Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Status</label>
+                      <Select
+                        value={statusFilter || "all"}
+                        onValueChange={(value) =>
+                          setStatusFilter(value === "all" ? null : value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Statuses</SelectItem>
+                          {statuses.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Carrier Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Carrier</label>
+                      <Select
+                        value={carrierFilter || "all"}
+                        onValueChange={(value) =>
+                          setCarrierFilter(value === "all" ? null : value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Carriers" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Carriers</SelectItem>
+                          {uniqueCarriers.map((carrier) => (
+                            <SelectItem key={carrier} value={carrier}>
+                              {carrier}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Date Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Date</label>
+                      <Select value={dateFilter} onValueChange={setDateFilter}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="today">Today</SelectItem>
+                          <SelectItem value="all">All Dates</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </Card>
+              )}
             </div>
 
             {/* Tickets Grid */}
@@ -220,14 +328,11 @@ const Overview = () => {
               </div>
             )}
           </div>
+        )}
 
-          {/* Drivers Section - Takes 1 column on large screens */}
+        {/* Drivers Tab */}
+        {activeTab === "drivers" && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              All Drivers ({filteredDrivers.length})
-            </h2>
-
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -254,7 +359,7 @@ const Overview = () => {
                 </p>
               </Card>
             ) : (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredDrivers.map((driver) => (
                   <Card
                     key={driver.id}
@@ -292,7 +397,7 @@ const Overview = () => {
               </div>
             )}
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

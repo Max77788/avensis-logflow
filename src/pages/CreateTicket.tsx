@@ -8,7 +8,16 @@ import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SignaturePad } from "@/components/SignaturePad";
 import { TicketImageUpload } from "@/components/TicketImageUpload";
-import { ArrowLeft, Save, Weight, Loader2, Moon, Sun } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Weight,
+  Loader2,
+  Moon,
+  Sun,
+  Trash2,
+} from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useShift } from "@/contexts/ShiftContext";
@@ -56,6 +65,15 @@ const CreateTicket = () => {
   ] = useState(false);
   const [hasActiveTicket, setHasActiveTicket] = useState(false);
   const [ticketImage, setTicketImage] = useState<File | null>(null);
+  const [hasDraft, setHasDraft] = useState(false);
+
+  // Check for existing draft on component mount
+  useEffect(() => {
+    const draftData = localStorage.getItem("ticketDraft");
+    if (draftData) {
+      setHasDraft(true);
+    }
+  }, []);
 
   // Fetch carriers and destination sites on component mount
 
@@ -215,9 +233,55 @@ const CreateTicket = () => {
     }
   };
 
+  const saveDraft = () => {
+    const draft = {
+      formData,
+      signature,
+      ticketImage: ticketImage ? ticketImage.name : null,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem("ticketDraft", JSON.stringify(draft));
+    setHasDraft(true);
+    toast({
+      title: "Draft Saved",
+      description: "Your ticket draft has been saved. You can continue later.",
+    });
+  };
+
+  const loadDraft = () => {
+    const draftData = localStorage.getItem("ticketDraft");
+    if (draftData) {
+      const draft = JSON.parse(draftData);
+      setFormData(draft.formData);
+      setSignature(draft.signature);
+      toast({
+        title: "Draft Loaded",
+        description: "Your saved draft has been loaded.",
+      });
+    }
+  };
+
+  const deleteDraft = () => {
+    localStorage.removeItem("ticketDraft");
+    setHasDraft(false);
+    toast({
+      title: "Draft Deleted",
+      description: "Your ticket draft has been deleted.",
+    });
+  };
+
+  // Force re-render when driver status changes
+  const [driverStatus, setDriverStatus] = useState<string | undefined>(
+    driverProfile?.status
+  );
+
+  useEffect(() => {
+    setDriverStatus(driverProfile?.status);
+  }, [driverProfile?.status]);
+
   // Check if driver is inactive
   const isDriverInactive =
-    user?.role === "driver" && driverProfile?.status === "inactive";
+    user?.role === "driver" && driverStatus === "inactive";
 
   // Check if shift has all required fields (carrier, truck, pickup location)
   const isShiftComplete =
@@ -272,14 +336,14 @@ const CreateTicket = () => {
               <div className="p-4">
                 <p className="text-sm font-medium text-red-900 dark:text-red-100">
                   ⛔ Your driver status is inactive. Please start your shift at
-                  your profile page to create tickets.
+                  your dashboard page to create tickets.
                 </p>
                 <Button
-                  onClick={() => navigate("/driver/profile")}
+                  onClick={() => navigate("/")}
                   className="mt-3 w-full"
                   variant="default"
                 >
-                  Go to Profile
+                  Go to Dashboard
                 </Button>
               </div>
             </Card>
@@ -431,7 +495,7 @@ const CreateTicket = () => {
           <Card className="shadow-md">
             <div className="space-y-4 p-4">
               <div>
-                <Label htmlFor="pickup_location">Pickup Location</Label>
+                <Label htmlFor="pickup_location">Pickup Location *</Label>
                 <SearchableSelect
                   value={formData.pickup_location}
                   onValueChange={(value) =>
@@ -529,44 +593,91 @@ const CreateTicket = () => {
             </Card>
           )}
 
-          {/* Submit */}
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full shadow-lg transition-all"
-            disabled={
-              isSubmitting ||
-              hasActiveTicket ||
-              !isShiftComplete ||
-              isDriverInactive
-            }
-            title={
-              isDriverInactive
-                ? "Your driver status is inactive. Please start your shift at your profile page."
-                : !isShiftComplete
-                ? "Please complete your shift setup (carrier, truck, and pickup location) to create tickets."
-                : hasActiveTicket
-                ? "You have an active ticket. Complete it before creating a new one."
-                : ""
-            }
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Creating Ticket...
-              </>
-            ) : hasActiveTicket ? (
-              <>
-                <Save className="mr-2 h-5 w-5" />
-                Complete Active Ticket First
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-5 w-5" />
-                Create & Verify Ticket
-              </>
-            )}
-          </Button>
+          {/* Draft Notification */}
+          {hasDraft && (
+            <Card className="overflow-hidden shadow-md border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+              <div className="p-4">
+                <p className="text-sm text-blue-900 dark:text-blue-100 mb-3">
+                  You have a saved draft ticket. Would you like to load it?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={loadDraft}
+                    className="flex-1"
+                  >
+                    Load Draft
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={deleteDraft}
+                    className="flex-1 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Draft
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Button Group */}
+          <div className="flex gap-2">
+            {/* Save as Draft Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="flex-1 shadow-lg transition-all"
+              onClick={saveDraft}
+            >
+              <Save className="mr-2 h-5 w-5" />
+              Save as Draft
+            </Button>
+
+            {/* Submit */}
+            <Button
+              type="submit"
+              size="lg"
+              className="flex-1 shadow-lg transition-all"
+              disabled={
+                isSubmitting ||
+                hasActiveTicket ||
+                !isShiftComplete ||
+                isDriverInactive
+              }
+              title={
+                isDriverInactive
+                  ? "Your driver status is inactive. Please start your shift at your profile page."
+                  : !isShiftComplete
+                  ? "Please complete your shift setup (carrier, truck, and pickup location) to create tickets."
+                  : hasActiveTicket
+                  ? "You have an active ticket. Complete it before creating a new one."
+                  : ""
+              }
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Creating Ticket...
+                </>
+              ) : hasActiveTicket ? (
+                <>
+                  <Save className="mr-2 h-5 w-5" />
+                  Complete Active Ticket First
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-5 w-5" />
+                  Create & Verify Ticket
+                </>
+              )}
+            </Button>
+          </div>
         </form>
       </main>
     </div>

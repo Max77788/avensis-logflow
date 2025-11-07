@@ -166,7 +166,12 @@ const DriverSignUp = () => {
         updated_at: result.data.updated_at,
       });
 
-      navigate("/driver/profile");
+      // Redirect based on driver status
+      if (result.data.status === "active") {
+        navigate("/");
+      } else {
+        navigate("/driver/profile");
+      }
     } catch (error: any) {
       console.error("Sign up error:", error);
     } finally {
@@ -197,7 +202,7 @@ const DriverSignUp = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Full Name*</Label>
               <Input
                 id="name"
                 placeholder="John Doe"
@@ -211,7 +216,7 @@ const DriverSignUp = () => {
 
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">Email Address*</Label>
               <Input
                 id="email"
                 type="email"
@@ -226,7 +231,7 @@ const DriverSignUp = () => {
 
             {/* Carrier */}
             <div className="space-y-2">
-              <Label htmlFor="carrier">Carrier</Label>
+              <Label htmlFor="carrier">Carrier*</Label>
               <SearchableSelect
                 value={formData.carrier_id}
                 onValueChange={(value) =>
@@ -239,7 +244,7 @@ const DriverSignUp = () => {
 
             {/* Default Truck */}
             <div className="space-y-2">
-              <Label htmlFor="truck">Default Truck</Label>
+              <Label htmlFor="truck">Default Truck*</Label>
               <SearchableSelect
                 value={formData.default_truck_id}
                 onValueChange={(value) =>
