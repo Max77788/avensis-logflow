@@ -106,9 +106,8 @@ const CreateTicket = () => {
           truckName = driverProfile.default_truck_id || "";
         }
 
-        // Get pickup location from active shift
-        const pickupLocation =
-          shift.isActive && shift.pickupLocation ? shift.pickupLocation : "";
+        // Get pickup location from shift (even if shift is not active, pickup location might be stored)
+        const pickupLocation = shift.pickupLocation || "";
 
         console.log("CreateTicket loading data:", {
           carrierName,
