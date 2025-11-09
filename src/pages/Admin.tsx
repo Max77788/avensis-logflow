@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ArrowLeft, Search, Download, Package, Filter } from "lucide-react";
+import { Header } from "@/components/Header";
+import { Search, Download, Package, Filter } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
 
@@ -73,27 +74,20 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-foreground">
-                Admin Dashboard
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {tickets.length} total tickets
-              </p>
-            </div>
-            <Button onClick={exportCSV} variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Admin Dashboard"
+        subtitle={`${tickets.length} total tickets`}
+        showBackButton
+        onBackClick={() => navigate("/")}
+        rightContent={
+          <Button onClick={exportCSV} variant="outline" size="sm">
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+        }
+        showThemeToggle
+        showLanguageSelector
+      />
 
       {/* Content */}
       <main className="container mx-auto px-4 py-6">

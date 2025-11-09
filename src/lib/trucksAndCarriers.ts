@@ -506,6 +506,7 @@ export const PICKUP_LOCATIONS = [
   "Funston Solar",
   "Impact Site",
   "Jones City",
+  "Primal Materials",
   "Return Mountain",
   "Sea Bank",
   "Tiger Solar",

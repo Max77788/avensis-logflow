@@ -8,18 +8,10 @@ import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SignaturePad } from "@/components/SignaturePad";
 import { TicketImageUpload } from "@/components/TicketImageUpload";
-import {
-  ArrowLeft,
-  Save,
-  Weight,
-  Loader2,
-  Moon,
-  Sun,
-  Trash2,
-} from "lucide-react";
+import { Header } from "@/components/Header";
+import { Save, Weight, Loader2, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
 import { useShift } from "@/contexts/ShiftContext";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
@@ -37,7 +29,6 @@ const FALLBACK_DESTINATION_SITES = DESTINATION_SITES;
 const CreateTicket = () => {
   const navigate = useNavigate();
   const { user, driverProfile } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
   const { shift } = useShift();
   const [searchParams] = useSearchParams();
   const truckFromQR = searchParams.get("truck");
@@ -292,40 +283,14 @@ const CreateTicket = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
-                Create Ticket
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Scale verification
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="rounded-full"
-            >
-              {isDark ? (
-                <Sun className="h-5 w-5" />
-              ) : (
-                <Moon className="h-5 w-5" />
-              )}
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/")}>
-              Home
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Create Ticket"
+        subtitle="Scale verification"
+        showBackButton
+        onBackClick={() => navigate("/")}
+        showThemeToggle
+        showLanguageSelector
+      />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">

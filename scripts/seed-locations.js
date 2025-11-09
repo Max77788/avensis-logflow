@@ -24,6 +24,7 @@ async function seedLocations() {
       "Jones City",
       "Tiger Solar",
       "Impact Site",
+      "Primal Materials",
       "Return Mountain",
       "Sea Bank",
       "Double EE",

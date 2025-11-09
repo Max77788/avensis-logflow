@@ -4,12 +4,12 @@ import type { UserRole } from "@/lib/types";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: UserRole;
+  requiredRole?: UserRole | UserRole[];
 }
 
 /**
  * ProtectedRoute component that redirects unauthenticated users to login
- * Optionally enforces a specific role requirement
+ * Optionally enforces a specific role requirement or multiple roles
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
@@ -32,10 +32,14 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // Check role if required
-  if (requiredRole && user.role !== requiredRole) {
-    return <Navigate to="/" replace />;
+  if (requiredRole) {
+    const allowedRoles = Array.isArray(requiredRole)
+      ? requiredRole
+      : [requiredRole];
+    if (!allowedRoles.includes(user.role)) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <>{children}</>;
 };
-

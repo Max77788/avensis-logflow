@@ -63,6 +63,7 @@ INSERT INTO pickup_locations (name) VALUES
   ('Jones City'),
   ('Tiger Solar'),
   ('Impact Site'),
+  ('Primal Materials'),
   ('Return Mountain'),
   ('Sea Bank'),
   ('Double EE')

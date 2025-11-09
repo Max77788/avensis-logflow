@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Truck, User, QrCode, LogIn } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { carrierService } from "@/lib/carrierService";
 
 const Login = () => {
@@ -65,6 +67,11 @@ const Login = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex items-center justify-center p-4">
         <div className="w-full max-w-md">
+          {/* Language Selector */}
+          <div className="absolute top-4 right-4">
+            <LanguageSelector />
+          </div>
+
           {/* Header */}
           <div className="mb-8 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary mx-auto mb-4">

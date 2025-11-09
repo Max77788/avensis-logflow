@@ -571,7 +571,7 @@ const DriverProfile = () => {
           </Card>
 
           {/* Show different content based on shift status */}
-          {true === false ? null : (
+          {driverProfile.status === "inactive" ? null : (
             // ACTIVE STATE: Show full dashboard
             <>
               {/* QR Code Card */}

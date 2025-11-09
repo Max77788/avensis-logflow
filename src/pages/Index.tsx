@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { QRScanner } from "@/components/QRScanner";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import {
   QrCode,
   Truck,
@@ -197,6 +198,7 @@ const Index = () => {
                     <Settings className="h-5 w-5" />
                   </Button>
                 )}
+                <LanguageSelector />
                 <Button
                   variant="ghost"
                   size="icon"

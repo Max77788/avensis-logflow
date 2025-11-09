@@ -7,13 +7,11 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SignaturePad } from "@/components/SignaturePad";
 import { RouteMap } from "@/components/RouteMap";
+import { Header } from "@/components/Header";
 import { useGPS } from "@/hooks/useGPS";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
 import {
-  ArrowLeft,
   MapPin,
-  Truck,
   Calendar,
   User,
   CheckCircle,
@@ -23,10 +21,6 @@ import {
   Camera,
   X,
   Download,
-  Moon,
-  Sun,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
@@ -72,7 +66,6 @@ const TicketDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -461,34 +454,15 @@ const TicketDetails = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto flex items-center gap-3 px-4 py-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold text-foreground">
-              Ticket Details
-            </h1>
-            <p className="text-sm text-muted-foreground">{ticket.ticket_id}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="rounded-full"
-            >
-              {isDark ? (
-                <Sun className="h-5 w-5" />
-              ) : (
-                <Moon className="h-5 w-5" />
-              )}
-            </Button>
-            <StatusBadge status={ticket.status} />
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Ticket Details"
+        subtitle={ticket.ticket_id}
+        showBackButton
+        onBackClick={() => navigate("/")}
+        rightContent={<StatusBadge status={ticket.status} />}
+        showThemeToggle
+        showLanguageSelector
+      />
 
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
@@ -566,72 +540,55 @@ const TicketDetails = () => {
             <>
               {/* DRIVER VIEW - Top section with essential info */}
 
-              {/* For Destination Attendant - Collapsible Section */}
+              {/* For Destination Attendant - Button to New Screen */}
               {user?.role === "driver" && (
                 <Card className="overflow-hidden shadow-lg border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-                  <button
-                    onClick={() =>
-                      setShowAttendantSection(!showAttendantSection)
-                    }
-                    className="w-full"
-                  >
-                    <div className="flex items-center justify-between p-4">
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
                         <User className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                         <h3 className="font-semibold text-amber-900 dark:text-amber-100">
                           For Destination Attendant
                         </h3>
                       </div>
-                      {showAttendantSection ? (
-                        <ChevronUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                      )}
                     </div>
-                  </button>
 
-                  {showAttendantSection && (
-                    <div className="border-t border-amber-200 dark:border-amber-800 space-y-4 p-4">
+                    <p className="text-sm text-amber-800 dark:text-amber-200 mb-4">
+                      Share this ticket with the destination attendant to
+                      confirm delivery.
+                    </p>
+
+                    <div className="space-y-3">
                       {/* QR Code Section */}
                       <div className="space-y-2">
-                        <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                          1. Scan Driver QR Code
+                        <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
+                          Driver QR Code
                         </p>
-                        <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-                          Ask the driver to show this QR code. Scan it to verify
-                          the driver and access this ticket.
-                        </p>
-                        <div className="flex justify-center bg-white p-4 rounded-lg">
-                          <QRCodeSVG value={ticket.driver_id} size={140} />
+                        <div className="flex justify-center bg-white p-3 rounded-lg">
+                          <QRCodeSVG value={ticket.driver_id} size={120} />
                         </div>
                       </div>
 
-                      {/* Ticket ID Section */}
-                      <div className="space-y-2 pt-2 border-t border-amber-200 dark:border-amber-800">
-                        <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                          2. Or Enter Ticket URL
+                      {/* Ticket URL Section */}
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
+                          Ticket URL
                         </p>
-                        <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-                          Alternatively, the destination attendant can add this
-                          ticket URL to their system to approve the delivery.
-                        </p>
-                        <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-amber-200 dark:border-amber-800 dark:bg-amber-950/30">
-                          <span className="text-xs text-muted-foreground">
-                            Ticket ID:
-                          </span>
-                          <span className="font-mono font-bold text-foreground flex-1">
-                            {`${window.location.origin}/tickets/${ticket.ticket_id}`}
+                        <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-200 dark:border-amber-800 dark:bg-amber-950/30">
+                          <span className="text-xs text-muted-foreground flex-1 truncate">
+                            {`${window.location.origin}/tickets/${ticket.ticket_id}/confirm-delivery`}
                           </span>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => {
                               navigator.clipboard.writeText(
-                                `${window.location.origin}/tickets/${ticket.ticket_id}`
+                                `${window.location.origin}/tickets/${ticket.ticket_id}/confirm-delivery`
                               );
                               toast({
                                 title: "Copied",
-                                description: "Ticket ID copied to clipboard",
+                                description:
+                                  "Confirmation URL copied to clipboard",
                               });
                             }}
                           >
@@ -640,85 +597,19 @@ const TicketDetails = () => {
                         </div>
                       </div>
 
-                      {/* Driver Sign-Off Section - Nested Collapsible */}
-                      <div className="space-y-2 pt-2 border-t border-amber-200 dark:border-amber-800">
-                        <button
-                          onClick={() =>
-                            setShowDriverSignOff(!showDriverSignOff)
-                          }
-                          className="w-full"
-                        >
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                              3. Sign-Off Here
-                            </p>
-                            {showDriverSignOff ? (
-                              <ChevronUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                            )}
-                          </div>
-                        </button>
-
-                        {showDriverSignOff && (
-                          <div className="space-y-3 mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                            <p className="text-xs text-blue-700 dark:text-blue-300">
-                              Destination attendant can sign off the ticket here
-                              to confirm completion of delivery.
-                            </p>
-
-                            {/* Confirmer Name */}
-                            <div className="space-y-2">
-                              <Label className="text-xs font-medium text-blue-900 dark:text-blue-100">
-                                Confirmer's Name *
-                              </Label>
-                              <Input
-                                type="text"
-                                placeholder="Enter driver name"
-                                value={driverConfirmerName}
-                                onChange={(e) =>
-                                  setDriverConfirmerName(e.target.value)
-                                }
-                                className="border-blue-200 dark:border-blue-800 text-sm"
-                              />
-                            </div>
-
-                            {/* Signature Pad */}
-                            <div className="space-y-2">
-                              <SignaturePad
-                                onSave={setDriverSignature}
-                                label="Confirmer's Signature *"
-                              />
-                            </div>
-
-                            {/* Sign Off Button */}
-                            <Button
-                              onClick={handleDriverSignOff}
-                              disabled={
-                                !driverSignature ||
-                                !driverConfirmerName.trim() ||
-                                isSigningOff
-                              }
-                              className="w-full"
-                              size="sm"
-                            >
-                              {isSigningOff ? (
-                                <>
-                                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                                  Signing Off...
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="mr-2 h-3 w-3" />
-                                  Sign Off Ticket
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                      {/* Navigation Button */}
+                      <Button
+                        onClick={() =>
+                          navigate(
+                            `/tickets/${ticket.ticket_id}/confirm-delivery`
+                          )
+                        }
+                        className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        Go to Confirmation Screen
+                      </Button>
                     </div>
-                  )}
+                  </div>
                 </Card>
               )}
 

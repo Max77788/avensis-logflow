@@ -17,6 +17,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Header } from "@/components/Header";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService } from "@/lib/carrierService";
 import type { Ticket } from "@/lib/types";
@@ -125,31 +126,27 @@ const Overview = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Overview</h1>
-                <p className="text-sm text-muted-foreground">
-                  All tickets and drivers
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <span>{allTickets.length} Tickets</span>
-              <span className="mx-2">•</span>
-              <Users className="h-4 w-4" />
-              <span>{allDrivers.length} Drivers</span>
-            </div>
+      <Header
+        title="Overview"
+        subtitle="All tickets and drivers"
+        showBackButton
+        onBackClick={() => navigate("/")}
+        rightContent={
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Package className="h-4 w-4" />
+            <span>{allTickets.length} Tickets</span>
+            <span className="mx-2">•</span>
+            <Users className="h-4 w-4" />
+            <span>{allDrivers.length} Drivers</span>
           </div>
+        }
+      />
 
+      {/* Tabs Section */}
+      <div className="border-b border-border bg-card/50">
+        <div className="container mx-auto px-4 py-0">
           {/* Tabs */}
-          <div className="flex gap-2 border-b border-border">
+          <div className="flex gap-2">
             <Button
               variant={activeTab === "tickets" ? "default" : "ghost"}
               size="sm"
@@ -170,7 +167,7 @@ const Overview = () => {
             </Button>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -355,16 +352,16 @@ const Overview = () => {
 
               {/* Status Filter */}
               <Select
-                value={driverStatusFilter || ""}
+                value={driverStatusFilter || "all"}
                 onValueChange={(value) =>
-                  setDriverStatusFilter(value === "" ? null : value)
+                  setDriverStatusFilter(value === "all" ? null : value)
                 }
               >
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>

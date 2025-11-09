@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -7,7 +7,7 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase environment variables');
+  console.error("Missing Supabase environment variables");
   process.exit(1);
 }
 
@@ -15,7 +15,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function createPickupLocationsTable() {
   try {
-    console.log('Creating pickup_locations table...');
+    console.log("Creating pickup_locations table...");
 
     const sql = `
       -- Create pickup_locations table if it doesn't exist
@@ -47,47 +47,50 @@ async function createPickupLocationsTable() {
         WITH CHECK (true);
     `;
 
-    const { data, error } = await supabase.rpc('exec_sql', { sql });
+    const { data, error } = await supabase.rpc("exec_sql", { sql });
 
     if (error) {
-      console.error('Error creating table:', error);
+      console.error("Error creating table:", error);
       process.exit(1);
     }
 
-    console.log('✓ pickup_locations table created successfully');
+    console.log("✓ pickup_locations table created successfully");
 
     // Now insert the pickup locations
-    console.log('Inserting pickup locations...');
+    console.log("Inserting pickup locations...");
     const pickupLocations = [
-      'Enzo',
-      'Funston Solar',
-      'Jones City',
-      'Tiger Solar',
-      'Impact Site',
-      'Return Mountain',
-      'Sea Bank',
-      'Double EE'
+      "Enzo",
+      "Funston Solar",
+      "Jones City",
+      "Tiger Solar",
+      "Impact Site",
+      "Primal Materials",
+      "Return Mountain",
+      "Sea Bank",
+      "Double EE",
     ];
 
     for (const location of pickupLocations) {
       const { error: insertError } = await supabase
-        .from('pickup_locations')
-        .upsert({ name: location }, { onConflict: 'name' })
+        .from("pickup_locations")
+        .upsert({ name: location }, { onConflict: "name" })
         .select();
 
       if (insertError) {
-        console.error(`Error inserting pickup location "${location}":`, insertError);
+        console.error(
+          `Error inserting pickup location "${location}":`,
+          insertError
+        );
       } else {
         console.log(`✓ Inserted pickup location: ${location}`);
       }
     }
 
-    console.log('\n✅ All pickup locations created successfully!');
+    console.log("\n✅ All pickup locations created successfully!");
   } catch (error) {
-    console.error('Error:', error);
+    console.error("Error:", error);
     process.exit(1);
   }
 }
 
 createPickupLocationsTable();
-
