@@ -9,10 +9,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { carrierService } from "@/lib/carrierService";
+import { APP_TITLE } from "@/lib/config";
 
 const Login = () => {
   const navigate = useNavigate();
   const { login, setDriverProfile } = useAuth();
+  const { t } = useLanguage();
   const [step, setStep] = useState<"role" | "driver-login">("role");
   const [driverEmail, setDriverEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -78,9 +80,11 @@ const Login = () => {
               <Truck className="h-8 w-8 text-primary-foreground" />
             </div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Truck IT
+              {APP_TITLE}
             </h1>
-            <p className="text-muted-foreground">Digital Ticketing System</p>
+            <p className="text-muted-foreground">
+              {t("login.digitalTicketingSystem")}
+            </p>
           </div>
 
           {/* Role Selection */}
@@ -95,14 +99,14 @@ const Login = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-foreground mb-1">
-                    Driver
+                    {t("login.driver")}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Log in or sign up to create tickets
+                    {t("login.driverDesc")}
                   </p>
                 </div>
                 <Button className="w-full" size="lg">
-                  Continue as Driver
+                  {t("login.continueAsDriver")}
                 </Button>
               </div>
             </Card>
@@ -117,14 +121,14 @@ const Login = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-foreground mb-1">
-                    Destination Attendant
+                    {t("login.attendant")}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Scan QR codes and confirm deliveries
+                    {t("login.attendantDesc")}
                   </p>
                 </div>
                 <Button className="w-full" size="lg">
-                  Continue as Attendant
+                  {t("login.continueAsAttendant")}
                 </Button>
               </div>
             </Card>
@@ -139,14 +143,14 @@ const Login = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-foreground mb-1">
-                    Overview
+                    {t("login.overview")}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    View all tickets and drivers
+                    {t("login.overviewDesc")}
                   </p>
                 </div>
                 <Button className="w-full" size="lg">
-                  View Overview
+                  {t("login.continueAsOverview")}
                 </Button>
               </div>
             </Card>
@@ -154,7 +158,7 @@ const Login = () => {
 
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground mt-8">
-            © 2024 Truck IT. All rights reserved.
+            {t("login.copyright")}
           </p>
         </div>
       </div>
@@ -171,11 +175,13 @@ const Login = () => {
             onClick={() => setStep("role")}
             className="mb-4"
           >
-            ← Back
+            {t("login.back")}
           </Button>
-          <h1 className="text-2xl font-bold text-foreground">Driver Login</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {t("login.driverLogin")}
+          </h1>
           <p className="text-muted-foreground mt-2">
-            Enter your email to log in or sign up
+            {t("login.enterEmailToLogin")}
           </p>
         </div>
 
@@ -183,7 +189,7 @@ const Login = () => {
         <Card className="p-6">
           <form onSubmit={handleDriverLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
+              <Label htmlFor="email">{t("login.emailAddress")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -203,19 +209,19 @@ const Login = () => {
               {isLoading ? (
                 <>
                   <span className="animate-spin mr-2">⏳</span>
-                  Logging in...
+                  {t("login.loggingIn")}
                 </>
               ) : (
                 <>
                   <LogIn className="mr-2 h-4 w-4" />
-                  Log In / Sign Up
+                  {t("login.logInSignUp")}
                 </>
               )}
             </Button>
           </form>
 
           <p className="text-xs text-muted-foreground text-center mt-4">
-            If you don't have an account, one will be created for you.
+            {t("login.noAccountWarning")}
           </p>
         </Card>
       </div>

@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Header } from "@/components/Header";
 import { Search, Download, Package, Filter } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
 
 const Admin = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -75,14 +77,14 @@ const Admin = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <Header
-        title="Admin Dashboard"
-        subtitle={`${tickets.length} total tickets`}
+        title={t("admin.title")}
+        subtitle={`${tickets.length} ${t("admin.totalTickets")}`}
         showBackButton
         onBackClick={() => navigate("/")}
         rightContent={
           <Button onClick={exportCSV} variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
-            Export CSV
+            {t("admin.exportCSV")}
           </Button>
         }
         showThemeToggle
@@ -98,7 +100,7 @@ const Admin = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by ticket ID, truck, or product..."
+                  placeholder={t("admin.searchTickets")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"

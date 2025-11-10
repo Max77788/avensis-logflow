@@ -13,6 +13,7 @@ import { Save, Weight, Loader2, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShift } from "@/contexts/ShiftContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService, type Carrier } from "@/lib/carrierService";
@@ -30,6 +31,7 @@ const CreateTicket = () => {
   const navigate = useNavigate();
   const { user, driverProfile } = useAuth();
   const { shift } = useShift();
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const truckFromQR = searchParams.get("truck");
 
@@ -601,7 +603,7 @@ const CreateTicket = () => {
               onClick={saveDraft}
             >
               <Save className="mr-2 h-5 w-5" />
-              Save as Draft
+              {t("createTicket.saveAsDraft")}
             </Button>
 
             {/* Submit */}
@@ -617,28 +619,28 @@ const CreateTicket = () => {
               }
               title={
                 isDriverInactive
-                  ? "Your driver status is inactive. Please start your shift at your profile page."
+                  ? t("createTicket.driverInactiveWarning")
                   : !isShiftComplete
-                  ? "Please complete your shift setup (carrier, truck, and pickup location) to create tickets."
+                  ? t("createTicket.completeShiftSetup")
                   : hasActiveTicket
-                  ? "You have an active ticket. Complete it before creating a new one."
+                  ? t("createTicket.activeTicketWarning")
                   : ""
               }
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Creating Ticket...
+                  {t("createTicket.creatingTicket")}
                 </>
               ) : hasActiveTicket ? (
                 <>
                   <Save className="mr-2 h-5 w-5" />
-                  Complete Active Ticket First
+                  {t("createTicket.completeActiveTicketFirst")}
                 </>
               ) : (
                 <>
                   <Save className="mr-2 h-5 w-5" />
-                  Activate Ticket
+                  {t("createTicket.activateTicket")}
                 </>
               )}
             </Button>

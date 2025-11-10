@@ -35,6 +35,8 @@ import { carrierService } from "@/lib/carrierService";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { APP_TITLE } from "@/lib/config";
 import type { Ticket } from "@/lib/types";
 
 const Index = () => {
@@ -47,6 +49,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { user, driverProfile, logout, updateDriverStatus } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { t } = useLanguage();
 
   const handleTicketIdSearch = () => {
     if (ticketIdInput.trim()) {
@@ -162,7 +165,7 @@ const Index = () => {
               size="icon"
               onClick={() => navigate("/")}
               className="rounded-full"
-              title="Home"
+              title={t("common.home")}
             >
               <Home className="h-5 w-5" />
             </Button>
@@ -170,8 +173,10 @@ const Index = () => {
               <Truck className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Truck IT</h1>
-              <p className="text-xs text-muted-foreground">Digital Ticketing</p>
+              <h1 className="text-xl font-bold text-foreground">{APP_TITLE}</h1>
+              <p className="text-xs text-muted-foreground">
+                {t("app.subtitle")}
+              </p>
             </div>
           </div>
 
@@ -180,7 +185,7 @@ const Index = () => {
             <div className="flex items-center gap-3">
               <div className="text-right">
                 <p className="text-sm font-medium text-foreground">
-                  {driverProfile?.name || "User"}
+                  {driverProfile?.name || t("common.user")}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">
                   {user.role}
@@ -193,7 +198,7 @@ const Index = () => {
                     size="icon"
                     onClick={() => navigate("/driver/profile")}
                     className="rounded-full"
-                    title="Profile"
+                    title={t("common.profile")}
                   >
                     <Settings className="h-5 w-5" />
                   </Button>
@@ -204,7 +209,7 @@ const Index = () => {
                   size="icon"
                   onClick={toggleTheme}
                   className="rounded-full"
-                  title={isDark ? "Light mode" : "Dark mode"}
+                  title={isDark ? t("common.lightMode") : t("common.darkMode")}
                 >
                   {isDark ? (
                     <Sun className="h-5 w-5" />
@@ -220,7 +225,7 @@ const Index = () => {
                     navigate("/login");
                   }}
                   className="rounded-full"
-                  title="Logout"
+                  title={t("common.logout")}
                 >
                   <LogOut className="h-5 w-5" />
                 </Button>
@@ -229,10 +234,10 @@ const Index = () => {
           ) : (
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => navigate("/login")}>
-                Login
+                {t("common.login")}
               </Button>
               <Button onClick={() => navigate("/driver/signup")}>
-                Sign Up
+                {t("common.signUp")}
               </Button>
             </div>
           )}

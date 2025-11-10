@@ -44,9 +44,7 @@ export const LanguageSelector = ({
               <DialogTitle>{t("common.selectLanguage")}</DialogTitle>
             </div>
             <DialogDescription>
-              {language === "en"
-                ? "Choose your preferred language"
-                : "Elige tu idioma preferido"}
+              {t("common.choosePreferredLanguage")}
             </DialogDescription>
           </DialogHeader>
 

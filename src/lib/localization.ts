@@ -2,10 +2,16 @@ export type Language = "en" | "es";
 
 export const translations = {
   en: {
+    // App Title
+    app: {
+      title: "eTicketing",
+      subtitle: "Smart Logistics Management",
+      company: "eTicketing",
+    },
     // Login Page
     login: {
-      title: "Avensis LogFlow",
-      subtitle: "Truck Logistics Management",
+      title: "eTicketing",
+      subtitle: "Smart Logistics Management",
       driver: "Driver",
       driverDesc: "Log in or sign up to create tickets",
       continueAsDriver: "Continue as Driver",
@@ -23,9 +29,15 @@ export const translations = {
       noAccountWarning:
         "If you don't have an account, one will be created for you.",
       back: "← Back",
-      truckIT: "Truck IT",
+      truckIT: "eTicketing",
       digitalTicketingSystem: "Digital Ticketing System",
-      copyright: "© 2024 Truck IT. All rights reserved.",
+      copyright: "© 2024 eTicketing. All rights reserved.",
+      fullName: "Full Name",
+      johnDoe: "John Doe",
+      creatingAccount: "Creating Account...",
+      createAccount: "Create Account",
+      yourUniqueDriverQRCode:
+        "Your unique driver QR code will be generated automatically.",
     },
     // Home Page
     home: {
@@ -63,18 +75,31 @@ export const translations = {
     },
     // Driver Profile
     driverProfile: {
+      title: "Driver Profile",
       myProfile: "My Profile",
       myQRCode: "My QR Code",
-      downloadQR: "Download QR Code",
-      selectCarrier: "Select Carrier",
-      selectTruck: "Select Truck",
+      myTruckAndCarrier: "My Truck & Carrier",
+      selectCarrier: "Select Carrier*",
+      selectTruck: "Select Truck *",
+      pickupLocation: "Pickup Location*",
+      chooseCarrier: "Choose a carrier",
+      chooseTruck: "Choose a truck",
+      choosePickupLocation: "Choose pickup location",
+      downloadQRCode: "Download QR Code",
+      activeTickets: "Active Tickets",
+      noActiveTickets: "No active tickets",
+      createNewTicket: "Create a new ticket to get started",
+      status: "Status",
+      finishTheShift: "Finish the Shift",
+      startTheShift: "Start the Shift",
+      loadingProfile: "Loading profile...",
+      home: "Home",
+      logout: "Logout",
       selectPickupLocation: "Select Pickup Location",
       saveChanges: "Save Changes",
       selectTruckRequired: "Please select a truck",
       profileUpdated: "Profile updated successfully",
       errorUpdating: "Error updating profile",
-      activeTickets: "Active Tickets",
-      noActiveTickets: "No active tickets",
     },
     // Ticket Details
     ticketDetails: {
@@ -183,6 +208,7 @@ export const translations = {
         "Please complete your shift setup (carrier, truck, and pickup location) to create tickets.",
       activeTicketWarning:
         "You have an active ticket. Complete it before creating a new one.",
+      saveAsDraft: "Save as Draft",
     },
     // Scale House
     scaleHouse: {
@@ -312,6 +338,7 @@ export const translations = {
       settings: "Settings",
       language: "Language",
       selectLanguage: "Select Language",
+      choosePreferredLanguage: "Choose your preferred language",
       english: "English",
       spanish: "Español",
       home: "Home",
@@ -329,6 +356,11 @@ export const translations = {
       refresh: "Refresh",
       lightMode: "Light mode",
       darkMode: "Dark mode",
+      login: "Login",
+      signUp: "Sign Up",
+      user: "User",
+      chooseYourRole: "Choose your role",
+      continueAsRole: "Continue as",
       name: "Name",
       email: "Email",
       status: "Status",
@@ -413,19 +445,42 @@ export const translations = {
     },
   },
   es: {
+    // App Title
+    app: {
+      title: "eTicketing",
+      subtitle: "Gestión Inteligente de Logística",
+      company: "eTicketing",
+    },
     // Login Page
     login: {
-      title: "Avensis LogFlow",
-      subtitle: "Gestión de Logística de Camiones",
+      title: "eTicketing",
+      subtitle: "Gestión Inteligente de Logística",
       driver: "Conductor",
       driverDesc: "Inicia sesión o regístrate para crear boletos",
       continueAsDriver: "Continuar como Conductor",
       attendant: "Asistente de Destino",
-      attendantDesc: "Gestiona y verifica boletos",
+      attendantDesc: "Escanea códigos QR y confirma entregas",
       continueAsAttendant: "Continuar como Asistente",
       overview: "Resumen",
       overviewDesc: "Ver todos los boletos y conductores",
-      continueAsOverview: "Continuar al Resumen",
+      continueAsOverview: "Ver Resumen",
+      driverLogin: "Inicio de Sesión del Conductor",
+      enterEmailToLogin:
+        "Ingresa tu correo electrónico para iniciar sesión o registrarte",
+      emailAddress: "Dirección de Correo Electrónico",
+      loggingIn: "Iniciando sesión...",
+      logInSignUp: "Iniciar Sesión / Registrarse",
+      noAccountWarning: "Si no tienes una cuenta, se creará una para ti.",
+      back: "← Atrás",
+      truckIT: "eTicketing",
+      digitalTicketingSystem: "Sistema de Boletos Digital",
+      copyright: "© 2024 eTicketing. Todos los derechos reservados.",
+      fullName: "Nombre Completo",
+      johnDoe: "Juan Pérez",
+      creatingAccount: "Creando Cuenta...",
+      createAccount: "Crear Cuenta",
+      yourUniqueDriverQRCode:
+        "Tu código QR de conductor único se generará automáticamente.",
     },
     // Home Page
     home: {
@@ -448,21 +503,47 @@ export const translations = {
         "Crea un nuevo boleto o escanea un código QR para comenzar",
       scanDriverQR: "Escanea el código QR del conductor para ver sus boletos",
       tons: "toneladas",
+      driverDashboard: "Panel del Conductor",
+      driverInfo: "Información del Conductor",
+      todayTickets: "Boletos de Hoy",
+      noTicketsCreatedYet: "Sin boletos creados aún",
+      active: "Activo",
+      verified: "Verificado",
+      delivered: "Entregado",
+      closed: "Cerrado",
+      endShiftWarning:
+        "Tienes boletos activos. Complétalos antes de finalizar tu turno.",
+      completeActiveTickets: "Completar Boletos Activos",
+      endShiftConfirm: "Finalizar Turno",
+      cancel: "Cancelar",
     },
     // Driver Profile
     driverProfile: {
+      title: "Perfil del Conductor",
       myProfile: "Mi Perfil",
       myQRCode: "Mi Código QR",
-      downloadQR: "Descargar Código QR",
-      selectCarrier: "Seleccionar Transportista",
-      selectTruck: "Seleccionar Camión",
+      myTruckAndCarrier: "Mi Camión y Transportista",
+      selectCarrier: "Seleccionar Transportista*",
+      selectTruck: "Seleccionar Camión *",
+      pickupLocation: "Ubicación de Recogida*",
+      chooseCarrier: "Elige una transportista",
+      chooseTruck: "Elige un camión",
+      choosePickupLocation: "Elige ubicación de recogida",
+      downloadQRCode: "Descargar Código QR",
+      activeTickets: "Boletos Activos",
+      noActiveTickets: "Sin boletos activos",
+      createNewTicket: "Crea un nuevo boleto para comenzar",
+      status: "Estado",
+      finishTheShift: "Finalizar el Turno",
+      startTheShift: "Iniciar el Turno",
+      loadingProfile: "Cargando perfil...",
+      home: "Inicio",
+      logout: "Cerrar Sesión",
       selectPickupLocation: "Seleccionar Ubicación de Recogida",
       saveChanges: "Guardar Cambios",
       selectTruckRequired: "Por favor selecciona un camión",
       profileUpdated: "Perfil actualizado exitosamente",
       errorUpdating: "Error al actualizar el perfil",
-      activeTickets: "Boletos Activos",
-      noActiveTickets: "Sin boletos activos",
     },
     // Ticket Details
     ticketDetails: {
@@ -571,6 +652,7 @@ export const translations = {
         "Por favor completa tu configuración de turno (transportista, camión y ubicación de recogida) para crear boletos.",
       activeTicketWarning:
         "Tienes un boleto activo. Complétalo antes de crear uno nuevo.",
+      saveAsDraft: "Guardar como Borrador",
     },
     // Scale House
     scaleHouse: {
@@ -593,12 +675,12 @@ export const translations = {
     driverSignUp: {
       title: "Registro de Conductor",
       subtitle: "Crea tu cuenta de conductor",
-      fullName: "Nombre Completo",
-      email: "Correo Electrónico",
-      selectCarrier: "Seleccionar Transportista",
-      selectTruck: "Seleccionar Camión",
-      signUp: "Registrarse",
-      signingUp: "Registrando...",
+      fullName: "Nombre Completo*",
+      email: "Dirección de Correo Electrónico*",
+      selectCarrier: "Transportista*",
+      selectTruck: "Camión Predeterminado*",
+      signUp: "Crear Cuenta",
+      signingUp: "Creando Cuenta...",
       accountCreated: "Cuenta Creada",
       accountCreatedSuccessfully: "Tu cuenta ha sido creada exitosamente",
       errorCreatingAccount: "Error al crear la cuenta",
@@ -607,6 +689,12 @@ export const translations = {
       emailRequired: "El correo electrónico es requerido",
       carrierRequired: "Por favor selecciona una transportista",
       truckRequired: "Por favor selecciona un camión",
+      selectACarrier: "Selecciona una transportista",
+      selectATruck: "Selecciona un camión",
+      johnDoe: "Juan Pérez",
+      driverAtExample: "conductor@ejemplo.com",
+      uniqueQRCodeGenerated:
+        "Tu código QR único de conductor se generará automáticamente.",
     },
     // Driver Dashboard
     driverDashboard: {
@@ -631,6 +719,10 @@ export const translations = {
       status: "Estado",
       active: "Activo",
       inactive: "Inactivo",
+      driverInformation: "Información del Conductor",
+      back: "Atrás",
+      home: "Inicio",
+      logout: "Cerrar Sesión",
     },
     // Deliver Ticket
     deliverTicket: {
@@ -688,6 +780,26 @@ export const translations = {
       status: "Estado",
       createdAt: "Creado En",
     },
+    // Not Found
+    notFound: {
+      pageNotFound: "Página No Encontrada",
+      sorryPageDoesntExist: "Lo sentimos, la página que buscas no existe.",
+      goHome: "Ir a Inicio",
+      goBack: "Volver",
+    },
+    // Start Shift
+    startShift: {
+      title: "Iniciar Turno",
+      selectCarrier: "Seleccionar Transportista",
+      selectTruck: "Seleccionar Camión",
+      selectPickupLocation: "Seleccionar Ubicación de Recogida",
+      startShift: "Iniciar Turno",
+      startingShift: "Iniciando turno...",
+      shiftStarted: "Turno Iniciado",
+      shiftStartedSuccessfully: "Tu turno ha sido iniciado exitosamente",
+      errorStartingShift: "Error al iniciar el turno",
+      failedToStartShift: "Error al iniciar el turno",
+    },
     // Common
     common: {
       loading: "Cargando...",
@@ -702,6 +814,7 @@ export const translations = {
       settings: "Configuración",
       language: "Idioma",
       selectLanguage: "Seleccionar Idioma",
+      choosePreferredLanguage: "Elige tu idioma preferido",
       english: "English",
       spanish: "Español",
       home: "Inicio",
@@ -719,6 +832,11 @@ export const translations = {
       refresh: "Actualizar",
       lightMode: "Modo Claro",
       darkMode: "Modo Oscuro",
+      login: "Iniciar Sesión",
+      signUp: "Registrarse",
+      user: "Usuario",
+      chooseYourRole: "Elige tu rol",
+      continueAsRole: "Continuar como",
       name: "Nombre",
       email: "Correo Electrónico",
       status: "Estado",

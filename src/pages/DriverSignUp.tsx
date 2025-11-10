@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { ArrowLeft, UserPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { carrierService, type Carrier, type Truck } from "@/lib/carrierService";
 import { CARRIERS, getTrucksByCarrier } from "@/lib/trucksAndCarriers";
 
@@ -14,6 +15,7 @@ const DriverSignUp = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, setDriverProfile } = useAuth();
+  const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [trucks, setTrucks] = useState<Truck[]>([]);
@@ -189,11 +191,13 @@ const DriverSignUp = () => {
             onClick={() => navigate("/login")}
             className="mb-4"
           >
-            ← Back
+            {t("login.back")}
           </Button>
-          <h1 className="text-2xl font-bold text-foreground">Driver Sign Up</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {t("driverSignUp.title")}
+          </h1>
           <p className="text-muted-foreground mt-2">
-            Create your driver account
+            {t("driverSignUp.subtitle")}
           </p>
         </div>
 
@@ -202,10 +206,10 @@ const DriverSignUp = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name*</Label>
+              <Label htmlFor="name">{t("login.fullName")}*</Label>
               <Input
                 id="name"
-                placeholder="John Doe"
+                placeholder={t("login.johnDoe")}
                 value={formData.name}
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
@@ -216,7 +220,7 @@ const DriverSignUp = () => {
 
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address*</Label>
+              <Label htmlFor="email">{t("login.emailAddress")}*</Label>
               <Input
                 id="email"
                 type="email"
@@ -231,26 +235,28 @@ const DriverSignUp = () => {
 
             {/* Carrier */}
             <div className="space-y-2">
-              <Label htmlFor="carrier">Carrier*</Label>
+              <Label htmlFor="carrier">
+                {t("driverSignUp.selectCarrier")}*
+              </Label>
               <SearchableSelect
                 value={formData.carrier_id}
                 onValueChange={(value) =>
                   setFormData({ ...formData, carrier_id: value })
                 }
-                placeholder="Select a carrier"
+                placeholder={t("driverSignUp.selectCarrier")}
                 items={carriersList}
               />
             </div>
 
             {/* Default Truck */}
             <div className="space-y-2">
-              <Label htmlFor="truck">Default Truck*</Label>
+              <Label htmlFor="truck">{t("driverSignUp.selectTruck")}*</Label>
               <SearchableSelect
                 value={formData.default_truck_id}
                 onValueChange={(value) =>
                   setFormData({ ...formData, default_truck_id: value })
                 }
-                placeholder="Select a truck"
+                placeholder={t("driverSignUp.selectTruck")}
                 items={trucksList}
                 disabled={!formData.carrier_id}
               />
@@ -272,19 +278,19 @@ const DriverSignUp = () => {
               {isLoading ? (
                 <>
                   <span className="animate-spin mr-2">⏳</span>
-                  Creating Account...
+                  {t("login.creatingAccount")}
                 </>
               ) : (
                 <>
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Create Account
+                  {t("login.createAccount")}
                 </>
               )}
             </Button>
           </form>
 
           <p className="text-xs text-muted-foreground text-center mt-4">
-            Your unique driver QR code will be generated automatically.
+            {t("login.yourUniqueDriverQRCode")}
           </p>
         </Card>
       </div>
