@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Header } from "@/components/Header";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService } from "@/lib/carrierService";
 import type { Ticket } from "@/lib/types";
@@ -31,6 +32,7 @@ import {
 
 const Overview = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [allTickets, setAllTickets] = useState<Ticket[]>([]);
   const [allDrivers, setAllDrivers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,17 +129,21 @@ const Overview = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <Header
-        title="Overview"
-        subtitle="All tickets and drivers"
+        title={t("overview.title")}
+        subtitle={t("overview.subtitle")}
         showBackButton
         onBackClick={() => navigate("/")}
         rightContent={
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Package className="h-4 w-4" />
-            <span>{allTickets.length} Tickets</span>
+            <span>
+              {allTickets.length} {t("overview.tickets")}
+            </span>
             <span className="mx-2">•</span>
             <Users className="h-4 w-4" />
-            <span>{allDrivers.length} Drivers</span>
+            <span>
+              {allDrivers.length} {t("overview.drivers")}
+            </span>
           </div>
         }
       />
@@ -154,7 +160,7 @@ const Overview = () => {
               className="rounded-b-none"
             >
               <Truck className="h-4 w-4 mr-2" />
-              Tickets ({filteredTickets.length})
+              {t("overview.tickets")} ({filteredTickets.length})
             </Button>
             <Button
               variant={activeTab === "drivers" ? "default" : "ghost"}
@@ -163,7 +169,7 @@ const Overview = () => {
               className="rounded-b-none"
             >
               <Users className="h-4 w-4 mr-2" />
-              Drivers ({filteredDrivers.length})
+              {t("overview.drivers")} ({filteredDrivers.length})
             </Button>
           </div>
         </div>
@@ -180,7 +186,7 @@ const Overview = () => {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="Search by ticket ID, truck, or carrier..."
+                    placeholder={t("overview.searchByTicketTruckCarrier")}
                     value={ticketSearch}
                     onChange={(e) => setTicketSearch(e.target.value)}
                     className="pl-10"
@@ -190,7 +196,7 @@ const Overview = () => {
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                   variant={showAdvancedFilters ? "default" : "outline"}
                   size="icon"
-                  title="Advanced Filters"
+                  title={t("overview.advancedFilters")}
                 >
                   <Filter className="h-4 w-4" />
                 </Button>
@@ -202,7 +208,9 @@ const Overview = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {/* Status Filter */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Status</label>
+                      <label className="text-sm font-medium">
+                        {t("common.status")}
+                      </label>
                       <Select
                         value={statusFilter || "all"}
                         onValueChange={(value) =>
@@ -210,10 +218,14 @@ const Overview = () => {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="All Statuses" />
+                          <SelectValue
+                            placeholder={t("overview.allStatuses")}
+                          />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Statuses</SelectItem>
+                          <SelectItem value="all">
+                            {t("overview.allStatuses")}
+                          </SelectItem>
                           {statuses.map((status) => (
                             <SelectItem key={status} value={status}>
                               {status}
@@ -225,7 +237,9 @@ const Overview = () => {
 
                     {/* Carrier Filter */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Carrier</label>
+                      <label className="text-sm font-medium">
+                        {t("common.carrier")}
+                      </label>
                       <Select
                         value={carrierFilter || "all"}
                         onValueChange={(value) =>
@@ -233,10 +247,14 @@ const Overview = () => {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="All Carriers" />
+                          <SelectValue
+                            placeholder={t("overview.allCarriers")}
+                          />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Carriers</SelectItem>
+                          <SelectItem value="all">
+                            {t("overview.allCarriers")}
+                          </SelectItem>
                           {uniqueCarriers.map((carrier) => (
                             <SelectItem key={carrier} value={carrier}>
                               {carrier}
@@ -248,14 +266,20 @@ const Overview = () => {
 
                     {/* Date Filter */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Date</label>
+                      <label className="text-sm font-medium">
+                        {t("overview.date")}
+                      </label>
                       <Select value={dateFilter} onValueChange={setDateFilter}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="today">Today</SelectItem>
-                          <SelectItem value="all">All Dates</SelectItem>
+                          <SelectItem value="today">
+                            {t("overview.today")}
+                          </SelectItem>
+                          <SelectItem value="all">
+                            {t("overview.allDates")}
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -274,7 +298,9 @@ const Overview = () => {
             ) : filteredTickets.length === 0 ? (
               <Card className="p-8 text-center">
                 <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground/50" />
-                <p className="text-muted-foreground">No tickets found</p>
+                <p className="text-muted-foreground">
+                  {t("overview.noTicketsFound")}
+                </p>
               </Card>
             ) : (
               <div className="space-y-3">
@@ -296,7 +322,7 @@ const Overview = () => {
                           <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-2">
                             <div>
                               <p className="text-xs text-muted-foreground/70">
-                                Truck
+                                {t("common.truck")}
                               </p>
                               <p className="font-medium text-foreground">
                                 {ticket.truck_id}
@@ -304,7 +330,7 @@ const Overview = () => {
                             </div>
                             <div>
                               <p className="text-xs text-muted-foreground/70">
-                                Carrier
+                                {t("common.carrier")}
                               </p>
                               <p className="font-medium text-foreground">
                                 {ticket.carrier || "N/A"}
@@ -324,7 +350,9 @@ const Overview = () => {
                               ? ticket.net_weight.toFixed(1)
                               : "—"}
                           </p>
-                          <p className="text-xs text-muted-foreground">tons</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t("common.tons")}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -343,7 +371,7 @@ const Overview = () => {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search drivers..."
+                  placeholder={t("overview.searchDrivers")}
                   value={driverSearch}
                   onChange={(e) => setDriverSearch(e.target.value)}
                   className="pl-10"
@@ -358,12 +386,14 @@ const Overview = () => {
                 }
               >
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All Status" />
+                  <SelectValue placeholder={t("overview.allStatus")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="all">{t("overview.allStatus")}</SelectItem>
+                  <SelectItem value="active">{t("overview.active")}</SelectItem>
+                  <SelectItem value="inactive">
+                    {t("overview.inactive")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -379,7 +409,7 @@ const Overview = () => {
               <Card className="p-6 text-center">
                 <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
-                  No drivers found
+                  {t("overview.noDriversFound")}
                 </p>
               </Card>
             ) : (

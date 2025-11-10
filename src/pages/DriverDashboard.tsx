@@ -16,11 +16,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShift } from "@/contexts/ShiftContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { ticketService } from "@/lib/ticketService";
 import type { Ticket } from "@/lib/types";
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { driverProfile, logout } = useAuth();
   const { shift, endShift } = useShift();
   const [todayTickets, setTodayTickets] = useState<Ticket[]>([]);
@@ -98,7 +100,7 @@ const DriverDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">
-                Driver Dashboard
+                {t("driverDashboard.title")}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {shift.carrier} • {shift.truck}
@@ -112,7 +114,7 @@ const DriverDashboard = () => {
                 className="gap-2"
               >
                 <User className="h-4 w-4" />
-                Driver Info
+                {t("driverDashboard.driverInfo")}
               </Button>
               <Button
                 variant="outline"
@@ -121,7 +123,7 @@ const DriverDashboard = () => {
                 className="gap-2"
               >
                 <LogOut className="h-4 w-4" />
-                End Shift
+                {t("driverDashboard.endShift")}
               </Button>
             </div>
           </div>
@@ -137,7 +139,7 @@ const DriverDashboard = () => {
             className="h-14 text-base font-semibold gap-2"
           >
             <Plus className="h-5 w-5" />
-            Create Ticket
+            {t("home.createTicket")}
           </Button>
         </div>
 
@@ -145,7 +147,7 @@ const DriverDashboard = () => {
         <div className="space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-4">
-              Today's Tickets ({todayTickets.length})
+              {t("home.todayTickets")} ({todayTickets.length})
             </h2>
 
             {isLoading ? (
@@ -157,7 +159,7 @@ const DriverDashboard = () => {
             ) : todayTickets.length === 0 ? (
               <Card className="p-8 text-center">
                 <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No tickets created yet</p>
+                <p className="text-muted-foreground">{t("common.noData")}</p>
               </Card>
             ) : (
               <div className="space-y-3">
@@ -165,7 +167,7 @@ const DriverDashboard = () => {
                 {groupedTickets.active.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase">
-                      Active ({groupedTickets.active.length})
+                      {t("home.active")} ({groupedTickets.active.length})
                     </p>
                     {groupedTickets.active.map((ticket) => (
                       <Card
@@ -208,7 +210,7 @@ const DriverDashboard = () => {
                 {groupedTickets.verified.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase">
-                      Verified ({groupedTickets.verified.length})
+                      {t("home.verified")} ({groupedTickets.verified.length})
                     </p>
                     {groupedTickets.verified.map((ticket) => (
                       <Card
@@ -242,7 +244,7 @@ const DriverDashboard = () => {
                 {groupedTickets.delivered.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase">
-                      Delivered ({groupedTickets.delivered.length})
+                      {t("home.delivered")} ({groupedTickets.delivered.length})
                     </p>
                     {groupedTickets.delivered.map((ticket) => (
                       <Card
@@ -276,7 +278,7 @@ const DriverDashboard = () => {
                 {groupedTickets.closed.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase">
-                      Closed ({groupedTickets.closed.length})
+                      {t("home.closed")} ({groupedTickets.closed.length})
                     </p>
                     {groupedTickets.closed.map((ticket) => (
                       <Card

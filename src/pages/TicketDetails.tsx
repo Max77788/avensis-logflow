@@ -10,6 +10,7 @@ import { RouteMap } from "@/components/RouteMap";
 import { Header } from "@/components/Header";
 import { useGPS } from "@/hooks/useGPS";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   MapPin,
   Calendar,
@@ -65,6 +66,7 @@ const TicketDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -438,11 +440,9 @@ const TicketDetails = () => {
             <Loader2 className="h-16 w-16 animate-spin text-primary" />
           </div>
           <h2 className="mb-2 text-xl font-bold text-foreground">
-            Loading Ticket...
+            {t("common.loading")}
           </h2>
-          <p className="text-muted-foreground">
-            Please wait while we fetch the ticket details
-          </p>
+          <p className="text-muted-foreground">{t("common.pleaseWait")}</p>
         </Card>
       </div>
     );
@@ -455,7 +455,7 @@ const TicketDetails = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <Header
-        title="Ticket Details"
+        title={t("ticketDetails.title")}
         subtitle={ticket.ticket_id}
         showBackButton
         onBackClick={() => navigate("/")}

@@ -103,6 +103,7 @@ export const translations = {
     },
     // Ticket Details
     ticketDetails: {
+      title: "Ticket Details",
       ticketURL: "Ticket URL",
       copy: "Copy",
       copied: "Copied!",
@@ -170,11 +171,17 @@ export const translations = {
     },
     // Overview
     overview: {
+      title: "Overview",
+      subtitle: "All tickets and drivers",
       allTicketsAndDrivers: "All tickets and drivers",
       tickets: "Tickets",
       drivers: "Drivers",
+      searchByTicketTruckCarrier: "Search by ticket ID, truck, or carrier...",
       searchTickets: "Search tickets...",
       searchDrivers: "Search drivers...",
+      advancedFilters: "Advanced Filters",
+      allStatuses: "All Statuses",
+      allCarriers: "All Carriers",
       allStatus: "All Status",
       active: "Active",
       inactive: "Inactive",
@@ -182,16 +189,25 @@ export const translations = {
       noDriversFound: "No drivers found",
       today: "Today",
       allDates: "All Dates",
+      date: "Date",
     },
     // Create Ticket
     createTicket: {
       title: "Create Ticket",
       subtitle: "Scale verification",
+      carrier: "Carrier",
+      truckID: "Truck ID",
+      driver: "Driver",
+      notAssigned: "Not assigned",
       selectCarrier: "Select Carrier",
       selectTruck: "Select Truck",
       selectPickupLocation: "Select Pickup Location",
+      pickupLocation: "Pickup Location *",
+      destinationSite: "Destination Site *",
       enterDestination: "Enter Destination",
+      netWeight: "Net Weight *",
       enterNetWeight: "Enter Net Weight",
+      productName: "Product Name (Optional)",
       enterProductName: "Enter Product Name (Optional)",
       signature: "Signature",
       signatureRequired: "Signature required",
@@ -287,6 +303,7 @@ export const translations = {
       errorConfirmingDelivery: "Error confirming delivery",
       failedToConfirmDelivery: "Failed to confirm delivery",
       deliveryConfirmation: "Delivery Confirmation",
+      deliveryLocation: "Delivery Location",
     },
     // Destination Attendant
     destinationAttendant: {
@@ -303,6 +320,7 @@ export const translations = {
       deliveryConfirmedSuccessfully: "Delivery has been confirmed successfully",
       errorConfirmingDelivery: "Error confirming delivery",
       failedToConfirmDelivery: "Failed to confirm delivery",
+      deliveryConfirmation: "Delivery Confirmation",
     },
     // Admin
     admin: {
@@ -323,6 +341,28 @@ export const translations = {
       product: "Product",
       status: "Status",
       createdAt: "Created At",
+    },
+    // Index / Home Dashboard
+    index: {
+      scanQRCode: "Scan QR Code",
+      scanDriverQRCode: "Scan driver QR code to view their tickets",
+      enterTicketID: "Enter Ticket ID",
+      typeTicketID: "Type ticket ID (e.g., TKT-12345) to access a ticket",
+      search: "Search",
+      createTicket: "Create Ticket",
+      manuallyCreateNewTicket: "Manually create new ticket",
+      createNewTicket: "Create New Ticket +",
+      shiftStatus: "Shift Status",
+      startShift: "Start Shift",
+      endShift: "End Shift",
+      recentActivity: "Recent Activity",
+      noRecentActivity: "No recent activity",
+      createTicketOrScan:
+        "Create a new ticket or scan a QR code to get started",
+      scanTruckOrTicket: "Scan truck or ticket QR code",
+      openScanner: "Open Scanner",
+      scanDriverQRCodeToViewTickets:
+        "Scan a driver QR code to view their tickets",
     },
     // Common
     common: {
@@ -442,6 +482,9 @@ export const translations = {
       logoutSuccessful: "Logout Successful",
       sessionExpired: "Session Expired",
       pleaseLoginAgain: "Please login again",
+      tryAdjustingFilters: "Try adjusting your filters",
+      createFirstTicket: "Create your first ticket to get started",
+      pleaseWait: "Please wait while we fetch the ticket details",
     },
   },
   es: {
@@ -547,6 +590,7 @@ export const translations = {
     },
     // Ticket Details
     ticketDetails: {
+      title: "Detalles del Boleto",
       ticketURL: "URL del Boleto",
       copy: "Copiar",
       copied: "¡Copiado!",
@@ -614,11 +658,18 @@ export const translations = {
     },
     // Overview
     overview: {
+      title: "Descripción General",
+      subtitle: "Todos los boletos y conductores",
       allTicketsAndDrivers: "Todos los boletos y conductores",
       tickets: "Boletos",
       drivers: "Conductores",
+      searchByTicketTruckCarrier:
+        "Buscar por ID de boleto, camión o transportista...",
       searchTickets: "Buscar boletos...",
       searchDrivers: "Buscar conductores...",
+      advancedFilters: "Filtros Avanzados",
+      allStatuses: "Todos los Estados",
+      allCarriers: "Todos los Transportistas",
       allStatus: "Todos los Estados",
       active: "Activo",
       inactive: "Inactivo",
@@ -626,16 +677,25 @@ export const translations = {
       noDriversFound: "No se encontraron conductores",
       today: "Hoy",
       allDates: "Todas las Fechas",
+      date: "Fecha",
     },
     // Create Ticket
     createTicket: {
       title: "Crear Boleto",
       subtitle: "Verificación de escala",
+      carrier: "Transportista",
+      truckID: "ID del Camión",
+      driver: "Conductor",
+      notAssigned: "No asignado",
       selectCarrier: "Seleccionar Transportista",
       selectTruck: "Seleccionar Camión",
       selectPickupLocation: "Seleccionar Ubicación de Recogida",
+      pickupLocation: "Ubicación de Recogida *",
+      destinationSite: "Sitio de Destino *",
       enterDestination: "Ingresa Destino",
+      netWeight: "Peso Neto *",
       enterNetWeight: "Ingresa Peso Neto",
+      productName: "Nombre del Producto (Opcional)",
       enterProductName: "Ingresa Nombre del Producto (Opcional)",
       signature: "Firma",
       signatureRequired: "Se requiere firma",
@@ -742,6 +802,7 @@ export const translations = {
       errorConfirmingDelivery: "Error al confirmar la entrega",
       failedToConfirmDelivery: "Error al confirmar la entrega",
       deliveryConfirmation: "Confirmación de Entrega",
+      deliveryLocation: "Ubicación de Entrega",
     },
     // Destination Attendant
     destinationAttendant: {
@@ -759,6 +820,7 @@ export const translations = {
         "La entrega ha sido confirmada exitosamente",
       errorConfirmingDelivery: "Error al confirmar la entrega",
       failedToConfirmDelivery: "Error al confirmar la entrega",
+      deliveryConfirmation: "Confirmación de Entrega",
     },
     // Admin
     admin: {
@@ -779,6 +841,30 @@ export const translations = {
       product: "Producto",
       status: "Estado",
       createdAt: "Creado En",
+    },
+    // Index / Home Dashboard
+    index: {
+      scanQRCode: "Escanear Código QR",
+      scanDriverQRCode:
+        "Escanea el código QR del conductor para ver sus boletos",
+      enterTicketID: "Ingresa ID del Boleto",
+      typeTicketID:
+        "Escribe el ID del boleto (p. ej., TKT-12345) para acceder a un boleto",
+      search: "Buscar",
+      createTicket: "Crear Boleto",
+      manuallyCreateNewTicket: "Crear manualmente un nuevo boleto",
+      createNewTicket: "Crear Nuevo Boleto +",
+      shiftStatus: "Estado del Turno",
+      startShift: "Iniciar Turno",
+      endShift: "Finalizar Turno",
+      recentActivity: "Actividad Reciente",
+      noRecentActivity: "Sin actividad reciente",
+      createTicketOrScan:
+        "Crea un nuevo boleto o escanea un código QR para comenzar",
+      scanTruckOrTicket: "Escanea el código QR del camión o boleto",
+      openScanner: "Abrir Escáner",
+      scanDriverQRCodeToViewTickets:
+        "Escanea el código QR del conductor para ver sus boletos",
     },
     // Not Found
     notFound: {
@@ -918,6 +1004,9 @@ export const translations = {
       logoutSuccessful: "Cierre de Sesión Exitoso",
       sessionExpired: "Sesión Expirada",
       pleaseLoginAgain: "Por favor inicia sesión de nuevo",
+      tryAdjustingFilters: "Intenta ajustar tus filtros",
+      createFirstTicket: "Crea tu primer boleto para comenzar",
+      pleaseWait: "Por favor espera mientras obtenemos los detalles del boleto",
     },
   },
 };

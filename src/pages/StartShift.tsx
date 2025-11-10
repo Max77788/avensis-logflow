@@ -19,6 +19,7 @@ import {
   Building2,
 } from "lucide-react";
 import { useShift } from "@/contexts/ShiftContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { carrierService } from "@/lib/carrierService";
 import {
   PICKUP_LOCATIONS,
@@ -30,6 +31,7 @@ import type { Carrier } from "@/lib/carrierService";
 
 const StartShift = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { startShift } = useShift();
   const [isLoading, setIsLoading] = useState(false);
   const [dbCarriers, setDbCarriers] = useState<Carrier[]>([]);
@@ -217,11 +219,11 @@ const StartShift = () => {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Starting Shift...
+                {t("startShift.startingShift")}
               </>
             ) : (
               <>
-                Start Shift
+                {t("startShift.startShift")}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}

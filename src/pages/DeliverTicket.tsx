@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/SignaturePad";
 import { TicketImageDisplay } from "@/components/TicketImageDisplay";
 import { useGPS } from "@/hooks/useGPS";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { ArrowLeft, MapPin, CheckCircle, Loader2, User } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
@@ -14,6 +15,7 @@ import { ticketService } from "@/lib/ticketService";
 const DeliverTicket = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [confirmerName, setConfirmerName] = useState("");
@@ -176,7 +178,7 @@ const DeliverTicket = () => {
             </Button>
             <div>
               <h1 className="text-xl font-bold text-foreground">
-                Confirm Delivery
+                {t("deliverTicket.confirmDelivery")}
               </h1>
               <p className="text-sm text-muted-foreground">
                 {ticket.ticket_id}
@@ -192,7 +194,7 @@ const DeliverTicket = () => {
             <Card className="shadow-md">
               <div className="space-y-3 p-4">
                 <h3 className="font-semibold text-foreground">
-                  Delivery Location
+                  {t("deliverTicket.deliveryLocation")}
                 </h3>
                 <div className="flex items-start gap-3">
                   <MapPin className="mt-1 h-5 w-5 text-destructive" />

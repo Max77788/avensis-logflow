@@ -356,11 +356,11 @@ const CreateTicket = () => {
                 {/* Carrier - Read-only for drivers */}
                 <div className="min-w-0">
                   <Label htmlFor="carrier" className="text-xs">
-                    Carrier
+                    {t("createTicket.carrier")}
                   </Label>
                   {user?.role === "driver" ? (
                     <div className="mt-1 rounded border border-border bg-muted p-1 text-xs text-foreground truncate">
-                      {formData.carrier || "Not assigned"}
+                      {formData.carrier || t("createTicket.notAssigned")}
                     </div>
                   ) : (
                     <SearchableSelect
@@ -402,11 +402,11 @@ const CreateTicket = () => {
                 {/* Truck ID - Read-only for drivers */}
                 <div className="min-w-0">
                   <Label htmlFor="truck_id" className="text-xs">
-                    Truck ID
+                    {t("createTicket.truckID")}
                   </Label>
                   {user?.role === "driver" ? (
                     <div className="mt-1 rounded border border-border bg-muted p-1 text-xs text-foreground truncate">
-                      {formData.truck_id || "Not assigned"}
+                      {formData.truck_id || t("createTicket.notAssigned")}
                     </div>
                   ) : (
                     <SearchableSelect
@@ -436,11 +436,11 @@ const CreateTicket = () => {
                 {/* Driver - Read-only for drivers */}
                 <div className="min-w-0">
                   <Label htmlFor="driver_name" className="text-xs">
-                    Driver
+                    {t("createTicket.driver")}
                   </Label>
                   {user?.role === "driver" ? (
                     <div className="mt-1 rounded border border-border bg-muted p-1 text-xs text-foreground truncate">
-                      {formData.driver_name || "Not assigned"}
+                      {formData.driver_name || t("createTicket.notAssigned")}
                     </div>
                   ) : (
                     <Input
@@ -462,7 +462,9 @@ const CreateTicket = () => {
           <Card className="shadow-md">
             <div className="space-y-4 p-4">
               <div>
-                <Label htmlFor="pickup_location">Pickup Location *</Label>
+                <Label htmlFor="pickup_location">
+                  {t("createTicket.pickupLocation")}
+                </Label>
                 <SearchableSelect
                   value={formData.pickup_location}
                   onValueChange={(value) =>
@@ -481,7 +483,9 @@ const CreateTicket = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="destination_site">Destination Site *</Label>
+                <Label htmlFor="destination_site">
+                  {t("createTicket.destinationSite")}
+                </Label>
                 <SearchableSelect
                   value={formData.destination_site}
                   onValueChange={(value) =>
@@ -509,7 +513,9 @@ const CreateTicket = () => {
             <div className="bg-success/5 p-4">
               <div className="flex items-center gap-2 text-success">
                 <Weight className="h-5 w-5" />
-                <h2 className="font-semibold">Net Weight (tons) *</h2>
+                <h2 className="font-semibold">
+                  {t("createTicket.netWeight")} (tons) *
+                </h2>
               </div>
             </div>
             <div className="space-y-4 p-4">

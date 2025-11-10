@@ -15,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useGPS } from "@/hooks/useGPS";
 import { ticketService } from "@/lib/ticketService";
 import { toast } from "@/hooks/use-toast";
@@ -23,6 +24,7 @@ import type { Ticket } from "@/lib/types";
 const DestinationAttendant = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -150,9 +152,11 @@ const DestinationAttendant = () => {
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Delivery Confirmation</h1>
+            <h1 className="text-2xl font-bold">
+              {t("destinationAttendant.deliveryConfirmation")}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Ticket {ticket.ticket_id}
+              {t("destinationConfirm.ticketID")} {ticket.ticket_id}
             </p>
           </div>
         </div>

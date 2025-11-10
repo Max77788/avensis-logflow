@@ -154,12 +154,12 @@ const Admin = () => {
               <div className="p-12 text-center">
                 <Package className="mx-auto mb-4 h-16 w-16 text-muted-foreground/50" />
                 <p className="text-lg font-medium text-foreground">
-                  No Tickets Found
+                  {t("admin.noTicketsFound")}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {searchQuery || filterStatus !== "all"
-                    ? "Try adjusting your filters"
-                    : "Create your first ticket to get started"}
+                    ? t("common.tryAdjustingFilters")
+                    : t("common.createFirstTicket")}
                 </p>
               </div>
             </Card>

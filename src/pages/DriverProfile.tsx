@@ -26,6 +26,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useShift } from "@/contexts/ShiftContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { carrierService } from "@/lib/carrierService";
 import { ticketService } from "@/lib/ticketService";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -38,6 +39,7 @@ import {
 
 const DriverProfile = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { user, driverProfile, logout, updateDriverStatus, setDriverProfile } =
     useAuth();
   const { isDark, toggleTheme } = useTheme();
@@ -413,7 +415,7 @@ const DriverProfile = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-foreground">
-                Driver Profile
+                {t("driverProfile.title")}
               </h1>
               <p className="text-xs text-muted-foreground">
                 {driverProfile.name}

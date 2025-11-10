@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShift } from "@/contexts/ShiftContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
@@ -25,6 +26,7 @@ import {
 
 const DriverInfo = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { driverProfile } = useAuth();
   const { shift, updateShift } = useShift();
   const [isEditing, setIsEditing] = useState(false);
@@ -112,7 +114,7 @@ const DriverInfo = () => {
             >
               <ArrowLeft className="h-6 w-6" />
             </Button>
-            <h1 className="text-2xl font-bold">Driver Information</h1>
+            <h1 className="text-2xl font-bold">{t("driverInfo.title")}</h1>
           </div>
           {!isEditing && (
             <Button
@@ -121,7 +123,7 @@ const DriverInfo = () => {
               className="gap-2"
             >
               <Edit2 className="h-4 w-4" />
-              Edit
+              {t("common.edit")}
             </Button>
           )}
         </div>
@@ -131,13 +133,13 @@ const DriverInfo = () => {
           <div className="bg-primary/10 p-4">
             <div className="flex items-center gap-2 text-primary">
               <User className="h-5 w-5" />
-              <h2 className="font-semibold">Driver Profile</h2>
+              <h2 className="font-semibold">{t("driverProfile.title")}</h2>
             </div>
           </div>
           <div className="space-y-4 p-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">
-                Driver Name
+                {t("driverInfo.driverName")}
               </Label>
               <p className="mt-1 text-lg font-semibold">
                 {driverProfile?.name || "N/A"}
@@ -145,7 +147,7 @@ const DriverInfo = () => {
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground">
-                Email
+                {t("login.emailAddress")}
               </Label>
               <p className="mt-1 text-lg font-semibold">N/A</p>
             </div>

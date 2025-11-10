@@ -260,16 +260,16 @@ const Index = () => {
                   </div>
                   <div>
                     <h3 className="mb-1 text-lg font-bold text-foreground">
-                      Scan QR Code
+                      {t("index.scanQRCode")}
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {user?.role === "attendant"
-                        ? "Scan driver QR code to view tickets"
-                        : "Scan truck or ticket QR code"}
+                        ? t("index.scanDriverQRCode")
+                        : t("index.scanTruckOrTicket")}
                     </p>
                   </div>
                   <Button className="w-full" size="lg">
-                    Open Scanner
+                    {t("index.openScanner")}
                   </Button>
                 </div>
               </Card>
@@ -283,10 +283,10 @@ const Index = () => {
                     </div>
                     <div>
                       <h3 className="mb-1 text-lg font-bold text-foreground">
-                        Enter Ticket ID
+                        {t("index.enterTicketID")}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        Type ticket ID (e.g., TKT-12345) to access a ticket
+                        {t("index.typeTicketID")}
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -308,7 +308,7 @@ const Index = () => {
                         disabled={!ticketIdInput.trim()}
                         size="lg"
                       >
-                        Search
+                        {t("index.search")}
                       </Button>
                     </div>
                   </div>
@@ -323,7 +323,7 @@ const Index = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-4 py-2 bg-muted rounded-lg">
                   <span className="text-sm font-medium text-muted-foreground">
-                    Shift Status
+                    {t("index.shiftStatus")}
                   </span>
                   <Badge
                     variant={
@@ -348,8 +348,8 @@ const Index = () => {
                 >
                   <Power className="h-5 w-5" />
                   {driverProfile?.status === "active"
-                    ? "End Shift"
-                    : "Start Shift"}
+                    ? t("index.endShift")
+                    : t("index.startShift")}
                 </Button>
               </div>
 
@@ -363,14 +363,14 @@ const Index = () => {
                   </div>
                   <div>
                     <h3 className="mb-1 text-lg font-bold text-foreground">
-                      Create Ticket
+                      {t("index.createTicket")}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Manually create new ticket
+                      {t("index.manuallyCreateNewTicket")}
                     </p>
                   </div>
                   <Button className="w-full" size="lg">
-                    Create New Ticket +
+                    {t("index.createNewTicket")}
                   </Button>
                 </div>
               </Card>
@@ -379,7 +379,7 @@ const Index = () => {
               <Card className="mt-8 shadow-md md:col-span-2">
                 <div className="border-b border-border p-4">
                   <h3 className="font-semibold text-foreground">
-                    Recent Activity
+                    {t("index.recentActivity")}
                   </h3>
                 </div>
                 {recentTickets.length === 0 ? (
@@ -390,12 +390,12 @@ const Index = () => {
                       </div>
                     </div>
                     <p className="font-medium text-foreground mb-1">
-                      No recent activity
+                      {t("index.noRecentActivity")}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {user?.role === "driver"
-                        ? "Create a new ticket or scan a QR code to get started"
-                        : "Scan a driver QR code to view their tickets"}
+                        ? t("index.createTicketOrScan")
+                        : t("index.scanDriverQRCodeToViewTickets")}
                     </p>
                   </div>
                 ) : (
