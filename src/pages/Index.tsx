@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { QRScanner } from "@/components/QRScanner";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
+import { Header } from "@/components/Header";
 import {
   QrCode,
   Truck,
@@ -39,6 +40,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { APP_TITLE } from "@/lib/config";
+import { toast } from "@/components/ui/use-toast";
 import type { Ticket } from "@/lib/types";
 
 const Index = () => {
@@ -49,6 +51,7 @@ const Index = () => {
   const [showEndShiftWarning, setShowEndShiftWarning] = useState(false);
   const [hasActiveTicket, setHasActiveTicket] = useState(false);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [showLogoutWarning, setShowLogoutWarning] = useState(false);
   const navigate = useNavigate();
   const { user, driverProfile, logout, updateDriverStatus } = useAuth();
   const { isDark, toggleTheme } = useTheme();
@@ -149,10 +152,22 @@ const Index = () => {
           if (activeTickets.length > 0) {
             // Show the first active ticket
             navigate(`/tickets/${activeTickets[0].ticket_id}/confirm-delivery`);
+          } else {
+            // Show notification when no active tickets found
+            toast({
+              title: "No Active Tickets",
+              description: `Driver ${driver.name} has no active tickets at this time.`,
+              variant: "default",
+            });
           }
         }
       } catch (error) {
         console.error("Error scanning driver QR:", error);
+        toast({
+          title: "Error",
+          description: "Failed to scan driver QR code",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -160,94 +175,16 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto flex items-center justify-between px-3 py-3 md:px-4 md:py-4 gap-2">
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
-            <div className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary flex-shrink-0">
-              <Truck className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg md:text-xl font-bold text-foreground truncate">
-                {APP_TITLE}
-              </h1>
-              <p className="text-xs text-muted-foreground truncate">
-                {t("app.subtitle")}
-              </p>
-            </div>
-          </div>
-
-          {/* User Section */}
-          {user ? (
-            <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs md:text-sm font-medium text-foreground truncate">
-                  {driverProfile?.name || t("common.user")}
-                </p>
-                <p className="text-xs text-muted-foreground capitalize">
-                  {user.role}
-                </p>
-              </div>
-              <div className="flex gap-1 md:gap-2">
-                {user.role === "driver" && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigate("/driver/profile")}
-                    className="rounded-full h-9 w-9 md:h-10 md:w-10"
-                    title={t("common.profile")}
-                  >
-                    <Settings className="h-4 w-4 md:h-5 md:w-5" />
-                  </Button>
-                )}
-                <LanguageSelector />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={toggleTheme}
-                  className="rounded-full h-9 w-9 md:h-10 md:w-10"
-                  title={isDark ? t("common.lightMode") : t("common.darkMode")}
-                >
-                  {isDark ? (
-                    <Sun className="h-4 w-4 md:h-5 md:w-5" />
-                  ) : (
-                    <Moon className="h-4 w-4 md:h-5 md:w-5" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    logout();
-                    navigate("/login");
-                  }}
-                  className="rounded-full h-9 w-9 md:h-10 md:w-10"
-                  title={t("common.logout")}
-                >
-                  <LogOut className="h-4 w-4 md:h-5 md:w-5" />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex gap-1 md:gap-2 flex-shrink-0">
-              <Button
-                variant="outline"
-                onClick={() => navigate("/login")}
-                size="sm"
-                className="text-xs md:text-sm"
-              >
-                {t("common.login")}
-              </Button>
-              <Button
-                onClick={() => navigate("/driver/signup")}
-                size="sm"
-                className="text-xs md:text-sm"
-              >
-                {t("common.signUp")}
-              </Button>
-            </div>
-          )}
-        </div>
-      </header>
+      <Header
+        title={APP_TITLE}
+        subtitle={t("app.subtitle")}
+        showSettingsButton={user?.role === "driver"}
+        onSettingsClick={() => navigate("/driver/profile")}
+        showLogoutButton={!!user}
+        onLogoutClick={() => setShowLogoutWarning(true)}
+        showThemeToggle
+        showLanguageSelector
+      />
 
       {/* Main Content */}
       <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
@@ -473,6 +410,50 @@ const Index = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               End Shift Anyway
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Logout Warning Dialog */}
+      <AlertDialog open={showLogoutWarning} onOpenChange={setShowLogoutWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            {hasActiveTicket && (
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                <AlertDialogTitle>Active Ticket Found</AlertDialogTitle>
+              </div>
+            )}
+            {!hasActiveTicket && (
+              <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
+            )}
+            <AlertDialogDescription>
+              {hasActiveTicket
+                ? "You have an active ticket. Are you sure you want to log out? This may affect ticket delivery tracking."
+                : "Are you sure you want to log out?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {hasActiveTicket && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 text-sm text-destructive">
+              ⚠️ You have an active ticket. Logging out may cause issues with
+              ticket delivery tracking.
+            </div>
+          )}
+          <div className="flex gap-3 justify-center">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+              className={
+                hasActiveTicket
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              }
+            >
+              {hasActiveTicket ? "Logout Anyway" : "Logout"}
             </AlertDialogAction>
           </div>
         </AlertDialogContent>

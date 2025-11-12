@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Header } from "@/components/Header";
 import {
   Plus,
   LogOut,
@@ -93,42 +94,16 @@ const DriverDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                {t("driverDashboard.title")}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {shift.carrier} • {shift.truck}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/driver/info")}
-                className="gap-2"
-              >
-                <User className="h-4 w-4" />
-                {t("driverDashboard.driverInfo")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleEndShift}
-                className="gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                {t("driverDashboard.endShift")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        title={t("driverDashboard.title")}
+        subtitle={`${shift.carrier} • ${shift.truck}`}
+        showHomeButton
+        onHomeClick={() => navigate("/")}
+        showThemeToggle
+        showLanguageSelector
+      />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

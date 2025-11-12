@@ -15,6 +15,7 @@ import {
   Filter,
   X,
   ChevronDown,
+  Home,
 } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Header } from "@/components/Header";
@@ -46,6 +47,7 @@ const Overview = () => {
   const [driverStatusFilter, setDriverStatusFilter] = useState<string | null>(
     null
   );
+  const [showDriverFilters, setShowDriverFilters] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -135,8 +137,10 @@ const Overview = () => {
       <Header
         title={t("overview.title")}
         subtitle={t("overview.subtitle")}
-        showBackButton
-        onBackClick={() => navigate("/")}
+        showHomeButton
+        onHomeClick={() => navigate("/")}
+        showSettingsButton
+        onSettingsClick={() => navigate("/driver/profile")}
         rightContent={
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Package className="h-4 w-4" />
@@ -376,36 +380,60 @@ const Overview = () => {
         {activeTab === "drivers" && (
           <div className="space-y-4">
             {/* Search and Filter */}
-            <div className="flex gap-3">
-              <div className="relative flex-1">
+            <div className="flex gap-2">
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder={t("overview.searchDrivers")}
                   value={driverSearch}
                   onChange={(e) => setDriverSearch(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 text-xs md:text-sm"
                 />
               </div>
-
-              {/* Status Filter */}
-              <Select
-                value={driverStatusFilter || "all"}
-                onValueChange={(value) =>
-                  setDriverStatusFilter(value === "all" ? null : value)
-                }
+              <Button
+                onClick={() => setShowDriverFilters(!showDriverFilters)}
+                variant={showDriverFilters ? "default" : "outline"}
+                size="icon"
+                className="h-9 w-9 md:h-10 md:w-10"
+                title={t("overview.advancedFilters")}
               >
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder={t("overview.allStatus")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t("overview.allStatus")}</SelectItem>
-                  <SelectItem value="active">{t("overview.active")}</SelectItem>
-                  <SelectItem value="inactive">
-                    {t("overview.inactive")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                <Filter className="h-4 w-4" />
+              </Button>
             </div>
+
+            {/* Driver Filters */}
+            {showDriverFilters && (
+              <Card className="p-3 md:p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                  <div>
+                    <label className="text-xs md:text-sm font-medium text-muted-foreground mb-2 block">
+                      {t("overview.status")}
+                    </label>
+                    <Select
+                      value={driverStatusFilter || "all"}
+                      onValueChange={(value) =>
+                        setDriverStatusFilter(value === "all" ? null : value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("overview.allStatus")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">
+                          {t("overview.allStatus")}
+                        </SelectItem>
+                        <SelectItem value="active">
+                          {t("overview.active")}
+                        </SelectItem>
+                        <SelectItem value="inactive">
+                          {t("overview.inactive")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Drivers List */}
             {isLoading ? (

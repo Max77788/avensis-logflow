@@ -145,6 +145,24 @@ export const ticketService = {
 
       // Map the ticket data
       const ticket = this.mapDbTicketToTicket(data as any);
+
+      // Fetch driver QR code if driver_id exists
+      if (ticket.driver_id) {
+        try {
+          const { data: driverData, error: driverError } = await supabase
+            .from("drivers")
+            .select("driver_qr_code")
+            .eq("id", ticket.driver_id)
+            .maybeSingle();
+
+          if (!driverError && driverData) {
+            ticket.driver_qr_code = driverData.driver_qr_code;
+          }
+        } catch (err) {
+          console.error("Error fetching driver QR code:", err);
+        }
+      }
+
       return ticket;
     } catch (error) {
       console.error("Error getting ticket:", error);
@@ -160,10 +178,35 @@ export const ticketService = {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []).map((item: any) => {
+
+      // Fetch driver QR codes for all tickets
+      const tickets = (data || []).map((item: any) => {
         const ticket = this.mapDbTicketToTicket(item);
         return ticket;
       });
+
+      // Fetch driver QR codes in parallel
+      await Promise.all(
+        tickets.map(async (ticket) => {
+          if (ticket.driver_id) {
+            try {
+              const { data: driverData } = await supabase
+                .from("drivers")
+                .select("driver_qr_code")
+                .eq("id", ticket.driver_id)
+                .maybeSingle();
+
+              if (driverData) {
+                ticket.driver_qr_code = driverData.driver_qr_code;
+              }
+            } catch (err) {
+              console.error("Error fetching driver QR code:", err);
+            }
+          }
+        })
+      );
+
+      return tickets;
     } catch (error) {
       console.error("Error getting all tickets:", error);
       return [];
@@ -180,10 +223,32 @@ export const ticketService = {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []).map((item: any) => {
+
+      const tickets = (data || []).map((item: any) => {
         const ticket = this.mapDbTicketToTicket(item);
         return ticket;
       });
+
+      // Fetch driver QR code
+      if (tickets.length > 0 && driverId) {
+        try {
+          const { data: driverData } = await supabase
+            .from("drivers")
+            .select("driver_qr_code")
+            .eq("id", driverId)
+            .maybeSingle();
+
+          if (driverData) {
+            tickets.forEach((ticket) => {
+              ticket.driver_qr_code = driverData.driver_qr_code;
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching driver QR code:", err);
+        }
+      }
+
+      return tickets;
     } catch (error) {
       console.error("Error getting active tickets for driver:", error);
       return [];
@@ -199,10 +264,32 @@ export const ticketService = {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []).map((item: any) => {
+
+      const tickets = (data || []).map((item: any) => {
         const ticket = this.mapDbTicketToTicket(item);
         return ticket;
       });
+
+      // Fetch driver QR code
+      if (tickets.length > 0 && driverId) {
+        try {
+          const { data: driverData } = await supabase
+            .from("drivers")
+            .select("driver_qr_code")
+            .eq("id", driverId)
+            .maybeSingle();
+
+          if (driverData) {
+            tickets.forEach((ticket) => {
+              ticket.driver_qr_code = driverData.driver_qr_code;
+            });
+          }
+        } catch (err) {
+          console.error("Error fetching driver QR code:", err);
+        }
+      }
+
+      return tickets;
     } catch (error) {
       console.error("Error getting tickets for driver:", error);
       return [];

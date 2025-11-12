@@ -79,8 +79,8 @@ const Admin = () => {
       <Header
         title={t("admin.title")}
         subtitle={`${tickets.length} ${t("admin.totalTickets")}`}
-        showBackButton
-        onBackClick={() => navigate("/")}
+        showHomeButton
+        onHomeClick={() => navigate("/")}
         rightContent={
           <Button onClick={exportCSV} variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />

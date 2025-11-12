@@ -16,6 +16,7 @@ import {
 import { ticketService } from "@/lib/ticketService";
 import { useGPS } from "@/hooks/useGPS";
 import { SignaturePad } from "@/components/SignaturePad";
+import { TicketImageManager } from "@/components/TicketImageManager";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Header } from "@/components/Header";
@@ -33,6 +34,7 @@ const DestinationAttendantConfirm = () => {
   const [signature, setSignature] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const signaturePadRef = useRef<any>(null);
   const { captureLocation } = useGPS();
 
@@ -102,6 +104,85 @@ const DestinationAttendantConfirm = () => {
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!ticket) return;
+
+    setIsUploadingImage(true);
+    try {
+      // Upload image to storage
+      const uploadResult = await ticketService.uploadTicketImage(
+        ticket.ticket_id,
+        file
+      );
+
+      if (uploadResult.success && uploadResult.url) {
+        // Update ticket with image URL
+        const updateResult = await ticketService.updateTicket(
+          ticket.ticket_id,
+          {
+            ticket_image_url: uploadResult.url,
+          }
+        );
+
+        if (updateResult.success) {
+          // Update local ticket state
+          setTicket((prev) =>
+            prev ? { ...prev, ticket_image_url: uploadResult.url } : null
+          );
+          toast({
+            title: "Image Uploaded",
+            description: "Ticket image has been successfully uploaded",
+          });
+        } else {
+          throw new Error(updateResult.error || "Failed to update ticket");
+        }
+      } else {
+        throw new Error(uploadResult.error || "Failed to upload image");
+      }
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleImageRemove = async () => {
+    if (!ticket) return;
+
+    setIsUploadingImage(true);
+    try {
+      const result = await ticketService.updateTicket(ticket.ticket_id, {
+        ticket_image_url: null,
+      });
+
+      if (result.success) {
+        setTicket((prev) =>
+          prev ? { ...prev, ticket_image_url: undefined } : null
+        );
+        toast({
+          title: "Image Removed",
+          description: "Ticket image has been removed",
+        });
+      } else {
+        throw new Error(result.error || "Failed to remove image");
+      }
+    } catch (error: any) {
+      console.error("Error removing image:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -142,8 +223,10 @@ const DestinationAttendantConfirm = () => {
       <Header
         title={t("destinationConfirm.confirmDelivery")}
         subtitle={`${t("destinationConfirm.ticketID")} ${ticket.ticket_id}`}
-        showBackButton
-        onBackClick={() => navigate(`/tickets/${id}`)}
+        showHomeButton
+        onHomeClick={() => navigate("/")}
+        showSettingsButton
+        onSettingsClick={() => navigate("/driver/profile")}
         showThemeToggle
         showLanguageSelector
       />
@@ -154,6 +237,36 @@ const DestinationAttendantConfirm = () => {
           {isConfirmed ? (
             // Success View
             <div className="space-y-6">
+              {/* Delivery Location Tile - Clickable */}
+              <Card
+                className="cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 p-4 md:p-6"
+                onClick={() => navigate(`/tickets/${id}`)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p
+                      className={`text-xs mb-1 ${
+                        isDark ? "text-slate-400" : "text-slate-600"
+                      }`}
+                    >
+                      {t("destinationConfirm.deliveryLocation")}
+                    </p>
+                    <p
+                      className={`text-lg font-semibold ${
+                        isDark ? "text-white" : "text-slate-900"
+                      }`}
+                    >
+                      {ticket.destination_site || "N/A"}
+                    </p>
+                  </div>
+                  <MapPin
+                    className={`h-6 w-6 ${
+                      isDark ? "text-slate-400" : "text-slate-600"
+                    }`}
+                  />
+                </div>
+              </Card>
+
               {/* Success Message */}
               <Card
                 className={`border-0 p-8 text-white text-center ${
@@ -175,7 +288,7 @@ const DestinationAttendantConfirm = () => {
                 </p>
               </Card>
 
-              {/* Ticket Details */}
+              {/* Delivery Confirmed Details */}
               <Card
                 className={`border-0 p-6 ${
                   isDark
@@ -188,9 +301,9 @@ const DestinationAttendantConfirm = () => {
                     isDark ? "text-white" : "text-slate-900"
                   }`}
                 >
-                  {t("destinationConfirm.ticketDetails")}
+                  {t("destinationConfirm.deliveryConfirmed")}
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p
                       className={`text-xs mb-1 ${
@@ -213,14 +326,24 @@ const DestinationAttendantConfirm = () => {
                         isDark ? "text-slate-400" : "text-slate-600"
                       }`}
                     >
-                      {t("destinationConfirm.deliveryLocation")}
+                      {t("destinationConfirm.status")}
+                    </p>
+                    <Badge className="bg-green-500">{ticket.status}</Badge>
+                  </div>
+                  <div>
+                    <p
+                      className={`text-xs mb-1 ${
+                        isDark ? "text-slate-400" : "text-slate-600"
+                      }`}
+                    >
+                      {t("destinationConfirm.pickupLocation")}
                     </p>
                     <p
                       className={`font-semibold ${
                         isDark ? "text-white" : "text-slate-900"
                       }`}
                     >
-                      {/*ticket.destination_site*/}
+                      {ticket.origin_site || "N/A"}
                     </p>
                   </div>
                   <div>
@@ -229,14 +352,14 @@ const DestinationAttendantConfirm = () => {
                         isDark ? "text-slate-400" : "text-slate-600"
                       }`}
                     >
-                      {t("destinationConfirm.truck")}
+                      {t("destinationConfirm.deliveryLocation")}
                     </p>
                     <p
                       className={`font-semibold ${
                         isDark ? "text-white" : "text-slate-900"
                       }`}
                     >
-                      {ticket.truck_id}
+                      {ticket.destination_site || "N/A"}
                     </p>
                   </div>
                   <div>
@@ -256,10 +379,42 @@ const DestinationAttendantConfirm = () => {
                       {t("destinationConfirm.tons")}
                     </p>
                   </div>
+                  <div>
+                    <p
+                      className={`text-xs mb-1 ${
+                        isDark ? "text-slate-400" : "text-slate-600"
+                      }`}
+                    >
+                      {t("destinationConfirm.driverName")}
+                    </p>
+                    <p
+                      className={`font-semibold ${
+                        isDark ? "text-white" : "text-slate-900"
+                      }`}
+                    >
+                      {ticket.driver_name || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p
+                      className={`text-xs mb-1 ${
+                        isDark ? "text-slate-400" : "text-slate-600"
+                      }`}
+                    >
+                      {t("destinationConfirm.confirmedBy")}
+                    </p>
+                    <p
+                      className={`font-semibold ${
+                        isDark ? "text-white" : "text-slate-900"
+                      }`}
+                    >
+                      {confirmerName}
+                    </p>
+                  </div>
                 </div>
               </Card>
 
-              {/* Confirmation Details */}
+              {/* Confirmation Details 
               <Card
                 className={`border-0 p-6 ${
                   isDark
@@ -305,18 +460,18 @@ const DestinationAttendantConfirm = () => {
                       }`}
                     ></p>
                   </div>
-                  <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
-                      {t("destinationConfirm.status")}
-                    </p>
-                    <Badge className="bg-green-500">CLOSED</Badge>
-                  </div>
                 </div>
               </Card>
+              */}
+
+              {/* Ticket Image Manager */}
+              <TicketImageManager
+                imageUrl={ticket.ticket_image_url}
+                ticketId={ticket.ticket_id}
+                onImageUpload={handleImageUpload}
+                onImageRemove={handleImageRemove}
+                isLoading={isUploadingImage}
+              />
 
               {/* Action Buttons */}
               <div className="flex gap-4">
@@ -340,7 +495,7 @@ const DestinationAttendantConfirm = () => {
             <>
               {/* Ticket Info Card */}
               <Card className="mb-8 bg-slate-800 border-slate-700 p-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex flex-row justify-center gap-12">
                   <div>
                     <p className="text-xs text-slate-400 mb-1">Destination</p>
                     <p className="font-semibold text-white">
@@ -359,11 +514,52 @@ const DestinationAttendantConfirm = () => {
                       {ticket.net_weight?.toFixed(1) || "—"} tons
                     </p>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-400 mb-1">Status</p>
-                    <Badge className="bg-blue-500">{ticket.status}</Badge>
-                  </div>
                 </div>
+              </Card>
+
+              {/* Ticket Image Section */}
+              <Card
+                className={`border-0 p-6 mb-8 ${
+                  isDark ? "bg-slate-800 text-white" : "bg-slate-800 text-white"
+                }`}
+              >
+                <div className="flex justify-center gap-3 mb-4">
+                  <FileText
+                    className={`h-6 w-6 ${
+                      isDark ? "text-blue-200" : "text-blue-100"
+                    }`}
+                  />
+                  <h3 className="text-lg font-bold">
+                    {t("destinationConfirm.ticketImage")}
+                  </h3>
+                </div>
+                {ticket?.ticket_image_url ? (
+                  <div className="flex justify-center space-y-3">
+                    <a
+                      href={ticket.ticket_image_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      <FileText className="h-4 w-4" />
+                      View Ticket Image
+                    </a>
+                  </div>
+                ) : (
+                  <div
+                    className={`flex justify-center rounded-lg p-4 text-center ${
+                      isDark ? "bg-white/10" : "bg-white/20"
+                    }`}
+                  >
+                    <p
+                      className={`text-sm ${
+                        isDark ? "text-slate-300" : "text-slate-200"
+                      }`}
+                    >
+                      {t("destinationConfirm.noTicketImageYet")}
+                    </p>
+                  </div>
+                )}
               </Card>
 
               {/* Tiles Grid */}
@@ -372,12 +568,17 @@ const DestinationAttendantConfirm = () => {
                 <Card
                   className={`border-0 p-6 ${
                     isDark
-                      ? "bg-gradient-to-br from-purple-600 to-purple-700 text-white"
-                      : "bg-gradient-to-br from-purple-400 to-purple-500 text-white"
+                      ? "bg-slate-800 text-white"
+                      : "bg-slate-800 text-white"
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
+                  <div className="flex flex-col items-center justify-center mb-4">
+                    <User
+                      className={`h-6 w-6 ${
+                        isDark ? "text-purple-200" : "text-purple-100"
+                      }`}
+                    />
+                    <div className="text-center mt-2">
                       <h3 className="text-lg font-bold mb-1">
                         {t("destinationConfirm.confirmerName")}
                       </h3>
@@ -389,11 +590,6 @@ const DestinationAttendantConfirm = () => {
                         {t("destinationConfirm.enterYourFullName")}
                       </p>
                     </div>
-                    <User
-                      className={`h-6 w-6 ${
-                        isDark ? "text-purple-200" : "text-purple-100"
-                      }`}
-                    />
                   </div>
                   <Input
                     placeholder={t("destinationConfirm.enterYourFullName")}
@@ -407,12 +603,12 @@ const DestinationAttendantConfirm = () => {
                   />
                 </Card>
 
-                {/* Location Tile */}
+                {/* Location Tile 
                 <Card
                   className={`border-0 p-6 ${
                     isDark
-                      ? "bg-gradient-to-br from-orange-600 to-orange-700 text-white"
-                      : "bg-gradient-to-br from-orange-400 to-orange-500 text-white"
+                      ? "bg-slate-800 text-white"
+                      : "bg-slate-800 text-white"
                   }`}
                 >
                   <div className="flex items-start justify-between mb-4">
@@ -442,13 +638,12 @@ const DestinationAttendantConfirm = () => {
                     {t("destinationConfirm.locationConfirmed")}
                   </div>
                 </Card>
+                */}
 
                 {/* Signature Tile */}
                 <Card
                   className={`border-0 p-6 text-white md:col-span-2 ${
-                    isDark
-                      ? "bg-gradient-to-br from-yellow-600 to-yellow-700"
-                      : "bg-gradient-to-br from-yellow-400 to-yellow-500"
+                    isDark ? "bg-slate-800" : "bg-slate-800"
                   }`}
                 >
                   <div className="flex items-start justify-between mb-4">

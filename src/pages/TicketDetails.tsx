@@ -457,8 +457,10 @@ const TicketDetails = () => {
       <Header
         title={t("ticketDetails.title")}
         subtitle={ticket.ticket_id}
-        showBackButton
-        onBackClick={() => navigate("/")}
+        showHomeButton
+        onHomeClick={() => navigate("/")}
+        showSettingsButton
+        onSettingsClick={() => navigate("/driver/profile")}
         rightContent={<StatusBadge status={ticket.status} />}
         showThemeToggle
         showLanguageSelector
@@ -542,75 +544,98 @@ const TicketDetails = () => {
 
               {/* For Destination Attendant - Button to New Screen */}
               {user?.role === "driver" && (
-                <Card className="overflow-hidden shadow-lg border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <User className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                        <h3 className="font-semibold text-amber-900 dark:text-amber-100">
-                          For Destination Attendant
-                        </h3>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-amber-800 dark:text-amber-200 mb-4">
-                      Share this ticket with the destination attendant to
-                      confirm delivery.
-                    </p>
-
-                    <div className="space-y-3">
-                      {/* QR Code Section */}
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
-                          Driver QR Code
-                        </p>
-                        <div className="flex justify-center bg-white p-3 rounded-lg">
-                          <QRCodeSVG value={ticket.driver_id} size={120} />
+                <>
+                  {ticket.status === "CLOSED" ? (
+                    <Card className="overflow-hidden shadow-lg border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800">
+                      <div className="p-4">
+                        <div className="flex items-center justify-center gap-2 mb-4">
+                          <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                          <h3 className="font-semibold text-green-900 dark:text-green-100">
+                            {t("ticketDetails.ticketHasBeenConfirmed")}
+                          </h3>
                         </div>
                       </div>
+                    </Card>
+                  ) : (
+                    <Card className="overflow-hidden shadow-lg border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <User className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                            <h3 className="font-semibold text-amber-900 dark:text-amber-100">
+                              {t("ticketDetails.forDestinationAttendant")}
+                            </h3>
+                          </div>
+                        </div>
 
-                      {/* Ticket URL Section */}
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
-                          Ticket URL
+                        <p className="text-sm text-amber-800 dark:text-amber-200 mb-4">
+                          Share this ticket with the destination attendant to
+                          confirm delivery.
                         </p>
-                        <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-200 dark:border-amber-800 dark:bg-amber-950/30">
-                          <span className="text-xs text-muted-foreground flex-1 truncate">
-                            {`${window.location.origin}/tickets/${ticket.ticket_id}/confirm-delivery`}
-                          </span>
+
+                        <div className="space-y-3">
+                          {/* QR Code Section */}
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
+                              Driver QR Code
+                            </p>
+                            <div className="flex justify-center bg-white p-3 rounded-lg">
+                              <QRCodeSVG
+                                value={
+                                  ticket.driver_qr_code ||
+                                  ticket.driver_id ||
+                                  ""
+                                }
+                                size={120}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Ticket URL Section
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
+                              Ticket URL
+                            </p>
+                            <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-200 dark:border-amber-800 dark:bg-amber-950/30">
+                              <span className="text-xs text-muted-foreground flex-1 truncate">
+                                {`${window.location.origin}/tickets/${ticket.ticket_id}/confirm-delivery`}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(
+                                    `${window.location.origin}/tickets/${ticket.ticket_id}/confirm-delivery`
+                                  );
+                                  toast({
+                                    title: "Copied",
+                                    description:
+                                      "Confirmation URL copied to clipboard",
+                                  });
+                                }}
+                              >
+                                Copy
+                              </Button>
+                            </div>
+                          </div>
+                          */}
+
+                          {/* Navigation Button */}
                           <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              navigator.clipboard.writeText(
-                                `${window.location.origin}/tickets/${ticket.ticket_id}/confirm-delivery`
-                              );
-                              toast({
-                                title: "Copied",
-                                description:
-                                  "Confirmation URL copied to clipboard",
-                              });
-                            }}
+                            onClick={() =>
+                              navigate(
+                                `/tickets/${ticket.ticket_id}/confirm-delivery`
+                              )
+                            }
+                            className="w-full bg-amber-600 hover:bg-amber-700 text-white"
                           >
-                            Copy
+                            Go to Confirmation Screen
                           </Button>
                         </div>
                       </div>
-
-                      {/* Navigation Button */}
-                      <Button
-                        onClick={() =>
-                          navigate(
-                            `/tickets/${ticket.ticket_id}/confirm-delivery`
-                          )
-                        }
-                        className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-                      >
-                        Go to Confirmation Screen
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
+                    </Card>
+                  )}
+                </>
               )}
 
               {/* QR Code - Only for drivers

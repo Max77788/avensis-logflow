@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/SignaturePad";
 import { TicketImageDisplay } from "@/components/TicketImageDisplay";
+import { Header } from "@/components/Header";
 import { useGPS } from "@/hooks/useGPS";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ArrowLeft, MapPin, CheckCircle, Loader2, User } from "lucide-react";
+import { MapPin, CheckCircle, Loader2, ArrowLeft, User } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
 
@@ -167,26 +168,14 @@ const DeliverTicket = () => {
       {/* Main Content */}
       <div className="min-h-screen bg-background flex flex-col">
         {/* Header */}
-        <header className="border-b border-border bg-card sticky top-0 z-40">
-          <div className="container mx-auto flex items-center gap-2 md:gap-3 px-3 py-3 md:px-4 md:py-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(`/tickets/${id}`)}
-              className="h-9 w-9 md:h-10 md:w-10 flex-shrink-0"
-            >
-              <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
-            <div className="min-w-0">
-              <h1 className="text-lg md:text-xl font-bold text-foreground truncate">
-                {t("deliverTicket.confirmDelivery")}
-              </h1>
-              <p className="text-xs md:text-sm text-muted-foreground truncate">
-                {ticket.ticket_id}
-              </p>
-            </div>
-          </div>
-        </header>
+        <Header
+          title={t("deliverTicket.confirmDelivery")}
+          subtitle={ticket.ticket_id}
+          showBackButton
+          onBackClick={() => navigate(`/tickets/${id}`)}
+          showThemeToggle
+          showLanguageSelector
+        />
 
         {/* Content */}
         <main className="container mx-auto px-3 py-4 md:px-4 md:py-6 flex-1 overflow-y-auto">

@@ -35,6 +35,7 @@ export interface Ticket {
   carrier_id?: string;
   driver_name?: string;
   driver_id?: string;
+  driver_qr_code?: string;
   ticket_image_url?: string;
 }
 

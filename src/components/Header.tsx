@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Moon, Sun, ArrowLeft, Home } from "lucide-react";
+import { Moon, Sun, ArrowLeft, Home, Settings, LogOut } from "lucide-react";
 
 interface HeaderProps {
   title: string;
@@ -10,6 +10,10 @@ interface HeaderProps {
   onBackClick?: () => void;
   showHomeButton?: boolean;
   onHomeClick?: () => void;
+  showSettingsButton?: boolean;
+  onSettingsClick?: () => void;
+  showLogoutButton?: boolean;
+  onLogoutClick?: () => void;
   rightContent?: React.ReactNode;
   showThemeToggle?: boolean;
   showLanguageSelector?: boolean;
@@ -22,6 +26,10 @@ export const Header = ({
   onBackClick,
   showHomeButton = false,
   onHomeClick,
+  showSettingsButton = false,
+  onSettingsClick,
+  showLogoutButton = false,
+  onLogoutClick,
   rightContent,
   showThemeToggle = true,
   showLanguageSelector = true,
@@ -70,6 +78,28 @@ export const Header = ({
           {/* Right Section */}
           <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             {rightContent}
+            {showSettingsButton && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onSettingsClick}
+                className="rounded-full h-9 w-9 md:h-10 md:w-10"
+                title="Settings"
+              >
+                <Settings className="h-4 w-4 md:h-5 md:w-5" />
+              </Button>
+            )}
+            {showLogoutButton && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onLogoutClick}
+                className="rounded-full h-9 w-9 md:h-10 md:w-10"
+                title="Logout"
+              >
+                <LogOut className="h-4 w-4 md:h-5 md:w-5" />
+              </Button>
+            )}
             {showLanguageSelector && <LanguageSelector />}
             {showThemeToggle && (
               <Button

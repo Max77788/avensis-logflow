@@ -5,7 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { ArrowLeft, UserPlus } from "lucide-react";
+import { Header } from "@/components/Header";
+import { UserPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { carrierService, type Carrier, type Truck } from "@/lib/carrierService";
@@ -182,24 +183,19 @@ const DriverSignUp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background p-4">
-      <div className="mx-auto max-w-md">
-        {/* Header */}
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/login")}
-            className="mb-4"
-          >
-            {t("login.back")}
-          </Button>
-          <h1 className="text-2xl font-bold text-foreground">
-            {t("driverSignUp.title")}
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            {t("driverSignUp.subtitle")}
-          </p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
+      {/* Header */}
+      <Header
+        title={t("driverSignUp.title")}
+        subtitle={t("driverSignUp.subtitle")}
+        showBackButton
+        onBackClick={() => navigate("/login")}
+        showThemeToggle
+        showLanguageSelector
+      />
+
+      <div className="mx-auto max-w-md p-4 flex-1">
+        {/* Content */}
 
         {/* Sign Up Form */}
         <Card className="p-6">

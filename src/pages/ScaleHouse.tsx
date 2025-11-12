@@ -3,8 +3,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Header } from "@/components/Header";
 import { QRCodeSVG } from "qrcode.react";
-import { Download, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { Download, CheckCircle2, Loader2 } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 
 const ScaleHouse = () => {
@@ -43,30 +44,16 @@ const ScaleHouse = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={() => navigate("/driver/dashboard")}
-              className="h-12 w-12"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Scale House Verification
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Ticket {ticket.ticket_id}
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Scale House Verification"
+        subtitle={`Ticket ${ticket.ticket_id}`}
+        showBackButton
+        onBackClick={() => navigate("/driver/dashboard")}
+        showThemeToggle
+        showLanguageSelector
+      />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

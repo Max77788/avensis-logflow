@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/SignaturePad";
 import { TicketImageDisplay } from "@/components/TicketImageDisplay";
+import { Header } from "@/components/Header";
 import {
   ArrowLeft,
   Weight,
@@ -139,27 +140,19 @@ const DestinationAttendant = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="mx-auto max-w-2xl p-4">
-        {/* Header */}
-        <div className="mb-6 flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="lg"
-            onClick={() => navigate("/")}
-            className="h-12 w-12"
-          >
-            <ArrowLeft className="h-6 w-6" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">
-              {t("destinationAttendant.deliveryConfirmation")}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {t("destinationConfirm.ticketID")} {ticket.ticket_id}
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <Header
+        title={t("destinationAttendant.deliveryConfirmation")}
+        subtitle={`${t("destinationConfirm.ticketID")} ${ticket.ticket_id}`}
+        showBackButton
+        onBackClick={() => navigate("/")}
+        showThemeToggle
+        showLanguageSelector
+      />
+
+      <main className="mx-auto max-w-2xl p-4 flex-1">
+        {/* Content */}
 
         {/* Ticket Summary */}
         <Card className="mb-6 overflow-hidden border-blue-500/50 bg-blue-50 shadow-md dark:bg-blue-950/20">

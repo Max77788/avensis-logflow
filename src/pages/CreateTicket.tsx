@@ -277,9 +277,11 @@ const CreateTicket = () => {
     user?.role === "driver" && driverStatus === "inactive";
 
   // Check if shift has all required fields (carrier, truck, pickup location)
+  // Also check driverProfile as fallback in case shift context is not populated
   const isShiftComplete =
     user?.role === "driver"
-      ? shift.carrier && shift.truck_id && shift.pickupLocation
+      ? (shift.carrier && shift.truck_id && shift.pickupLocation) ||
+        (driverProfile?.carrier_id && driverProfile?.default_truck_id)
       : true;
 
   return (
@@ -288,8 +290,10 @@ const CreateTicket = () => {
       <Header
         title="Create Ticket"
         subtitle="Scale verification"
-        showBackButton
-        onBackClick={() => navigate("/")}
+        showHomeButton
+        onHomeClick={() => navigate("/")}
+        showSettingsButton
+        onSettingsClick={() => navigate("/driver/profile")}
         showThemeToggle
         showLanguageSelector
       />

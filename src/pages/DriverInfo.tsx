@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Header } from "@/components/Header";
 import {
   ArrowLeft,
   User,
@@ -101,22 +102,20 @@ const DriverInfo = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="mx-auto max-w-2xl p-4">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={() => navigate("/driver/dashboard")}
-              className="h-12 w-12"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <h1 className="text-2xl font-bold">{t("driverInfo.title")}</h1>
-          </div>
-          {!isEditing && (
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <Header
+        title={t("driverInfo.title")}
+        showBackButton
+        onBackClick={() => navigate("/driver/dashboard")}
+        showThemeToggle
+        showLanguageSelector
+      />
+
+      <main className="mx-auto max-w-2xl p-4 flex-1">
+        {/* Edit Button */}
+        {!isEditing && (
+          <div className="mb-6 flex justify-end">
             <Button
               onClick={() => setIsEditing(true)}
               variant="outline"
@@ -125,8 +124,8 @@ const DriverInfo = () => {
               <Edit2 className="h-4 w-4" />
               {t("common.edit")}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Driver Profile Card */}
         <Card className="mb-6 overflow-hidden border-primary/50 bg-primary/5 shadow-md">

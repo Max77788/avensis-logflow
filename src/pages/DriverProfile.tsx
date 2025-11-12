@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Header } from "@/components/Header";
 import {
   QrCode,
   LogOut,
@@ -30,6 +31,15 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { carrierService } from "@/lib/carrierService";
 import { ticketService } from "@/lib/ticketService";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import type { Ticket } from "@/lib/types";
 import {
   CARRIERS,
@@ -49,6 +59,7 @@ const DriverProfile = () => {
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [carrierName, setCarrierName] = useState<string>("");
+  const [showLogoutWarning, setShowLogoutWarning] = useState(false);
   const [editFormData, setEditFormData] = useState({
     truck_id: driverProfile?.default_truck_id || "",
     carrier_id: driverProfile?.carrier_id || "",
@@ -386,6 +397,10 @@ const DriverProfile = () => {
   };
 
   const handleLogout = () => {
+    setShowLogoutWarning(true);
+  };
+
+  const confirmLogout = () => {
     logout();
     navigate("/login");
   };
@@ -407,55 +422,16 @@ const DriverProfile = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container mx-auto flex items-center justify-between px-3 py-3 md:px-4 md:py-4 gap-2">
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
-            <div className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary flex-shrink-0">
-              <User className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg md:text-xl font-bold text-foreground truncate">
-                {t("driverProfile.title")}
-              </h1>
-              <p className="text-xs text-muted-foreground truncate">
-                {driverProfile.name}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="rounded-full h-9 w-9 md:h-10 md:w-10"
-            >
-              {isDark ? (
-                <Sun className="h-4 w-4 md:h-5 md:w-5" />
-              ) : (
-                <Moon className="h-4 w-4 md:h-5 md:w-5" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/")}
-              className="rounded-full h-9 w-9 md:h-10 md:w-10"
-              title={t("common.home")}
-            >
-              <Home className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
-              className="rounded-full h-9 w-9 md:h-10 md:w-10"
-              title={t("common.logout")}
-            >
-              <LogOut className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
-          </div>
-        </div>
-      </header>
+      <Header
+        title={t("driverProfile.title")}
+        subtitle={driverProfile?.name}
+        showHomeButton
+        onHomeClick={() => navigate("/")}
+        showLogoutButton
+        onLogoutClick={handleLogout}
+        showThemeToggle
+        showLanguageSelector
+      />
 
       {/* Main Content */}
       <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
@@ -488,11 +464,7 @@ const DriverProfile = () => {
           </Card>
           */}
 
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={() => navigate("/")}
-          >
+          <Button className="w-full" size="lg" onClick={() => navigate("/")}>
             {"Continue to Dashboard ->"}
           </Button>
 
@@ -684,6 +656,29 @@ const DriverProfile = () => {
           )}
         </div>
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={showLogoutWarning} onOpenChange={setShowLogoutWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("common.confirmLogout")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("common.areYouSureLogout")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3 justify-center items-center">
+            <AlertDialogCancel className="min-w-[120px] px-4 py-2">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmLogout}
+              className="min-w-[120px] bg-destructive px-4 py-2 text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("common.logout")}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
