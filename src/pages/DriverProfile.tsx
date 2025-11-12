@@ -487,6 +487,14 @@ const DriverProfile = () => {
           </Card>
           */}
 
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={() => navigate("/tickets/create")}
+          >
+            {"Continue to Dashboard ->"}
+          </Button>
+
           {/* Edit Profile Card */}
           <Card className="p-6 border-primary/50 bg-primary/5">
             <div className="space-y-4">
