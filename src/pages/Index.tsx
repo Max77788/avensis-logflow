@@ -145,7 +145,7 @@ const Index = () => {
           );
           if (activeTickets.length > 0) {
             // Show the first active ticket
-            navigate(`/tickets/${activeTickets[0].ticket_id}`);
+            navigate(`/tickets/${activeTickets[0].ticket_id}/confirm-delivery`);
           }
         }
       } catch (error) {

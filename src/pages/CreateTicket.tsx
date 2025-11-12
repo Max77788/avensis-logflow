@@ -302,15 +302,14 @@ const CreateTicket = () => {
             <Card className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
               <div className="p-4">
                 <p className="text-sm font-medium text-red-900 dark:text-red-100">
-                  ⛔ Your driver status is inactive. Please start your shift at
-                  your dashboard page to create tickets.
+                  ⛔ {t("createTicket.driverInactiveWarningFull")}
                 </p>
                 <Button
                   onClick={() => navigate("/")}
                   className="mt-3 w-full"
                   variant="default"
                 >
-                  Go to Dashboard
+                  {t("common.home")}
                 </Button>
               </div>
             </Card>

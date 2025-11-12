@@ -65,7 +65,11 @@ const Overview = () => {
         );
         const driversArrays = await Promise.all(driverPromises);
         const allDriversList = driversArrays.flat();
-        setAllDrivers(allDriversList);
+        // Filter for active drivers only
+        const activeDriversList = allDriversList.filter(
+          (driver) => driver.status === "active"
+        );
+        setAllDrivers(activeDriversList);
       } catch (error) {
         console.error("Error loading overview data:", error);
       } finally {

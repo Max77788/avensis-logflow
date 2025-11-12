@@ -24,6 +24,13 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
   const [selectedCamera, setSelectedCamera] = useState<string>("");
   const [hasScanned, setHasScanned] = useState(false);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopScanner();
+    };
+  }, []);
+
   useEffect(() => {
     const initCameras = async () => {
       try {
@@ -95,6 +102,9 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
         const scanner = new Html5Qrcode("qr-reader");
         scannerRef.current = scanner;
 
+        // Create a flag to prevent multiple detections
+        let isProcessing = false;
+
         await scanner.start(
           selectedCamera,
           {
@@ -103,12 +113,16 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
             aspectRatio: 1.0,
           },
           (decodedText) => {
-            // Only process the scan once
-            if (!hasScanned) {
+            // Only process the scan once and prevent duplicate detections
+            if (!hasScanned && !isProcessing) {
+              isProcessing = true;
               console.log("QR Code detected:", decodedText);
               setHasScanned(true);
-              onScan(decodedText);
-              stopScanner();
+
+              // Stop scanner immediately before calling onScan
+              stopScanner().then(() => {
+                onScan(decodedText);
+              });
             }
           },
           (errorMessage) => {
@@ -127,10 +141,10 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
     };
 
     startScanner();
-  }, [selectedCamera]);
+  }, [selectedCamera, hasScanned]);
 
   const stopScanner = async () => {
-    if (scannerRef.current && isScanning) {
+    if (scannerRef.current) {
       try {
         await scannerRef.current.stop();
         scannerRef.current.clear();
@@ -138,16 +152,19 @@ export const QRScanner = ({ onScan, onClose }: QRScannerProps) => {
         console.error("Error stopping scanner:", err);
       }
       setIsScanning(false);
+      scannerRef.current = null;
     }
   };
 
   const handleClose = async () => {
     await stopScanner();
+    setHasScanned(false);
     onClose();
   };
 
   const handleRetry = async () => {
     setError(null);
+    setHasScanned(false);
     setCameras([]);
     setSelectedCamera("");
 

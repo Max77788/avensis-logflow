@@ -220,6 +220,8 @@ export const translations = {
       failedToCreateTicket: "Failed to create ticket",
       driverInactiveWarning:
         "Your driver status is inactive. Please start your shift at your profile page.",
+      driverInactiveWarningFull:
+        "Your driver status is inactive. Please start your shift at your dashboard page to create tickets.",
       completeShiftSetup:
         "Please complete your shift setup (carrier, truck, and pickup location) to create tickets.",
       activeTicketWarning:
@@ -708,6 +710,8 @@ export const translations = {
       failedToCreateTicket: "Error al crear el boleto",
       driverInactiveWarning:
         "Tu estado de conductor es inactivo. Por favor inicia tu turno en tu página de perfil.",
+      driverInactiveWarningFull:
+        "Tu estado de conductor es inactivo. Por favor inicia tu turno en tu página de panel para crear boletos.",
       completeShiftSetup:
         "Por favor completa tu configuración de turno (transportista, camión y ubicación de recogida) para crear boletos.",
       activeTicketWarning:
