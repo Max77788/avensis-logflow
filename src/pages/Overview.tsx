@@ -154,52 +154,57 @@ const Overview = () => {
 
       {/* Tabs Section */}
       <div className="border-b border-border bg-card/50">
-        <div className="container mx-auto px-4 py-0">
+        <div className="container mx-auto px-3 md:px-4 py-0">
           {/* Tabs */}
-          <div className="flex gap-2">
+          <div className="flex gap-1 md:gap-2 overflow-x-auto">
             <Button
               variant={activeTab === "tickets" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("tickets")}
-              className="rounded-b-none"
+              className="rounded-b-none whitespace-nowrap text-xs md:text-sm"
             >
-              <Truck className="h-4 w-4 mr-2" />
-              {t("overview.tickets")} ({filteredTickets.length})
+              <Truck className="h-4 w-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">{t("overview.tickets")}</span>
+              <span className="sm:hidden">Tickets</span> (
+              {filteredTickets.length})
             </Button>
             <Button
               variant={activeTab === "drivers" ? "default" : "ghost"}
               size="sm"
               onClick={() => setActiveTab("drivers")}
-              className="rounded-b-none"
+              className="rounded-b-none whitespace-nowrap text-xs md:text-sm"
             >
-              <Users className="h-4 w-4 mr-2" />
-              {t("overview.drivers")} ({filteredDrivers.length})
+              <Users className="h-4 w-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">{t("overview.drivers")}</span>
+              <span className="sm:hidden">Drivers</span> (
+              {filteredDrivers.length})
             </Button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
         {/* Tickets Tab */}
         {activeTab === "tickets" && (
           <div className="space-y-4">
             {/* Search and Filters */}
             <div className="space-y-3">
               <div className="flex gap-2">
-                <div className="relative flex-1">
+                <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     placeholder={t("overview.searchByTicketTruckCarrier")}
                     value={ticketSearch}
                     onChange={(e) => setTicketSearch(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 text-xs md:text-sm"
                   />
                 </div>
                 <Button
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                   variant={showAdvancedFilters ? "default" : "outline"}
                   size="icon"
+                  className="h-9 w-9 md:h-10 md:w-10"
                   title={t("overview.advancedFilters")}
                 >
                   <Filter className="h-4 w-4" />
@@ -208,8 +213,8 @@ const Overview = () => {
 
               {/* Advanced Filters */}
               {showAdvancedFilters && (
-                <Card className="p-4 space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Card className="p-3 md:p-4 space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
                     {/* Status Filter */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium">

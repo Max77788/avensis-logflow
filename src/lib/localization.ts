@@ -31,7 +31,7 @@ export const translations = {
       back: "← Back",
       truckIT: "eTicketing",
       digitalTicketingSystem: "Digital Ticketing System",
-      copyright: "© 2024 eTicketing. All rights reserved.",
+      copyright: "© 2025 eTicketing. All rights reserved.",
       fullName: "Full Name",
       johnDoe: "John Doe",
       creatingAccount: "Creating Account...",
@@ -212,7 +212,7 @@ export const translations = {
       signature: "Signature",
       signatureRequired: "Signature required",
       creatingTicket: "Creating Ticket...",
-      activateTicket: "Activate Ticket",
+      activateTicket: "Activate",
       completeActiveTicketFirst: "Complete Active Ticket First",
       ticketCreated: "Ticket Created",
       ticketCreatedSuccessfully: "Ticket has been created successfully",
@@ -226,7 +226,7 @@ export const translations = {
         "Please complete your shift setup (carrier, truck, and pickup location) to create tickets.",
       activeTicketWarning:
         "You have an active ticket. Complete it before creating a new one.",
-      saveAsDraft: "Save as Draft",
+      saveAsDraft: "Save Draft",
     },
     // Scale House
     scaleHouse: {
@@ -519,7 +519,7 @@ export const translations = {
       back: "← Atrás",
       truckIT: "eTicketing",
       digitalTicketingSystem: "Sistema de Boletos Digital",
-      copyright: "© 2024 eTicketing. Todos los derechos reservados.",
+      copyright: "© 2025 eTicketing. Todos los derechos reservados.",
       fullName: "Nombre Completo",
       johnDoe: "Juan Pérez",
       creatingAccount: "Creando Cuenta...",
@@ -702,7 +702,7 @@ export const translations = {
       signature: "Firma",
       signatureRequired: "Se requiere firma",
       creatingTicket: "Creando Boleto...",
-      activateTicket: "Activar Boleto",
+      activateTicket: "Activar",
       completeActiveTicketFirst: "Completa Primero el Boleto Activo",
       ticketCreated: "Boleto Creado",
       ticketCreatedSuccessfully: "El boleto ha sido creado exitosamente",
@@ -716,7 +716,7 @@ export const translations = {
         "Por favor completa tu configuración de turno (transportista, camión y ubicación de recogida) para crear boletos.",
       activeTicketWarning:
         "Tienes un boleto activo. Complétalo antes de crear uno nuevo.",
-      saveAsDraft: "Guardar como Borrador",
+      saveAsDraft: "Guardar Borrador",
     },
     // Scale House
     scaleHouse: {

@@ -52,7 +52,7 @@ const DriverProfile = () => {
   const [editFormData, setEditFormData] = useState({
     truck_id: driverProfile?.default_truck_id || "",
     carrier_id: driverProfile?.carrier_id || "",
-    pickup_location: shift?.pickupLocation || "",
+    pickup_location: shift?.pickupLocation || "Primal Materials",
   });
 
   // Load carrier name from UUID and sync truck_id
@@ -405,60 +405,61 @@ const DriverProfile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <User className="h-6 w-6 text-primary-foreground" />
+      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
+        <div className="container mx-auto flex items-center justify-between px-3 py-3 md:px-4 md:py-4 gap-2">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+            <div className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary flex-shrink-0">
+              <User className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-xl font-bold text-foreground truncate">
                 {t("driverProfile.title")}
               </h1>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground truncate">
                 {driverProfile.name}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="rounded-full"
+              className="rounded-full h-9 w-9 md:h-10 md:w-10"
             >
               {isDark ? (
-                <Sun className="h-5 w-5" />
+                <Sun className="h-4 w-4 md:h-5 md:w-5" />
               ) : (
-                <Moon className="h-5 w-5" />
+                <Moon className="h-4 w-4 md:h-5 md:w-5" />
               )}
             </Button>
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon"
               onClick={() => navigate("/")}
-              className="gap-2"
+              className="rounded-full h-9 w-9 md:h-10 md:w-10"
+              title={t("common.home")}
             >
-              <Home className="h-4 w-4" />
-              Home
+              <Home className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={handleLogout}
-              className="rounded-full"
+              className="rounded-full h-9 w-9 md:h-10 md:w-10"
+              title={t("common.logout")}
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="mx-auto max-w-2xl space-y-6">
+      <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl space-y-4 md:space-y-6 pb-4">
           {/* Status Card 
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -496,7 +497,7 @@ const DriverProfile = () => {
           </Button>
 
           {/* Edit Profile Card */}
-          <Card className="p-6 border-primary/50 bg-primary/5">
+          <Card className="p-4 md:p-6 border-primary/50 bg-primary/5">
             <div className="space-y-4">
               <h3 className="text-lg font-bold text-foreground">
                 My Truck & Carrier
@@ -585,26 +586,26 @@ const DriverProfile = () => {
             // ACTIVE STATE: Show full dashboard
             <>
               {/* QR Code Card */}
-              <Card className="p-6">
-                <h2 className="text-lg font-bold text-foreground mb-4">
+              <Card className="p-4 md:p-6">
+                <h2 className="text-base md:text-lg font-bold text-foreground mb-4">
                   My QR Code
                 </h2>
-                <div className="bg-white p-6 rounded-lg text-center mb-4 flex justify-center">
+                <div className="bg-white p-3 md:p-6 rounded-lg text-center mb-4 flex justify-center">
                   <QRCodeSVG
                     id="driver-qr-code"
                     value={driverProfile.driver_qr_code}
-                    size={200}
+                    size={Math.min(200, window.innerWidth - 80)}
                     level="H"
-                    includeMargin={true}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground text-center mb-4 break-all">
+                <p className="text-xs text-muted-foreground text-center mb-4 break-all line-clamp-2">
                   {driverProfile.driver_qr_code}
                 </p>
                 <Button
                   onClick={handleDownloadQR}
                   className="w-full"
                   variant="outline"
+                  size="sm"
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Download QR Code

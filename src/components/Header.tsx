@@ -30,18 +30,18 @@ export const Header = ({
 
   return (
     <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
+      <div className="container mx-auto px-3 py-3 md:px-4 md:py-4">
+        <div className="flex items-center justify-between gap-2">
           {/* Left Section */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
             {showBackButton && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onBackClick}
-                className="rounded-full"
+                className="rounded-full h-9 w-9 md:h-10 md:w-10 flex-shrink-0"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
             )}
             {showHomeButton && (
@@ -49,22 +49,26 @@ export const Header = ({
                 variant="ghost"
                 size="icon"
                 onClick={onHomeClick}
-                className="rounded-full"
+                className="rounded-full h-9 w-9 md:h-10 md:w-10 flex-shrink-0"
                 title="Home"
               >
-                <Home className="h-5 w-5" />
+                <Home className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
             )}
-            <div>
-              <h1 className="text-xl font-bold text-foreground">{title}</h1>
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-xl font-bold text-foreground truncate">
+                {title}
+              </h1>
               {subtitle && (
-                <p className="text-sm text-muted-foreground">{subtitle}</p>
+                <p className="text-xs md:text-sm text-muted-foreground truncate">
+                  {subtitle}
+                </p>
               )}
             </div>
           </div>
 
           {/* Right Section */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
             {rightContent}
             {showLanguageSelector && <LanguageSelector />}
             {showThemeToggle && (
@@ -72,13 +76,13 @@ export const Header = ({
                 variant="ghost"
                 size="icon"
                 onClick={toggleTheme}
-                className="rounded-full"
+                className="rounded-full h-9 w-9 md:h-10 md:w-10"
                 title={isDark ? "Light mode" : "Dark mode"}
               >
                 {isDark ? (
-                  <Sun className="h-5 w-5" />
+                  <Sun className="h-4 w-4 md:h-5 md:w-5" />
                 ) : (
-                  <Moon className="h-5 w-5" />
+                  <Moon className="h-4 w-4 md:h-5 md:w-5" />
                 )}
               </Button>
             )}
@@ -88,4 +92,3 @@ export const Header = ({
     </header>
   );
 };
-

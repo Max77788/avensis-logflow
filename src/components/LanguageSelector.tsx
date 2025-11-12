@@ -74,13 +74,13 @@ export const LanguageSelector = ({
 
   // Dropdown version for header
   return (
-    <div className="flex items-center gap-2">
-      <Globe className="h-4 w-4 text-muted-foreground" />
+    <div className="flex items-center gap-1 md:gap-2">
+      <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       <Select
         value={language}
         onValueChange={(value: any) => setLanguage(value)}
       >
-        <SelectTrigger className="w-32">
+        <SelectTrigger className="w-24 md:w-32 h-9 md:h-10 text-xs md:text-sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

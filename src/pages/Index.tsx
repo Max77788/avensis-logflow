@@ -155,26 +155,19 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm">
-        <div className="container mx-auto flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/")}
-              className="rounded-full"
-              title={t("common.home")}
-            >
-              <Home className="h-5 w-5" />
-            </Button>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <Truck className="h-6 w-6 text-primary-foreground" />
+      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
+        <div className="container mx-auto flex items-center justify-between px-3 py-3 md:px-4 md:py-4 gap-2">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
+            <div className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-lg bg-primary flex-shrink-0">
+              <Truck className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">{APP_TITLE}</h1>
-              <p className="text-xs text-muted-foreground">
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-xl font-bold text-foreground truncate">
+                {APP_TITLE}
+              </h1>
+              <p className="text-xs text-muted-foreground truncate">
                 {t("app.subtitle")}
               </p>
             </div>
@@ -182,25 +175,25 @@ const Index = () => {
 
           {/* User Section */}
           {user ? (
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-medium text-foreground">
+            <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs md:text-sm font-medium text-foreground truncate">
                   {driverProfile?.name || t("common.user")}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">
                   {user.role}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1 md:gap-2">
                 {user.role === "driver" && (
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => navigate("/driver/profile")}
-                    className="rounded-full"
+                    className="rounded-full h-9 w-9 md:h-10 md:w-10"
                     title={t("common.profile")}
                   >
-                    <Settings className="h-5 w-5" />
+                    <Settings className="h-4 w-4 md:h-5 md:w-5" />
                   </Button>
                 )}
                 <LanguageSelector />
@@ -208,13 +201,13 @@ const Index = () => {
                   variant="ghost"
                   size="icon"
                   onClick={toggleTheme}
-                  className="rounded-full"
+                  className="rounded-full h-9 w-9 md:h-10 md:w-10"
                   title={isDark ? t("common.lightMode") : t("common.darkMode")}
                 >
                   {isDark ? (
-                    <Sun className="h-5 w-5" />
+                    <Sun className="h-4 w-4 md:h-5 md:w-5" />
                   ) : (
-                    <Moon className="h-5 w-5" />
+                    <Moon className="h-4 w-4 md:h-5 md:w-5" />
                   )}
                 </Button>
                 <Button
@@ -224,19 +217,28 @@ const Index = () => {
                     logout();
                     navigate("/login");
                   }}
-                  className="rounded-full"
+                  className="rounded-full h-9 w-9 md:h-10 md:w-10"
                   title={t("common.logout")}
                 >
-                  <LogOut className="h-5 w-5" />
+                  <LogOut className="h-4 w-4 md:h-5 md:w-5" />
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => navigate("/login")}>
+            <div className="flex gap-1 md:gap-2 flex-shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/login")}
+                size="sm"
+                className="text-xs md:text-sm"
+              >
                 {t("common.login")}
               </Button>
-              <Button onClick={() => navigate("/driver/signup")}>
+              <Button
+                onClick={() => navigate("/driver/signup")}
+                size="sm"
+                className="text-xs md:text-sm"
+              >
                 {t("common.signUp")}
               </Button>
             </div>
@@ -245,8 +247,8 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="mx-auto max-w-2xl space-y-6">
+      <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl space-y-4 md:space-y-6 pb-4">
           {/* Action Cards */}
           {user?.role !== "driver" && (
             <div className="grid gap-4 sm:grid-cols-1">

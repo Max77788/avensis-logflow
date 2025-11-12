@@ -283,7 +283,7 @@ const CreateTicket = () => {
       : true;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <Header
         title="Create Ticket"
@@ -295,19 +295,20 @@ const CreateTicket = () => {
       />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-3 py-4 md:px-4 md:py-6 flex-1 overflow-y-auto">
         {/* Driver Inactive Warning */}
         {isDriverInactive && (
-          <div className="mx-auto max-w-2xl mb-6">
+          <div className="mx-auto max-w-2xl mb-4 md:mb-6">
             <Card className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800">
-              <div className="p-4">
-                <p className="text-sm font-medium text-red-900 dark:text-red-100">
+              <div className="p-3 md:p-4">
+                <p className="text-xs md:text-sm font-medium text-red-900 dark:text-red-100">
                   ⛔ {t("createTicket.driverInactiveWarningFull")}
                 </p>
                 <Button
                   onClick={() => navigate("/")}
                   className="mt-3 w-full"
                   variant="default"
+                  size="sm"
                 >
                   {t("common.home")}
                 </Button>
@@ -318,10 +319,10 @@ const CreateTicket = () => {
 
         {/* Shift Not Complete Warning */}
         {!isShiftComplete && !isDriverInactive && (
-          <div className="mx-auto max-w-2xl mb-6">
+          <div className="mx-auto max-w-2xl mb-4 md:mb-6">
             <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-              <div className="p-4">
-                <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              <div className="p-3 md:p-4">
+                <p className="text-xs md:text-sm font-medium text-amber-900 dark:text-amber-100">
                   ⚠️ Please complete your shift setup (carrier, truck, and
                   pickup location) at your profile page to create tickets.
                 </p>
@@ -329,6 +330,7 @@ const CreateTicket = () => {
                   onClick={() => navigate("/driver/profile")}
                   className="mt-3 w-full"
                   variant="default"
+                  size="sm"
                 >
                   Go to Profile
                 </Button>
@@ -338,7 +340,10 @@ const CreateTicket = () => {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          className="mx-auto max-w-2xl space-y-4 md:space-y-6 pb-4"
+        >
           {/* Truck Info - Compact for Mobile */}
           <Card className="overflow-hidden shadow-md">
             {/*
@@ -349,7 +354,7 @@ const CreateTicket = () => {
               </div>
             </div>
             */}
-            <div className="space-y-3 p-4">
+            <div className="space-y-3 p-3 md:p-4">
               {/* Always in row layout for Carrier, Truck, Driver */}
               <div className="grid grid-cols-3 gap-2">
                 {/* Carrier - Read-only for drivers */}

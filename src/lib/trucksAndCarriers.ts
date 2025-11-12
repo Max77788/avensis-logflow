@@ -500,7 +500,7 @@ export const searchCarriers = (query: string): string[] => {
 };
 
 // Pickup locations - sorted alphabetically A to Z
-export const PICKUP_LOCATIONS = [
+export const ALL_PICKUP_LOCATIONS = [
   "Double EE",
   "Enzo",
   "Funston Solar",
@@ -510,6 +510,10 @@ export const PICKUP_LOCATIONS = [
   "Return Mountain",
   "Sea Bank",
   "Tiger Solar",
+];
+
+export const PICKUP_LOCATIONS = [
+  "Primal Materials"
 ].sort((a, b) =>
   a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
 );

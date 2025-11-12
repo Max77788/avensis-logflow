@@ -165,22 +165,23 @@ const DeliverTicket = () => {
       )}
 
       {/* Main Content */}
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         {/* Header */}
-        <header className="border-b border-border bg-card">
-          <div className="container mx-auto flex items-center gap-3 px-4 py-4">
+        <header className="border-b border-border bg-card sticky top-0 z-40">
+          <div className="container mx-auto flex items-center gap-2 md:gap-3 px-3 py-3 md:px-4 md:py-4">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => navigate(`/tickets/${id}`)}
+              className="h-9 w-9 md:h-10 md:w-10 flex-shrink-0"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">
+            <div className="min-w-0">
+              <h1 className="text-lg md:text-xl font-bold text-foreground truncate">
                 {t("deliverTicket.confirmDelivery")}
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs md:text-sm text-muted-foreground truncate">
                 {ticket.ticket_id}
               </p>
             </div>
@@ -188,12 +189,12 @@ const DeliverTicket = () => {
         </header>
 
         {/* Content */}
-        <main className="container mx-auto px-4 py-6">
-          <div className="mx-auto max-w-2xl space-y-6">
+        <main className="container mx-auto px-3 py-4 md:px-4 md:py-6 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-2xl space-y-4 md:space-y-6 pb-4">
             {/* Delivery Info */}
             <Card className="shadow-md">
-              <div className="space-y-3 p-4">
-                <h3 className="font-semibold text-foreground">
+              <div className="space-y-3 p-3 md:p-4">
+                <h3 className="text-sm md:text-base font-semibold text-foreground">
                   {t("deliverTicket.deliveryLocation")}
                 </h3>
                 <div className="flex items-start gap-3">
