@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Truck, User, QrCode, LogIn } from "lucide-react";
+import { Truck, User, QrCode, LogIn, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { carrierService } from "@/lib/carrierService";
@@ -15,6 +16,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { login, setDriverProfile } = useAuth();
   const { t } = useLanguage();
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [step, setStep] = useState<"role" | "driver-login">("role");
   const [driverEmail, setDriverEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -154,6 +156,23 @@ const Login = () => {
                 </Button>
               </div>
             </Card>
+            {/* Driver Onboarding Button - Bottom of Page */}
+            <div className="flex justify-center pt-4 md:pt-8">
+              <Button
+                variant="outline"
+                onClick={() => setShowOnboarding(true)}
+                className="gap-2"
+                size="sm"
+              >
+                <BookOpen className="h-4 w-4" />
+                Driver Onboarding
+              </Button>
+            </div>
+            {/* Driver Onboarding Modal */}
+            <DriverOnboardingModal
+              open={showOnboarding}
+              onOpenChange={setShowOnboarding}
+            />
           </div>
 
           {/* Footer */}

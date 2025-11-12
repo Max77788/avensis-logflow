@@ -491,7 +491,7 @@ const DriverProfile = () => {
           <Button
             className="w-full"
             size="lg"
-            onClick={() => navigate("/tickets/create")}
+            onClick={() => navigate("/")}
           >
             {"Continue to Dashboard ->"}
           </Button>

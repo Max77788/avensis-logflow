@@ -220,7 +220,7 @@ const DestinationAttendantConfirm = () => {
                         isDark ? "text-white" : "text-slate-900"
                       }`}
                     >
-                      {ticket.destination_site}
+                      {/*ticket.destination_site*/}
                     </p>
                   </div>
                   <div>
@@ -303,9 +303,7 @@ const DestinationAttendantConfirm = () => {
                       className={`font-semibold ${
                         isDark ? "text-white" : "text-slate-900"
                       }`}
-                    >
-                      Primal Materials
-                    </p>
+                    ></p>
                   </div>
                   <div>
                     <p
@@ -482,7 +480,7 @@ const DestinationAttendantConfirm = () => {
                   </div>
                 </Card>
 
-                {/* Summary Tile */}
+                {/* Summary Tile 
                 <Card
                   className={`border-0 p-6 text-white md:col-span-2 ${
                     isDark
@@ -534,6 +532,7 @@ const DestinationAttendantConfirm = () => {
                     </div>
                   </div>
                 </Card>
+                */}
               </div>
 
               {/* Action Buttons */}

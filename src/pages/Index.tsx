@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { QRScanner } from "@/components/QRScanner";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import {
   QrCode,
   Truck,
@@ -20,6 +21,7 @@ import {
   Home,
   Power,
   AlertCircle,
+  BookOpen,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -41,6 +43,7 @@ import type { Ticket } from "@/lib/types";
 
 const Index = () => {
   const [showScanner, setShowScanner] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [recentTickets, setRecentTickets] = useState<Ticket[]>([]);
   const [ticketIdInput, setTicketIdInput] = useState("");
   const [showEndShiftWarning, setShowEndShiftWarning] = useState(false);
@@ -427,6 +430,19 @@ const Index = () => {
               </Card>
             </div>
           )}
+
+          {/* Driver Onboarding Button - Bottom of Page */}
+          <div className="flex justify-center pt-4 md:pt-8">
+            <Button
+              variant="outline"
+              onClick={() => setShowOnboarding(true)}
+              className="gap-2"
+              size="sm"
+            >
+              <BookOpen className="h-4 w-4" />
+              Driver Onboarding
+            </Button>
+          </div>
         </div>
       </main>
 
@@ -466,6 +482,12 @@ const Index = () => {
       {showScanner && (
         <QRScanner onScan={handleScan} onClose={() => setShowScanner(false)} />
       )}
+
+      {/* Driver Onboarding Modal */}
+      <DriverOnboardingModal
+        open={showOnboarding}
+        onOpenChange={setShowOnboarding}
+      />
     </div>
   );
 };
