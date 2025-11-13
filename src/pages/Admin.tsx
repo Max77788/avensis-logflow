@@ -171,48 +171,17 @@ const Admin = () => {
                   className="cursor-pointer shadow-md transition-all hover:shadow-lg"
                   onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
                 >
-                  <div className="p-4">
-                    <div className="mb-3 flex items-start justify-between">
-                      <div>
-                        <h3 className="font-bold text-foreground">
-                          {ticket.ticket_id}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          Truck {ticket.truck_id} • {ticket.product}
-                        </p>
-                      </div>
-                      <StatusBadge status={ticket.status} />
+                  <div className="flex flex-col items-center justify-center space-y-2 p-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                      <Package className="h-6 w-6 text-primary" />
                     </div>
-
-                    <div className="grid gap-2 text-sm sm:grid-cols-2">
-                      <div>
-                        <span className="text-muted-foreground">From:</span>{" "}
-                        <span className="font-medium text-foreground">
-                          {ticket.origin_site}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">To:</span>{" "}
-                        <span className="font-medium text-foreground">
-                          {ticket.destination_site}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Created:</span>{" "}
-                        <span className="font-medium text-foreground">
-                          {new Date(ticket.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {ticket.net_weight && (
-                        <div>
-                          <span className="text-muted-foreground">
-                            Net Weight:
-                          </span>{" "}
-                          <span className="font-medium text-foreground">
-                            {ticket.net_weight.toFixed(0)} kg
-                          </span>
-                        </div>
-                      )}
+                    <div className="text-center">
+                      <h3 className="font-bold text-foreground">
+                        {ticket.ticket_id}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {ticket.destination_site}
+                      </p>
                     </div>
                   </div>
                 </Card>

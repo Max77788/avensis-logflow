@@ -237,11 +237,12 @@ const DestinationAttendantConfirm = () => {
           {isConfirmed ? (
             // Success View
             <div className="space-y-6">
-              {/* Delivery Location Tile - Clickable */}
+              {/* Delivery Location Tile - Clickable 
               <Card
                 className="cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 p-4 md:p-6"
                 onClick={() => navigate(`/tickets/${id}`)}
               >
+                
                 <div className="flex items-center justify-between">
                   <div>
                     <p
@@ -266,6 +267,7 @@ const DestinationAttendantConfirm = () => {
                   />
                 </div>
               </Card>
+              */}
 
               {/* Success Message */}
               <Card
@@ -287,6 +289,23 @@ const DestinationAttendantConfirm = () => {
                   {t("destinationConfirm.ticketHasBeenSuccessfullyConfirmed")}
                 </p>
               </Card>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => navigate(`/tickets/${id}`)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {t("destinationConfirm.viewTicket")}
+                </Button>
+                <Button
+                  onClick={() => navigate("/")}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  {t("destinationConfirm.goToDashboard")}
+                </Button>
+              </div>
 
               {/* Delivery Confirmed Details */}
               <Card
@@ -472,23 +491,6 @@ const DestinationAttendantConfirm = () => {
                 onImageRemove={handleImageRemove}
                 isLoading={isUploadingImage}
               />
-
-              {/* Action Buttons */}
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => navigate(`/tickets/${id}`)}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  {t("destinationConfirm.viewTicket")}
-                </Button>
-                <Button
-                  onClick={() => navigate("/")}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
-                >
-                  {t("destinationConfirm.goToDashboard")}
-                </Button>
-              </div>
             </div>
           ) : (
             // Confirmation Form View

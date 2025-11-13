@@ -147,33 +147,32 @@ const DriverDashboard = () => {
                     {groupedTickets.active.map((ticket) => (
                       <Card
                         key={ticket.ticket_id}
-                        className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                        className="cursor-pointer hover:shadow-md transition-shadow"
                         onClick={() =>
                           navigate(`/tickets/${ticket.ticket_id}`, {
                             state: { ticket },
                           })
                         }
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                        <div className="flex flex-col items-center justify-center space-y-2 p-6">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                            {ticket.ticket_image_url ? (
+                              <Image className="h-6 w-6 text-primary" />
+                            ) : (
+                              getStatusIcon(ticket.status) && (
+                                <div className="text-primary">
+                                  {getStatusIcon(ticket.status)}
+                                </div>
+                              )
+                            )}
+                          </div>
+                          <div className="text-center">
                             <p className="font-semibold text-foreground">
                               {ticket.ticket_id}
                             </p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground mt-1">
                               {ticket.destination_site}
                             </p>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {ticket.ticket_image_url && (
-                              <Image className="h-4 w-4 text-primary" />
-                            )}
-                            <Badge className={getStatusColor(ticket.status)}>
-                              <span className="flex items-center gap-1">
-                                {getStatusIcon(ticket.status)}
-                                {ticket.status.replace(/_/g, " ")}
-                              </span>
-                            </Badge>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
                       </Card>
@@ -190,25 +189,29 @@ const DriverDashboard = () => {
                     {groupedTickets.verified.map((ticket) => (
                       <Card
                         key={ticket.ticket_id}
-                        className="p-4 cursor-pointer hover:shadow-md transition-shadow opacity-75"
+                        className="cursor-pointer hover:shadow-md transition-shadow opacity-75"
                         onClick={() =>
                           navigate(`/tickets/${ticket.ticket_id}`, {
                             state: { ticket },
                           })
                         }
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                        <div className="flex flex-col items-center justify-center space-y-2 p-6">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                            {getStatusIcon(ticket.status) && (
+                              <div className="text-primary">
+                                {getStatusIcon(ticket.status)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-center">
                             <p className="font-semibold text-foreground">
                               {ticket.ticket_id}
                             </p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground mt-1">
                               {ticket.destination_site}
                             </p>
                           </div>
-                          <Badge className={getStatusColor(ticket.status)}>
-                            {ticket.status.replace(/_/g, " ")}
-                          </Badge>
                         </div>
                       </Card>
                     ))}
@@ -224,25 +227,29 @@ const DriverDashboard = () => {
                     {groupedTickets.delivered.map((ticket) => (
                       <Card
                         key={ticket.ticket_id}
-                        className="p-4 cursor-pointer hover:shadow-md transition-shadow opacity-50"
+                        className="cursor-pointer hover:shadow-md transition-shadow opacity-50"
                         onClick={() =>
                           navigate(`/tickets/${ticket.ticket_id}`, {
                             state: { ticket },
                           })
                         }
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                        <div className="flex flex-col items-center justify-center space-y-2 p-6">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                            {getStatusIcon(ticket.status) && (
+                              <div className="text-primary">
+                                {getStatusIcon(ticket.status)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-center">
                             <p className="font-semibold text-foreground">
                               {ticket.ticket_id}
                             </p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground mt-1">
                               {ticket.destination_site}
                             </p>
                           </div>
-                          <Badge className={getStatusColor(ticket.status)}>
-                            {ticket.status.replace(/_/g, " ")}
-                          </Badge>
                         </div>
                       </Card>
                     ))}
@@ -258,25 +265,29 @@ const DriverDashboard = () => {
                     {groupedTickets.closed.map((ticket) => (
                       <Card
                         key={ticket.ticket_id}
-                        className="p-4 cursor-pointer hover:shadow-md transition-shadow opacity-30"
+                        className="cursor-pointer hover:shadow-md transition-shadow opacity-30"
                         onClick={() =>
                           navigate(`/tickets/${ticket.ticket_id}`, {
                             state: { ticket },
                           })
                         }
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                        <div className="flex flex-col items-center justify-center space-y-2 p-6">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                            {getStatusIcon(ticket.status) && (
+                              <div className="text-primary">
+                                {getStatusIcon(ticket.status)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-center">
                             <p className="font-semibold text-foreground">
                               {ticket.ticket_id}
                             </p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground mt-1">
                               {ticket.destination_site}
                             </p>
                           </div>
-                          <Badge className={getStatusColor(ticket.status)}>
-                            {ticket.status.replace(/_/g, " ")}
-                          </Badge>
                         </div>
                       </Card>
                     ))}

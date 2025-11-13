@@ -196,43 +196,52 @@ const Index = () => {
                 className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
                 onClick={() => setShowScanner(true)}
               >
-                <div className="space-y-4 p-6">
+                <div className="flex flex-col items-center justify-center space-y-3 p-8">
                   <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 transition-colors group-hover:bg-primary/20">
                     <QrCode className="h-7 w-7 text-primary" />
                   </div>
-                  <div>
-                    <h3 className="mb-1 text-lg font-bold text-foreground">
+                  <div className="text-center">
+                    <h3 className="text-lg font-bold text-foreground">
                       {t("index.scanQRCode")}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground mt-1">
                       {user?.role === "attendant"
                         ? t("index.scanDriverQRCode")
                         : t("index.scanTruckOrTicket")}
                     </p>
                   </div>
-                  <Button className="w-full" size="lg">
-                    {t("index.openScanner")}
-                  </Button>
                 </div>
               </Card>
 
               {/* Ticket ID Search - For Attendants */}
               {user?.role === "attendant" && (
-                <Card className="overflow-hidden shadow-md">
-                  <div className="space-y-4 p-6">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-100 transition-colors">
+                <Card
+                  className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
+                  onClick={() => {
+                    const input = document.getElementById(
+                      "ticket-id-search-input"
+                    ) as HTMLInputElement;
+                    if (input) input.focus();
+                  }}
+                >
+                  <div className="flex flex-col items-center justify-center space-y-3 p-8">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-100 transition-colors group-hover:bg-blue-200">
                       <Search className="h-7 w-7 text-blue-600" />
                     </div>
-                    <div>
-                      <h3 className="mb-1 text-lg font-bold text-foreground">
+                    <div className="text-center">
+                      <h3 className="text-lg font-bold text-foreground">
                         {t("index.enterTicketID")}
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mt-1">
                         {t("index.typeTicketID")}
                       </p>
                     </div>
-                    <div className="flex gap-2">
+                    <div
+                      className="flex gap-2 w-full px-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Input
+                        id="ticket-id-search-input"
                         placeholder="TKT-12345"
                         value={ticketIdInput}
                         onChange={(e) =>
@@ -246,9 +255,12 @@ const Index = () => {
                         className="flex-1"
                       />
                       <Button
-                        onClick={handleTicketIdSearch}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTicketIdSearch();
+                        }}
                         disabled={!ticketIdInput.trim()}
-                        size="lg"
+                        size="sm"
                       >
                         {t("index.search")}
                       </Button>
@@ -299,10 +311,11 @@ const Index = () => {
                 className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
                 onClick={() => navigate("/tickets/create")}
               >
-                <div className="space-y-4 p-6">
+                <div className="flex flex-col items-center space-y-4 p-6 text-center">
                   <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-success/10 transition-colors group-hover:bg-success/20">
                     <ClipboardList className="h-7 w-7 text-success" />
                   </div>
+
                   <div>
                     <h3 className="mb-1 text-lg font-bold text-foreground">
                       {t("index.createTicket")}
@@ -311,6 +324,7 @@ const Index = () => {
                       {t("index.manuallyCreateNewTicket")}
                     </p>
                   </div>
+
                   <Button className="w-full" size="lg">
                     {t("index.createNewTicket")}
                   </Button>

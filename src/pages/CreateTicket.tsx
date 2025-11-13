@@ -41,7 +41,7 @@ const CreateTicket = () => {
     truck_id: truckFromQR || "",
     driver_id: "",
     driver_name: "",
-    pickup_location: "",
+    pickup_location: "Primal Materials",
     destination_site: "",
     net_weight: "",
   });

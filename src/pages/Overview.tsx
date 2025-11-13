@@ -323,50 +323,17 @@ const Overview = () => {
                     className="cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary/50"
                     onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
                   >
-                    <div className="p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <p className="font-bold text-foreground truncate">
-                              {ticket.ticket_id}
-                            </p>
-                            <StatusBadge status={ticket.status} />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-2">
-                            <div>
-                              <p className="text-xs text-muted-foreground/70">
-                                {t("common.truck")}
-                              </p>
-                              <p className="font-medium text-foreground">
-                                {ticket.truck_id}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground/70">
-                                {t("common.carrier")}
-                              </p>
-                              <p className="font-medium text-foreground">
-                                {ticket.carrier || "N/A"}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3" />
-                            <span>
-                              {ticket.origin_site} → {ticket.destination_site}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-primary">
-                            {ticket.net_weight
-                              ? ticket.net_weight.toFixed(1)
-                              : "—"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {t("common.tons")}
-                          </p>
-                        </div>
+                    <div className="flex flex-col items-center justify-center space-y-2 p-6">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                        <Package className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-bold text-foreground">
+                          {ticket.ticket_id}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {ticket.destination_site}
+                        </p>
                       </div>
                     </div>
                   </Card>
