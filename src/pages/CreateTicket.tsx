@@ -222,7 +222,7 @@ const CreateTicket = () => {
       // Wait for ticket to be fully registered in Supabase before redirecting
       setTimeout(() => {
         navigate(`/`);
-      }, 2500);
+      }, 700);
     }
   };
 
@@ -474,7 +474,7 @@ const CreateTicket = () => {
                   {t("createTicket.pickupLocation")}
                 </Label>
                 <SearchableSelect
-                  value={formData.pickup_location}
+                  value={"Primal Materials"}
                   onValueChange={(value) =>
                     setFormData({ ...formData, pickup_location: value })
                   }
