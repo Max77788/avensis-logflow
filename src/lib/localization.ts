@@ -231,7 +231,7 @@ export const translations = {
         "Please complete your shift setup (carrier, truck, and pickup location) to create tickets.",
       activeTicketWarning:
         "You have an active ticket. Complete it before creating a new one.",
-      saveAsDraft: "Save Draft",
+      saveAsDraft: "Save",
     },
     // Scale House
     scaleHouse: {
@@ -728,7 +728,7 @@ export const translations = {
         "Por favor completa tu configuración de turno (transportista, camión y ubicación de recogida) para crear boletos.",
       activeTicketWarning:
         "Tienes un boleto activo. Complétalo antes de crear uno nuevo.",
-      saveAsDraft: "Guardar Borrador",
+      saveAsDraft: "Guardar",
     },
     // Scale House
     scaleHouse: {
