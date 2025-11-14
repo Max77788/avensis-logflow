@@ -422,41 +422,26 @@ const Index = () => {
       <AlertDialog open={showLogoutWarning} onOpenChange={setShowLogoutWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            {hasActiveTicket && (
-              <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                <AlertDialogTitle>Active Ticket Found</AlertDialogTitle>
-              </div>
-            )}
-            {!hasActiveTicket && (
-              <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
-            )}
+            <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
             <AlertDialogDescription>
-              {hasActiveTicket
-                ? "You have an active ticket. Are you sure you want to log out? This may affect ticket delivery tracking."
-                : "Are you sure you want to log out?"}
+              Are you sure you want to log out?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {hasActiveTicket && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 text-sm text-destructive">
-              ⚠️ You have an active ticket. Logging out may cause issues with
-              ticket delivery tracking.
-            </div>
-          )}
-          <div className="flex gap-3 justify-center">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              Cancel
+            </AlertDialogCancel>
+
             <AlertDialogAction
               onClick={() => {
                 logout();
                 navigate("/login");
               }}
-              className={
-                hasActiveTicket
-                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              }
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {hasActiveTicket ? "Logout Anyway" : "Logout"}
+              Logout
             </AlertDialogAction>
           </div>
         </AlertDialogContent>

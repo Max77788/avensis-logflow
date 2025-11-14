@@ -11,11 +11,14 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { carrierService } from "@/lib/carrierService";
 import { APP_TITLE } from "@/lib/config";
+import { Header } from "@/components/Header";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const Login = () => {
   const navigate = useNavigate();
   const { login, setDriverProfile } = useAuth();
   const { t } = useLanguage();
+  const { toggleTheme } = useTheme();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [step, setStep] = useState<"role" | "driver-login">("role");
   const [driverEmail, setDriverEmail] = useState("");
@@ -69,116 +72,132 @@ const Login = () => {
 
   if (step === "role") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          {/* Language Selector */}
-          <div className="absolute top-4 right-4">
-            <LanguageSelector />
-          </div>
+      <div className="min-h-screen bg-background flex flex-col">
+        {/* Header with Theme Toggle */}
+        <Header />
 
-          {/* Header */}
-          <div className="mb-8 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary mx-auto mb-4">
-              <Truck className="h-8 w-8 text-primary-foreground" />
+        {/* Language Selector */}
+        <div className="absolute top-16 right-4">
+          <LanguageSelector />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            {/* Header */}
+            <div className="mb-8 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary mx-auto mb-4">
+                <Truck className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                {APP_TITLE}
+              </h1>
+              <p className="text-muted-foreground">
+                {t("login.digitalTicketingSystem")}
+              </p>
             </div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              {APP_TITLE}
-            </h1>
-            <p className="text-muted-foreground">
-              {t("login.digitalTicketingSystem")}
-            </p>
-          </div>
 
-          {/* Role Selection */}
-          <div className="space-y-4">
-            <Card
-              className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
-              onClick={() => setStep("driver-login")}
-            >
-              <div className="p-6 space-y-4 flex flex-col items-center text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 group-hover:bg-green-200 transition-colors">
-                  <User className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground mb-1">
-                    {t("login.driver")}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t("login.driverDesc")}
-                  </p>
-                </div>
+            {/* Role Selection */}
+            <div className="space-y-4">
+              <Card
+                className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
+                onClick={() => setStep("driver-login")}
+              >
+                <div className="p-6 space-y-4 flex flex-col items-center text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 group-hover:bg-green-200 transition-colors">
+                    <User className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground mb-1">
+                      {t("login.driver")}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t("login.driverDesc")}
+                    </p>
+                  </div>
+                  {/*
                 <Button className="w-full" size="lg">
                   {t("login.continueAsDriver")}
                 </Button>
-              </div>
-            </Card>
+                */}
+                </div>
+              </Card>
 
-            <Card
-              className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
-              onClick={handleAttendantClick}
-            >
-              <div className="p-6 space-y-4 flex flex-col items-center text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 group-hover:bg-blue-200 transition-colors">
-                  <QrCode className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground mb-1">
-                    {t("login.attendant")}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t("login.attendantDesc")}
-                  </p>
-                </div>
+              <Card
+                className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
+                onClick={handleAttendantClick}
+              >
+                <div className="p-6 space-y-4 flex flex-col items-center text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 group-hover:bg-blue-200 transition-colors">
+                    <QrCode className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground mb-1">
+                      {t("login.attendant")}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t("login.attendantDesc")}
+                    </p>
+                  </div>
+                  {/*
                 <Button className="w-full" size="lg">
                   {t("login.continueAsAttendant")}
                 </Button>
-              </div>
-            </Card>
+                */}
+                </div>
+              </Card>
 
-            <Card
-              className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
-              onClick={() => navigate("/overview")}
-            >
-              <div className="p-6 space-y-4 flex flex-col items-center text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 group-hover:bg-purple-200 transition-colors">
-                  <QrCode className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground mb-1">
-                    {t("login.overview")}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t("login.overviewDesc")}
-                  </p>
-                </div>
+              <Card
+                className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
+                onClick={() => navigate("/overview")}
+              >
+                <div className="p-6 space-y-4 flex flex-col items-center text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 group-hover:bg-purple-200 transition-colors overflow-hidden flex-shrink-0">
+                    <img
+                      src="/truckPic.png"
+                      alt="Truck"
+                      className="h-12 w-12 object-contain"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground mb-1">
+                      {/*t("login.overview")*/}Scalehouse
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t("login.overviewDesc")}
+                    </p>
+                  </div>
+                  {/*
                 <Button className="w-full" size="lg">
                   {t("login.continueAsOverview")}
                 </Button>
+                */}
+                </div>
+              </Card>
+              {/* Driver Onboarding Button - Bottom of Page */}
+              <div className="flex justify-center pt-4 md:pt-8">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowOnboarding(true)}
+                  className="gap-2"
+                  size="sm"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Driver Onboarding
+                </Button>
               </div>
-            </Card>
-            {/* Driver Onboarding Button - Bottom of Page */}
-            <div className="flex justify-center pt-4 md:pt-8">
-              <Button
-                variant="outline"
-                onClick={() => setShowOnboarding(true)}
-                className="gap-2"
-                size="sm"
-              >
-                <BookOpen className="h-4 w-4" />
-                Driver Onboarding
-              </Button>
+              {/* Driver Onboarding Modal */}
+              <DriverOnboardingModal
+                open={showOnboarding}
+                onOpenChange={setShowOnboarding}
+              />
             </div>
-            {/* Driver Onboarding Modal */}
-            <DriverOnboardingModal
-              open={showOnboarding}
-              onOpenChange={setShowOnboarding}
-            />
-          </div>
 
-          {/* Footer */}
-          <p className="text-center text-xs text-muted-foreground mt-8">
-            {t("login.copyright")}
-          </p>
+            {/* Footer */}
+            <p className="text-center text-xs text-muted-foreground mt-8">
+              {t("login.copyright")}
+            </p>
+          </div>
         </div>
       </div>
     );

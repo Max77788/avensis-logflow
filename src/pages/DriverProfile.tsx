@@ -712,24 +712,30 @@ const DriverProfile = () => {
         </div>
       </main>
 
-      {/* Logout Confirmation Dialog */}
+      {/* Logout Warning Dialog */}
       <AlertDialog open={showLogoutWarning} onOpenChange={setShowLogoutWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("common.confirmLogout")}</AlertDialogTitle>
+            <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("common.areYouSureLogout")}
+              Are you sure you want to log out?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex gap-3 justify-center items-center">
-            <AlertDialogCancel className="min-w-[120px] px-4 py-2">
-              {t("common.cancel")}
+
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              Cancel
             </AlertDialogCancel>
+
             <AlertDialogAction
-              onClick={confirmLogout}
-              className="min-w-[120px] bg-destructive px-4 py-2 text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {t("common.logout")}
+              Logout
             </AlertDialogAction>
           </div>
         </AlertDialogContent>
