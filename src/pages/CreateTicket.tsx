@@ -212,6 +212,15 @@ const CreateTicket = () => {
       return;
     }
 
+    if (!formData.destination_site) {
+      toast({
+        title: "Missing Required Field",
+        description: "Please select a destination site",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     const ticket: Ticket = {
@@ -650,7 +659,8 @@ const CreateTicket = () => {
                 isSubmitting ||
                 hasActiveTicket ||
                 !isShiftComplete ||
-                isDriverInactive
+                isDriverInactive ||
+                !formData.destination_site
               }
               title={
                 isDriverInactive
