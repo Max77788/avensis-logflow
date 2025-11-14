@@ -243,13 +243,25 @@ const DriverProfile = () => {
     }
   };
 
-  const handleTruckChange = async (truckId: string) => {
-    if (!driverProfile || !truckId) return;
+  const handleTruckChange = async (truckDisplayName: string) => {
+    if (!driverProfile || !truckDisplayName) return;
 
     setIsUpdatingProfile(true);
     try {
+      // Find the truck UUID from the database using truck display name and carrier
+      const truck = await carrierService.getTruckByIdAndCarrier(
+        truckDisplayName,
+        driverProfile.carrier_id
+      );
+
+      if (!truck) {
+        throw new Error(
+          `Truck "${truckDisplayName}" not found for this carrier`
+        );
+      }
+
       const updates = {
-        default_truck_id: truckId,
+        default_truck_id: truck.id, // Store the UUID, not the display name
       };
 
       const result = await carrierService.updateDriverProfile(
@@ -264,8 +276,8 @@ const DriverProfile = () => {
         updateShift({
           carrier: editFormData.carrier_id,
           carrier_id: driverProfile.carrier_id,
-          truck_id: truckId,
-          truck: truckId,
+          truck_id: truck.id, // Store UUID in shift context
+          truck: truckDisplayName, // Display name for UI
           pickupLocation: editFormData.pickup_location,
         });
 

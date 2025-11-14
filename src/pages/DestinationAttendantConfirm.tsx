@@ -299,13 +299,7 @@ const DestinationAttendantConfirm = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column */}
                 <Card className="border border-border bg-card p-6">
-                  <h3
-                    className={`text-lg font-bold mb-4 pb-3 border-b ${
-                      isDark
-                        ? "text-white border-slate-700"
-                        : "text-slate-900 border-slate-300"
-                    }`}
-                  >
+                  <h3 className="text-lg font-bold mb-4 pb-3 border-b text-foreground border-border">
                     {t("destinationConfirm.ticketDetails")}
                   </h3>
                   <div className="space-y-4">
@@ -313,11 +307,7 @@ const DestinationAttendantConfirm = () => {
                       <p className="text-xs mb-1 text-muted-foreground">
                         {t("destinationConfirm.ticketID")}
                       </p>
-                      <p
-                        className={`font-semibold text-base ${
-                          isDark ? "text-white" : "text-slate-900"
-                        }`}
-                      >
+                      <p className="font-semibold text-base text-foreground">
                         {ticket.ticket_id}
                       </p>
                     </div>
@@ -331,11 +321,7 @@ const DestinationAttendantConfirm = () => {
                       <p className="text-xs mb-1 text-muted-foreground">
                         {t("destinationConfirm.pickupLocation")}
                       </p>
-                      <p
-                        className={`font-semibold ${
-                          isDark ? "text-white" : "text-slate-900"
-                        }`}
-                      >
+                      <p className="font-semibold text-foreground">
                         {ticket.origin_site || "N/A"}
                       </p>
                     </div>
@@ -343,11 +329,7 @@ const DestinationAttendantConfirm = () => {
                       <p className="text-xs mb-1 text-muted-foreground">
                         {t("destinationConfirm.deliveryLocation")}
                       </p>
-                      <p
-                        className={`font-semibold ${
-                          isDark ? "text-white" : "text-slate-900"
-                        }`}
-                      >
+                      <p className="font-semibold text-foreground">
                         {ticket.destination_site || "N/A"}
                       </p>
                     </div>
@@ -356,13 +338,7 @@ const DestinationAttendantConfirm = () => {
 
                 {/* Right Column */}
                 <Card className="border border-border bg-card p-6">
-                  <h3
-                    className={`text-lg font-bold mb-4 pb-3 border-b ${
-                      isDark
-                        ? "text-white border-slate-700"
-                        : "text-slate-900 border-slate-300"
-                    }`}
-                  >
+                  <h3 className="text-lg font-bold mb-4 pb-3 border-b text-foreground border-border">
                     {t("destinationConfirm.deliveryDetails")}
                   </h3>
                   <div className="space-y-4">
@@ -370,11 +346,7 @@ const DestinationAttendantConfirm = () => {
                       <p className="text-xs mb-1 text-muted-foreground">
                         {t("destinationConfirm.netWeight")}
                       </p>
-                      <p
-                        className={`font-semibold text-base ${
-                          isDark ? "text-white" : "text-slate-900"
-                        }`}
-                      >
+                      <p className="font-semibold text-base text-foreground">
                         {ticket.net_weight?.toFixed(1) || "—"}{" "}
                         {t("destinationConfirm.tons")}
                       </p>
@@ -383,11 +355,7 @@ const DestinationAttendantConfirm = () => {
                       <p className="text-xs mb-1 text-muted-foreground">
                         {t("destinationConfirm.driverName")}
                       </p>
-                      <p
-                        className={`font-semibold ${
-                          isDark ? "text-white" : "text-slate-900"
-                        }`}
-                      >
+                      <p className="font-semibold text-foreground">
                         {ticket.driver_name || "N/A"}
                       </p>
                     </div>
@@ -395,11 +363,7 @@ const DestinationAttendantConfirm = () => {
                       <p className="text-xs mb-1 text-muted-foreground">
                         {t("destinationConfirm.confirmedBy")}
                       </p>
-                      <p
-                        className={`font-semibold ${
-                          isDark ? "text-white" : "text-slate-900"
-                        }`}
-                      >
+                      <p className="font-semibold text-foreground">
                         {confirmerName}
                       </p>
                     </div>
