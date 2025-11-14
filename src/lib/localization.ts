@@ -130,7 +130,7 @@ export const translations = {
     destinationConfirm: {
       confirmDelivery: "Confirm Delivery",
       ticketID: "Ticket ID",
-      confirmerName: "Confirmer Name",
+      confirmerName: "Attendant Name",
       driverName: "Driver Name",
       enterYourFullName: "Enter your full name",
       deliveryLocation: "Delivery Location",

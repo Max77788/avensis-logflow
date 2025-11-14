@@ -261,40 +261,6 @@ const Index = () => {
             <div className="flex flex-col gap-4">
               {/* Row that ALWAYS stays horizontal */}
               <div className="flex flex-row gap-4 w-full">
-                {/* Start/End Shift */}
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center justify-between px-4 py-2 bg-muted rounded-lg">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {t("index.shiftStatus")}
-                    </span>
-                    <Badge
-                      variant={
-                        driverProfile?.status === "active"
-                          ? "default"
-                          : "secondary"
-                      }
-                    >
-                      {driverProfile?.status?.toUpperCase() || "INACTIVE"}
-                    </Badge>
-                  </div>
-                  <Button
-                    onClick={handleToggleShift}
-                    disabled={isTogglingStatus}
-                    variant={
-                      driverProfile?.status === "active"
-                        ? "destructive"
-                        : "default"
-                    }
-                    className="w-full h-12 gap-2"
-                    size="lg"
-                  >
-                    <Power className="h-5 w-5" />
-                    {driverProfile?.status === "active"
-                      ? t("index.endShift")
-                      : t("index.startShift")}
-                  </Button>
-                </div>
-
                 {/* Create Ticket Card */}
                 <Card
                   className="flex-1 group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
@@ -309,6 +275,45 @@ const Index = () => {
                       <h3 className="mb-1 text-lg font-bold text-foreground">
                         {t("index.createTicket")}
                       </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {t("index.manuallyCreateNewTicket")}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Start/End Shift Card (Fully Clickable) */}
+                <Card
+                  className="flex-1 group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
+                  onClick={handleToggleShift}
+                >
+                  <div className="flex flex-col items-center space-y-4 p-6 text-center">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-muted/40 transition-colors group-hover:bg-muted">
+                      <Power className="h-10 w-10 text-foreground" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <h3 className="mb-1 text-lg font-bold text-foreground">
+                        {driverProfile?.status === "active"
+                          ? t("index.endShift")
+                          : t("index.startShift")}
+                      </h3>
+
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {t("index.shiftStatus")}
+                        </span>
+
+                        <Badge
+                          variant={
+                            driverProfile?.status === "active"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {driverProfile?.status?.toUpperCase() || "INACTIVE"}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </Card>

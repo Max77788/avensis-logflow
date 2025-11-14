@@ -278,7 +278,7 @@ const DestinationAttendantConfirm = () => {
                 </p>
               </Card>
 
-              {/* Action Buttons */}
+              {/* Action Buttons 
               <div className="flex gap-4">
                 <Button
                   onClick={() => navigate(`/tickets/${id}`)}
@@ -295,8 +295,10 @@ const DestinationAttendantConfirm = () => {
                 </Button>
               </div>
 
+              */}
+
               {/* Delivery Confirmed Details - 2 Column Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-2 gap-6">
                 {/* Left Column */}
                 <Card className="border border-border bg-card p-6">
                   <h3 className="text-lg font-bold mb-4 pb-3 border-b text-foreground border-border">
@@ -492,9 +494,11 @@ const DestinationAttendantConfirm = () => {
                       <h3 className="text-lg font-bold mb-1 text-foreground">
                         {t("destinationConfirm.confirmerName")}
                       </h3>
+                      {/*
                       <p className="text-sm text-muted-foreground">
                         {t("destinationConfirm.enterYourFullName")}
                       </p>
+                      */}
                     </div>
                   </div>
                   <Input
