@@ -59,6 +59,7 @@ const CreateTicket = () => {
   const [hasActiveTicket, setHasActiveTicket] = useState(false);
   const [ticketImage, setTicketImage] = useState<File | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
+  const [truckNameDisplay, setTruckNameDisplay] = useState<string>("");
 
   // Check for existing draft on component mount
   useEffect(() => {
@@ -107,14 +108,34 @@ const CreateTicket = () => {
 
         // Get the truck name from active shift or QR code
         let truckName = "";
+        let truckId = "";
+
         if (truckFromQR) {
           truckName = truckFromQR;
+          truckId = truckFromQR;
         } else if (shift.isActive && shift.truck_id) {
           // Use truck from active shift
           truckName = shift.truck_id;
-        } else {
+          truckId = shift.truck_id;
+        } else if (driverProfile.default_truck_id) {
           // Fall back to driver profile default truck
-          truckName = driverProfile.default_truck_id || "";
+          truckId = driverProfile.default_truck_id;
+          // If it looks like a UUID, fetch the truck name from Supabase
+          if (truckId.includes("-")) {
+            try {
+              const truck = await carrierService.getTruckById(truckId);
+              if (truck) {
+                truckName = truck.truck_id;
+              } else {
+                truckName = truckId;
+              }
+            } catch (error) {
+              console.error("Error fetching truck name:", error);
+              truckName = truckId;
+            }
+          } else {
+            truckName = truckId;
+          }
         }
 
         // Get pickup location from shift (even if shift is not active, pickup location might be stored)

@@ -81,6 +81,8 @@ const DestinationAttendantConfirm = () => {
       });
 
       if (result.success) {
+        // Scroll to top of page
+        window.scrollTo({ top: 0, behavior: "smooth" });
         toast({
           title: "Ticket Confirmed",
           description: "Ticket has been successfully confirmed",

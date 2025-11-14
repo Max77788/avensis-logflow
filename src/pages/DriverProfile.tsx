@@ -60,36 +60,70 @@ const DriverProfile = () => {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [carrierName, setCarrierName] = useState<string>("");
   const [showLogoutWarning, setShowLogoutWarning] = useState(false);
+  const [dbCarriers, setDbCarriers] = useState<any[]>([]);
   const [editFormData, setEditFormData] = useState({
     truck_id: driverProfile?.default_truck_id || "",
     carrier_id: driverProfile?.carrier_id || "",
     pickup_location: shift?.pickupLocation || "Primal Materials",
   });
 
-  // Load carrier name from UUID and sync truck_id
+  // Load driver data from Supabase and populate form
   useEffect(() => {
-    const loadCarrierName = async () => {
-      if (driverProfile?.carrier_id) {
-        try {
+    const loadDriverDataFromSupabase = async () => {
+      if (!user?.driver_id) return;
+
+      try {
+        // Fetch fresh driver data from Supabase
+        const dbDriver = await carrierService.getDriverById(user.driver_id);
+
+        if (dbDriver) {
+          // Update the driver profile in context with fresh data
+          setDriverProfile({
+            id: dbDriver.id,
+            name: dbDriver.name,
+            carrier_id: dbDriver.carrier_id,
+            default_truck_id: dbDriver.default_truck_id,
+            driver_qr_code: dbDriver.driver_qr_code,
+            status: dbDriver.status,
+            created_at: dbDriver.created_at,
+            updated_at: dbDriver.updated_at,
+          });
+
+          // Fetch all carriers from database
           const carriers = await carrierService.getAllCarriers();
-          const carrier = carriers.find(
-            (c) => c.id === driverProfile.carrier_id
-          );
+          setDbCarriers(carriers);
+
+          const carrier = carriers.find((c) => c.id === dbDriver.carrier_id);
+
+          // Fetch truck name from truck_id
+          let truckName = "";
+          if (dbDriver.default_truck_id) {
+            const truck = await carrierService.getTruckById(
+              dbDriver.default_truck_id
+            );
+            if (truck) {
+              truckName = truck.truck_id;
+            }
+          }
+
           if (carrier) {
             setCarrierName(carrier.name);
+            // Ensure the carrier name is set to match the SearchableSelect items
             setEditFormData((prev) => ({
               ...prev,
+              truck_id: truckName || "",
               carrier_id: carrier.name,
-              truck_id: driverProfile?.default_truck_id || "", // Sync truck_id from driverProfile
+              pickup_location: shift?.pickupLocation || "Primal Materials",
             }));
           }
-        } catch (error) {
-          console.error("Error loading carrier name:", error);
         }
+      } catch (error) {
+        console.error("Error loading driver data from Supabase:", error);
       }
     };
-    loadCarrierName();
-  }, [driverProfile?.carrier_id, driverProfile?.default_truck_id]);
+
+    loadDriverDataFromSupabase();
+  }, [user?.driver_id]);
 
   useEffect(() => {
     if (!user || user.role !== "driver") {
@@ -485,10 +519,23 @@ const DriverProfile = () => {
                       setEditFormData({ ...editFormData, carrier_id: value });
                       handleCarrierChange(value);
                     }}
-                    items={CARRIERS.map((carrier) => ({
-                      value: carrier,
-                      label: carrier,
-                    })).sort((a, b) =>
+                    items={[
+                      // Database carriers
+                      ...dbCarriers.map((carrier) => ({
+                        value: carrier.name,
+                        label: carrier.name,
+                      })),
+                      // Static carriers not in database
+                      ...CARRIERS.filter(
+                        (staticCarrier) =>
+                          !dbCarriers.some(
+                            (dbCarrier) => dbCarrier.name === staticCarrier
+                          )
+                      ).map((carrier) => ({
+                        value: carrier,
+                        label: carrier,
+                      })),
+                    ].sort((a, b) =>
                       a.label.localeCompare(b.label, undefined, {
                         numeric: true,
                         sensitivity: "base",

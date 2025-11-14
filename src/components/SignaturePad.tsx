@@ -67,7 +67,7 @@ export const SignaturePad = ({ onSave, label = "Signature" }: SignaturePadProps)
           disabled={isEmpty}
         >
           <Check className="mr-2 h-4 w-4" />
-          Save Signature
+          Save
         </Button>
       </div>
     </Card>
