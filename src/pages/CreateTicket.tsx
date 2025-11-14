@@ -318,14 +318,10 @@ const CreateTicket = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <Header
-        title="Create Ticket"
-        subtitle="Scale verification"
-        showHomeButton
-        onHomeClick={() => navigate("/")}
         showSettingsButton
         onSettingsClick={() => navigate("/driver/profile")}
-        showThemeToggle
-        showLanguageSelector
+        showHomeButton
+        onHomeClick={() => navigate("/")}
       />
 
       {/* Main Content */}

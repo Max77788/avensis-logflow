@@ -105,11 +105,8 @@ const DriverInfo = () => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <Header
-        title={t("driverInfo.title")}
-        showBackButton
-        onBackClick={() => navigate("/driver/dashboard")}
-        showThemeToggle
-        showLanguageSelector
+        showHomeButton
+        onHomeClick={() => navigate("/driver/dashboard")}
       />
 
       <main className="mx-auto max-w-2xl p-4 flex-1">

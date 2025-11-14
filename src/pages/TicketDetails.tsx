@@ -455,15 +455,10 @@ const TicketDetails = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <Header
-        title={t("ticketDetails.title")}
-        subtitle={ticket.ticket_id}
         showHomeButton
         onHomeClick={() => navigate("/")}
         showSettingsButton
         onSettingsClick={() => navigate("/driver/profile")}
-        rightContent={<StatusBadge status={ticket.status} />}
-        showThemeToggle
-        showLanguageSelector
       />
 
       {/* Content */}
@@ -620,7 +615,7 @@ const TicketDetails = () => {
                           </div>
                           */}
 
-                          {/* Navigation Button */}
+                          {/* Navigation Button 
                           <Button
                             onClick={() =>
                               navigate(
@@ -631,6 +626,7 @@ const TicketDetails = () => {
                           >
                             Go to Confirmation Screen
                           </Button>
+                          */}
                         </div>
                       </div>
                     </Card>

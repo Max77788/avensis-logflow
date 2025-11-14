@@ -7,15 +7,27 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Header } from "@/components/Header";
 import { Search, Download, Package, Filter } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const Admin = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { logout } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [showLogoutWarning, setShowLogoutWarning] = useState(false);
 
   useEffect(() => {
     const loadTickets = async () => {
@@ -77,18 +89,10 @@ const Admin = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <Header
-        title={t("admin.title")}
-        subtitle={`${tickets.length} ${t("admin.totalTickets")}`}
         showHomeButton
         onHomeClick={() => navigate("/")}
-        rightContent={
-          <Button onClick={exportCSV} variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            {t("admin.exportCSV")}
-          </Button>
-        }
-        showThemeToggle
-        showLanguageSelector
+        showLogoutButton
+        onLogoutClick={() => setShowLogoutWarning(true)}
       />
 
       {/* Content */}
@@ -190,6 +194,32 @@ const Admin = () => {
           )}
         </div>
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={showLogoutWarning} onOpenChange={setShowLogoutWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("common.confirmLogout")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("common.areYouSureLogout")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3 justify-center items-center">
+            <AlertDialogCancel className="min-w-[120px] px-4 py-2">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+              className="min-w-[120px] px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("common.logout")}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

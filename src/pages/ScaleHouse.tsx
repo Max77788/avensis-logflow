@@ -47,12 +47,8 @@ const ScaleHouse = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
       <Header
-        title="Scale House Verification"
-        subtitle={`Ticket ${ticket.ticket_id}`}
-        showBackButton
-        onBackClick={() => navigate("/driver/dashboard")}
-        showThemeToggle
-        showLanguageSelector
+        showHomeButton
+        onHomeClick={() => navigate("/driver/dashboard")}
       />
 
       {/* Main Content */}

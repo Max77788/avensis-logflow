@@ -223,14 +223,10 @@ const DestinationAttendantConfirm = () => {
     >
       {/* Header */}
       <Header
-        title={t("destinationConfirm.confirmDelivery")}
-        subtitle={`${t("destinationConfirm.ticketID")} ${ticket.ticket_id}`}
         showHomeButton
         onHomeClick={() => navigate("/")}
         showSettingsButton
         onSettingsClick={() => navigate("/driver/profile")}
-        showThemeToggle
-        showLanguageSelector
       />
 
       {/* Main Content */}
@@ -247,11 +243,7 @@ const DestinationAttendantConfirm = () => {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
+                    <p className="text-xs mb-1 text-muted-foreground">
                       {t("destinationConfirm.deliveryLocation")}
                     </p>
                     <p
@@ -272,13 +264,7 @@ const DestinationAttendantConfirm = () => {
               */}
 
               {/* Success Message */}
-              <Card
-                className={`border-0 p-8 text-white text-center ${
-                  isDark
-                    ? "bg-gradient-to-br from-green-600 to-green-700"
-                    : "bg-gradient-to-br from-green-400 to-green-500"
-                }`}
-              >
+              <Card className="border-0 p-8 text-white text-center bg-gradient-to-br from-emerald-500 to-emerald-600">
                 <div className="flex justify-center mb-4">
                   <div className="bg-white/20 rounded-full p-4">
                     <CheckCircle className="h-12 w-12" />
@@ -287,7 +273,7 @@ const DestinationAttendantConfirm = () => {
                 <h2 className="text-3xl font-bold mb-2">
                   {t("destinationConfirm.deliveryConfirmed")}
                 </h2>
-                <p className={isDark ? "text-green-100" : "text-green-50"}>
+                <p className="text-emerald-100">
                   {t("destinationConfirm.ticketHasBeenSuccessfullyConfirmed")}
                 </p>
               </Card>
@@ -309,131 +295,117 @@ const DestinationAttendantConfirm = () => {
                 </Button>
               </div>
 
-              {/* Delivery Confirmed Details */}
-              <Card
-                className={`border-0 p-6 ${
-                  isDark
-                    ? "bg-slate-800 border-slate-700"
-                    : "bg-slate-100 border-slate-200"
-                }`}
-              >
-                <h3
-                  className={`text-xl font-bold mb-4 ${
-                    isDark ? "text-white" : "text-slate-900"
-                  }`}
-                >
-                  {t("destinationConfirm.deliveryConfirmed")}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
-                      {t("destinationConfirm.ticketID")}
-                    </p>
-                    <p
-                      className={`font-semibold ${
-                        isDark ? "text-white" : "text-slate-900"
-                      }`}
-                    >
-                      {ticket.ticket_id}
-                    </p>
+              {/* Delivery Confirmed Details - 2 Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column */}
+                <Card className="border border-border bg-card p-6">
+                  <h3
+                    className={`text-lg font-bold mb-4 pb-3 border-b ${
+                      isDark
+                        ? "text-white border-slate-700"
+                        : "text-slate-900 border-slate-300"
+                    }`}
+                  >
+                    {t("destinationConfirm.ticketDetails")}
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-xs mb-1 text-muted-foreground">
+                        {t("destinationConfirm.ticketID")}
+                      </p>
+                      <p
+                        className={`font-semibold text-base ${
+                          isDark ? "text-white" : "text-slate-900"
+                        }`}
+                      >
+                        {ticket.ticket_id}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs mb-1 text-muted-foreground">
+                        {t("destinationConfirm.status")}
+                      </p>
+                      <Badge className="bg-green-500">{ticket.status}</Badge>
+                    </div>
+                    <div>
+                      <p className="text-xs mb-1 text-muted-foreground">
+                        {t("destinationConfirm.pickupLocation")}
+                      </p>
+                      <p
+                        className={`font-semibold ${
+                          isDark ? "text-white" : "text-slate-900"
+                        }`}
+                      >
+                        {ticket.origin_site || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs mb-1 text-muted-foreground">
+                        {t("destinationConfirm.deliveryLocation")}
+                      </p>
+                      <p
+                        className={`font-semibold ${
+                          isDark ? "text-white" : "text-slate-900"
+                        }`}
+                      >
+                        {ticket.destination_site || "N/A"}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
-                      {t("destinationConfirm.status")}
-                    </p>
-                    <Badge className="bg-green-500">{ticket.status}</Badge>
+                </Card>
+
+                {/* Right Column */}
+                <Card className="border border-border bg-card p-6">
+                  <h3
+                    className={`text-lg font-bold mb-4 pb-3 border-b ${
+                      isDark
+                        ? "text-white border-slate-700"
+                        : "text-slate-900 border-slate-300"
+                    }`}
+                  >
+                    {t("destinationConfirm.deliveryDetails")}
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-xs mb-1 text-muted-foreground">
+                        {t("destinationConfirm.netWeight")}
+                      </p>
+                      <p
+                        className={`font-semibold text-base ${
+                          isDark ? "text-white" : "text-slate-900"
+                        }`}
+                      >
+                        {ticket.net_weight?.toFixed(1) || "—"}{" "}
+                        {t("destinationConfirm.tons")}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs mb-1 text-muted-foreground">
+                        {t("destinationConfirm.driverName")}
+                      </p>
+                      <p
+                        className={`font-semibold ${
+                          isDark ? "text-white" : "text-slate-900"
+                        }`}
+                      >
+                        {ticket.driver_name || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs mb-1 text-muted-foreground">
+                        {t("destinationConfirm.confirmedBy")}
+                      </p>
+                      <p
+                        className={`font-semibold ${
+                          isDark ? "text-white" : "text-slate-900"
+                        }`}
+                      >
+                        {confirmerName}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
-                      {t("destinationConfirm.pickupLocation")}
-                    </p>
-                    <p
-                      className={`font-semibold ${
-                        isDark ? "text-white" : "text-slate-900"
-                      }`}
-                    >
-                      {ticket.origin_site || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
-                      {t("destinationConfirm.deliveryLocation")}
-                    </p>
-                    <p
-                      className={`font-semibold ${
-                        isDark ? "text-white" : "text-slate-900"
-                      }`}
-                    >
-                      {ticket.destination_site || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
-                      {t("destinationConfirm.netWeight")}
-                    </p>
-                    <p
-                      className={`font-semibold ${
-                        isDark ? "text-white" : "text-slate-900"
-                      }`}
-                    >
-                      {ticket.net_weight?.toFixed(1) || "—"}{" "}
-                      {t("destinationConfirm.tons")}
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
-                      {t("destinationConfirm.driverName")}
-                    </p>
-                    <p
-                      className={`font-semibold ${
-                        isDark ? "text-white" : "text-slate-900"
-                      }`}
-                    >
-                      {ticket.driver_name || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
-                      {t("destinationConfirm.confirmedBy")}
-                    </p>
-                    <p
-                      className={`font-semibold ${
-                        isDark ? "text-white" : "text-slate-900"
-                      }`}
-                    >
-                      {confirmerName}
-                    </p>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+              </div>
 
               {/* Confirmation Details 
               <Card
@@ -452,11 +424,7 @@ const DestinationAttendantConfirm = () => {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
+                    <p className="text-xs mb-1 text-muted-foreground">
                       {t("destinationConfirm.confirmedBy")}
                     </p>
                     <p
@@ -468,11 +436,7 @@ const DestinationAttendantConfirm = () => {
                     </p>
                   </div>
                   <div>
-                    <p
-                      className={`text-xs mb-1 ${
-                        isDark ? "text-slate-400" : "text-slate-600"
-                      }`}
-                    >
+                    <p className="text-xs mb-1 text-muted-foreground">
                       {t("destinationConfirm.deliveryLocation")}
                     </p>
                     <p
@@ -498,23 +462,27 @@ const DestinationAttendantConfirm = () => {
             // Confirmation Form View
             <>
               {/* Ticket Info Card */}
-              <Card className="mb-8 bg-slate-800 border-slate-700 p-6">
+              <Card className="mb-8 p-6 border border-border bg-card">
                 <div className="flex flex-row justify-center gap-12">
                   <div>
-                    <p className="text-xs text-slate-400 mb-1">Destination</p>
-                    <p className="font-semibold text-white">
+                    <p className="text-xs mb-1 text-muted-foreground">
+                      Destination
+                    </p>
+                    <p className="font-semibold text-foreground">
                       {ticket.destination_site}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 mb-1">Truck</p>
-                    <p className="font-semibold text-white">
+                    <p className="text-xs mb-1 text-muted-foreground">Truck</p>
+                    <p className="font-semibold text-foreground">
                       {ticket.truck_id}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400 mb-1">Net Weight</p>
-                    <p className="font-semibold text-white">
+                    <p className="text-xs mb-1 text-muted-foreground">
+                      Net Weight
+                    </p>
+                    <p className="font-semibold text-foreground">
                       {ticket.net_weight?.toFixed(1) || "—"} tons
                     </p>
                   </div>
@@ -522,18 +490,10 @@ const DestinationAttendantConfirm = () => {
               </Card>
 
               {/* Ticket Image Section */}
-              <Card
-                className={`border-0 p-6 mb-8 ${
-                  isDark ? "bg-slate-800 text-white" : "bg-slate-800 text-white"
-                }`}
-              >
+              <Card className="border border-border bg-card p-6 mb-8">
                 <div className="flex justify-center gap-3 mb-4">
-                  <FileText
-                    className={`h-6 w-6 ${
-                      isDark ? "text-blue-200" : "text-blue-100"
-                    }`}
-                  />
-                  <h3 className="text-lg font-bold">
+                  <FileText className="h-6 w-6 text-primary" />
+                  <h3 className="text-lg font-bold text-foreground">
                     {t("destinationConfirm.ticketImage")}
                   </h3>
                 </div>
@@ -550,16 +510,8 @@ const DestinationAttendantConfirm = () => {
                     </a>
                   </div>
                 ) : (
-                  <div
-                    className={`flex justify-center rounded-lg p-4 text-center ${
-                      isDark ? "bg-white/10" : "bg-white/20"
-                    }`}
-                  >
-                    <p
-                      className={`text-sm ${
-                        isDark ? "text-slate-300" : "text-slate-200"
-                      }`}
-                    >
+                  <div className="flex justify-center rounded-lg p-4 text-center bg-muted">
+                    <p className="text-sm text-muted-foreground">
                       {t("destinationConfirm.noTicketImageYet")}
                     </p>
                   </div>
@@ -569,28 +521,14 @@ const DestinationAttendantConfirm = () => {
               {/* Tiles Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 {/* Confirmer Name Tile */}
-                <Card
-                  className={`border-0 p-6 ${
-                    isDark
-                      ? "bg-slate-800 text-white"
-                      : "bg-slate-800 text-white"
-                  }`}
-                >
+                <Card className="border border-border bg-card p-6">
                   <div className="flex flex-col items-center justify-center mb-4">
-                    <User
-                      className={`h-6 w-6 ${
-                        isDark ? "text-purple-200" : "text-purple-100"
-                      }`}
-                    />
+                    <User className="h-6 w-6 text-primary" />
                     <div className="text-center mt-2">
-                      <h3 className="text-lg font-bold mb-1">
+                      <h3 className="text-lg font-bold mb-1 text-foreground">
                         {t("destinationConfirm.confirmerName")}
                       </h3>
-                      <p
-                        className={`text-sm ${
-                          isDark ? "text-purple-100" : "text-purple-50"
-                        }`}
-                      >
+                      <p className="text-sm text-muted-foreground">
                         {t("destinationConfirm.enterYourFullName")}
                       </p>
                     </div>
@@ -599,11 +537,6 @@ const DestinationAttendantConfirm = () => {
                     placeholder={t("destinationConfirm.enterYourFullName")}
                     value={confirmerName}
                     onChange={(e) => setConfirmerName(e.target.value)}
-                    className={`${
-                      isDark
-                        ? "bg-white/20 border-white/30 text-white placeholder:text-white/50"
-                        : "bg-white/30 border-white/40 text-white placeholder:text-white/60"
-                    }`}
                   />
                 </Card>
 
@@ -645,31 +578,19 @@ const DestinationAttendantConfirm = () => {
                 */}
 
                 {/* Signature Tile */}
-                <Card
-                  className={`border-0 p-6 text-white md:col-span-2 ${
-                    isDark ? "bg-slate-800" : "bg-slate-800"
-                  }`}
-                >
+                <Card className="border border-border bg-card p-6 md:col-span-2">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-bold mb-1">
+                      <h3 className="text-lg font-bold mb-1 text-foreground">
                         {t("destinationConfirm.yourSignature")}
                       </h3>
-                      <p
-                        className={`text-sm ${
-                          isDark ? "text-yellow-100" : "text-yellow-50"
-                        }`}
-                      >
+                      <p className="text-sm text-muted-foreground">
                         {t("destinationConfirm.signToConfirmDelivery")}
                       </p>
                     </div>
-                    <Pen
-                      className={`h-6 w-6 ${
-                        isDark ? "text-yellow-200" : "text-yellow-100"
-                      }`}
-                    />
+                    <Pen className="h-6 w-6 text-primary" />
                   </div>
-                  <div className="bg-white rounded-lg overflow-hidden">
+                  <div className="bg-background rounded-lg overflow-hidden">
                     <SignaturePad
                       ref={signaturePadRef}
                       onSave={(data) => setSignature(data)}

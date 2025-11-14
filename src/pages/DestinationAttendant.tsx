@@ -142,14 +142,7 @@ const DestinationAttendant = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <Header
-        title={t("destinationAttendant.deliveryConfirmation")}
-        subtitle={`${t("destinationConfirm.ticketID")} ${ticket.ticket_id}`}
-        showBackButton
-        onBackClick={() => navigate("/")}
-        showThemeToggle
-        showLanguageSelector
-      />
+      <Header showHomeButton onHomeClick={() => navigate("/")} />
 
       <main className="mx-auto max-w-2xl p-4 flex-1">
         {/* Content */}

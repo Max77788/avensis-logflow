@@ -96,14 +96,7 @@ const DriverDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
-      <Header
-        title={t("driverDashboard.title")}
-        subtitle={`${shift.carrier} • ${shift.truck}`}
-        showHomeButton
-        onHomeClick={() => navigate("/")}
-        showThemeToggle
-        showLanguageSelector
-      />
+      <Header showHomeButton onHomeClick={() => navigate("/")} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

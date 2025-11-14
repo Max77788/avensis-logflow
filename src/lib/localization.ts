@@ -153,6 +153,7 @@ export const translations = {
       confirmationDetails: "Confirmation Details",
       confirmedBy: "Confirmed By",
       status: "Status",
+      deliveryDetails: "Delivery Details",
       viewTicket: "View Ticket",
       goToDashboard: "Go to Dashboard",
       cancel: "Cancel",
@@ -195,6 +196,8 @@ export const translations = {
       today: "Today",
       allDates: "All Dates",
       date: "Date",
+      status: "Status",
+      closedTicketsToday: "Closed Tickets Today",
     },
     // Create Ticket
     createTicket: {
@@ -649,6 +652,7 @@ export const translations = {
       confirmationDetails: "Detalles de Confirmación",
       confirmedBy: "Confirmado Por",
       status: "Estado",
+      deliveryDetails: "Detalles de Entrega",
       viewTicket: "Ver Boleto",
       goToDashboard: "Ir al Panel",
       cancel: "Cancelar",
@@ -692,6 +696,8 @@ export const translations = {
       today: "Hoy",
       allDates: "Todas las Fechas",
       date: "Fecha",
+      status: "Estado",
+      closedTicketsToday: "Boletos Cerrados Hoy",
     },
     // Create Ticket
     createTicket: {

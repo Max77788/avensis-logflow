@@ -20,6 +20,7 @@ import {
 import { StatusBadge } from "@/components/StatusBadge";
 import { Header } from "@/components/Header";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService } from "@/lib/carrierService";
 import type { Ticket } from "@/lib/types";
@@ -30,10 +31,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const Overview = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { logout } = useAuth();
   const [allTickets, setAllTickets] = useState<Ticket[]>([]);
   const [allDrivers, setAllDrivers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,6 +59,7 @@ const Overview = () => {
     null
   );
   const [showDriverFilters, setShowDriverFilters] = useState(false);
+  const [showLogoutWarning, setShowLogoutWarning] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -67,11 +79,37 @@ const Overview = () => {
         );
         const driversArrays = await Promise.all(driverPromises);
         const allDriversList = driversArrays.flat();
-        // Filter for active drivers only
-        const activeDriversList = allDriversList.filter(
-          (driver) => driver.status === "active"
+
+        // Enrich drivers with closed ticket count for today
+        const enrichedDrivers = await Promise.all(
+          allDriversList.map(async (driver) => {
+            try {
+              const driverTickets = await ticketService.getTicketsByDriver(
+                driver.id
+              );
+              const today = new Date().toDateString();
+              const closedTicketsToday = driverTickets.filter((ticket) => {
+                const ticketDate = new Date(ticket.created_at).toDateString();
+                return ticket.status === "CLOSED" && ticketDate === today;
+              }).length;
+              return {
+                ...driver,
+                closed_tickets_today: closedTicketsToday,
+              };
+            } catch (error) {
+              console.error(
+                `Error loading tickets for driver ${driver.id}:`,
+                error
+              );
+              return {
+                ...driver,
+                closed_tickets_today: 0,
+              };
+            }
+          })
         );
-        setAllDrivers(activeDriversList);
+
+        setAllDrivers(enrichedDrivers);
       } catch (error) {
         console.error("Error loading overview data:", error);
       } finally {
@@ -135,25 +173,10 @@ const Overview = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <Header
-        title={t("overview.title")}
-        subtitle={t("overview.subtitle")}
         showHomeButton
         onHomeClick={() => navigate("/")}
-        showSettingsButton
-        onSettingsClick={() => navigate("/driver/profile")}
-        rightContent={
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Package className="h-4 w-4" />
-            <span>
-              {allTickets.length} {t("overview.tickets")}
-            </span>
-            <span className="mx-2">•</span>
-            <Users className="h-4 w-4" />
-            <span>
-              {allDrivers.length} {t("overview.drivers")}
-            </span>
-          </div>
-        }
+        showLogoutButton
+        onLogoutClick={() => setShowLogoutWarning(true)}
       />
 
       {/* Tabs Section */}
@@ -423,8 +446,8 @@ const Overview = () => {
                     key={driver.id}
                     className="overflow-hidden transition-all hover:shadow-md hover:border-primary/50"
                   >
-                    <div className="p-3">
-                      <div className="flex items-start gap-3">
+                    <div className="p-4">
+                      <div className="flex items-start gap-3 mb-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
                           <User className="h-5 w-5 text-primary" />
                         </div>
@@ -432,21 +455,31 @@ const Overview = () => {
                           <p className="font-semibold text-foreground truncate">
                             {driver.name}
                           </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {driver.email}
-                          </p>
-                          <div className="mt-2">
-                            <Badge
-                              variant={
-                                driver.status === "active"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="text-xs"
-                            >
-                              {driver.status}
-                            </Badge>
-                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {t("overview.status")}
+                          </span>
+                          <Badge
+                            variant={
+                              driver.status === "active"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {driver.status}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {t("overview.closedTicketsToday")}
+                          </span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {driver.closed_tickets_today || 0}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -457,6 +490,32 @@ const Overview = () => {
           </div>
         )}
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      <AlertDialog open={showLogoutWarning} onOpenChange={setShowLogoutWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("common.confirmLogout")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("common.areYouSureLogout")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3 justify-center items-center">
+            <AlertDialogCancel className="min-w-[120px] px-4 py-2">
+              {t("common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+              className="min-w-[120px] px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("common.logout")}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

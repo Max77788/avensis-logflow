@@ -185,14 +185,7 @@ const DriverSignUp = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
-      <Header
-        title={t("driverSignUp.title")}
-        subtitle={t("driverSignUp.subtitle")}
-        showBackButton
-        onBackClick={() => navigate("/login")}
-        showThemeToggle
-        showLanguageSelector
-      />
+      <Header showHomeButton onHomeClick={() => navigate("/login")} />
 
       <div className="mx-auto max-w-md p-4 flex-1">
         {/* Content */}

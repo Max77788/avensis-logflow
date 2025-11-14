@@ -5,21 +5,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { QRScanner } from "@/components/QRScanner";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { Header } from "@/components/Header";
 import {
   QrCode,
-  Truck,
   ClipboardList,
-  LogOut,
-  Settings,
-  Moon,
-  Sun,
   Inbox,
   MapPin,
   Search,
-  Home,
   Power,
   AlertCircle,
   BookOpen,
@@ -37,9 +30,7 @@ import { ticketService } from "@/lib/ticketService";
 import { carrierService } from "@/lib/carrierService";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { APP_TITLE } from "@/lib/config";
 import { toast } from "@/components/ui/use-toast";
 import type { Ticket } from "@/lib/types";
 
@@ -54,14 +45,13 @@ const Index = () => {
   const [showLogoutWarning, setShowLogoutWarning] = useState(false);
   const navigate = useNavigate();
   const { user, driverProfile, logout, updateDriverStatus } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
   const { t } = useLanguage();
 
   const handleTicketIdSearch = () => {
     if (ticketIdInput.trim()) {
       // Remove "TKT-" prefix if present and navigate
       const ticketId = ticketIdInput.trim().toUpperCase();
-      navigate(`/tickets/${ticketId}`);
+      navigate(`/tickets/${ticketId}/confirm-delivery`);
       setTicketIdInput("");
     }
   };
@@ -176,14 +166,10 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
       <Header
-        title={APP_TITLE}
-        subtitle={t("app.subtitle")}
         showSettingsButton={user?.role === "driver"}
         onSettingsClick={() => navigate("/driver/profile")}
         showLogoutButton={!!user}
         onLogoutClick={() => setShowLogoutWarning(true)}
-        showThemeToggle
-        showLanguageSelector
       />
 
       {/* Main Content */}
@@ -272,72 +258,70 @@ const Index = () => {
           )}
 
           {user?.role === "driver" && (
-            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
-              {/* Start/End Shift Button with Dynamic Status */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-4 py-2 bg-muted rounded-lg">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    {t("index.shiftStatus")}
-                  </span>
-                  <Badge
+            <div className="flex flex-col gap-4">
+              {/* Row that ALWAYS stays horizontal */}
+              <div className="flex flex-row gap-4 w-full">
+                {/* Start/End Shift */}
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center justify-between px-4 py-2 bg-muted rounded-lg">
+                    <span className="text-sm font-medium text-muted-foreground">
+                      {t("index.shiftStatus")}
+                    </span>
+                    <Badge
+                      variant={
+                        driverProfile?.status === "active"
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {driverProfile?.status?.toUpperCase() || "INACTIVE"}
+                    </Badge>
+                  </div>
+                  <Button
+                    onClick={handleToggleShift}
+                    disabled={isTogglingStatus}
                     variant={
                       driverProfile?.status === "active"
-                        ? "default"
-                        : "secondary"
+                        ? "destructive"
+                        : "default"
                     }
+                    className="w-full h-12 gap-2"
+                    size="lg"
                   >
-                    {driverProfile?.status?.toUpperCase() || "INACTIVE"}
-                  </Badge>
-                </div>
-                <Button
-                  onClick={handleToggleShift}
-                  disabled={isTogglingStatus}
-                  variant={
-                    driverProfile?.status === "active"
-                      ? "destructive"
-                      : "default"
-                  }
-                  className="w-full h-12 gap-2"
-                  size="lg"
-                >
-                  <Power className="h-5 w-5" />
-                  {driverProfile?.status === "active"
-                    ? t("index.endShift")
-                    : t("index.startShift")}
-                </Button>
-              </div>
-
-              <Card
-                className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
-                onClick={() => navigate("/tickets/create")}
-              >
-                <div className="flex flex-col items-center space-y-4 p-6 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-success/10 transition-colors group-hover:bg-success/20">
-                    <ClipboardList className="h-7 w-7 text-success" />
-                  </div>
-
-                  <div>
-                    <h3 className="mb-1 text-lg font-bold text-foreground">
-                      {t("index.createTicket")}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {t("index.manuallyCreateNewTicket")}
-                    </p>
-                  </div>
-
-                  <Button className="w-full" size="lg">
-                    {t("index.createNewTicket")}
+                    <Power className="h-5 w-5" />
+                    {driverProfile?.status === "active"
+                      ? t("index.endShift")
+                      : t("index.startShift")}
                   </Button>
                 </div>
-              </Card>
+
+                {/* Create Ticket Card */}
+                <Card
+                  className="flex-1 group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
+                  onClick={() => navigate("/tickets/create")}
+                >
+                  <div className="flex flex-col items-center space-y-4 p-6 text-center">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-success/10 transition-colors group-hover:bg-success/20">
+                      <ClipboardList className="h-10 w-10 text-success" />
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-lg font-bold text-foreground">
+                        {t("index.createTicket")}
+                      </h3>
+                    </div>
+                  </div>
+                </Card>
+              </div>
 
               {/* Recent Activity */}
-              <Card className="mt-8 shadow-md md:col-span-2">
+              <Card className="mt-4 shadow-md">
                 <div className="border-b border-border p-4">
                   <h3 className="font-semibold text-foreground">
                     {t("index.recentActivity")}
                   </h3>
                 </div>
+
                 {recentTickets.length === 0 ? (
                   <div className="p-12 text-center">
                     <div className="flex justify-center mb-4">
@@ -379,21 +363,21 @@ const Index = () => {
                   </div>
                 )}
               </Card>
+
+              {/* Driver Onboarding Button */}
+              <div className="flex justify-center pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowOnboarding(true)}
+                  className="gap-2"
+                  size="sm"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Driver Onboarding
+                </Button>
+              </div>
             </div>
           )}
-
-          {/* Driver Onboarding Button - Bottom of Page */}
-          <div className="flex justify-center pt-4 md:pt-8">
-            <Button
-              variant="outline"
-              onClick={() => setShowOnboarding(true)}
-              className="gap-2"
-              size="sm"
-            >
-              <BookOpen className="h-4 w-4" />
-              Driver Onboarding
-            </Button>
-          </div>
         </div>
       </main>
 

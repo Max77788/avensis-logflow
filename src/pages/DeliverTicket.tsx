@@ -168,14 +168,7 @@ const DeliverTicket = () => {
       {/* Main Content */}
       <div className="min-h-screen bg-background flex flex-col">
         {/* Header */}
-        <Header
-          title={t("deliverTicket.confirmDelivery")}
-          subtitle={ticket.ticket_id}
-          showBackButton
-          onBackClick={() => navigate(`/tickets/${id}`)}
-          showThemeToggle
-          showLanguageSelector
-        />
+        <Header showHomeButton onHomeClick={() => navigate("/")} />
 
         {/* Content */}
         <main className="container mx-auto px-3 py-4 md:px-4 md:py-6 flex-1 overflow-y-auto">

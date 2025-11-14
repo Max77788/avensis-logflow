@@ -457,14 +457,10 @@ const DriverProfile = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
       <Header
-        title={t("driverProfile.title")}
-        subtitle={driverProfile?.name}
         showHomeButton
         onHomeClick={() => navigate("/")}
         showLogoutButton
-        onLogoutClick={handleLogout}
-        showThemeToggle
-        showLanguageSelector
+        onLogoutClick={() => setShowLogoutWarning(true)}
       />
 
       {/* Main Content */}
