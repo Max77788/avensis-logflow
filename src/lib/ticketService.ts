@@ -487,4 +487,62 @@ export const ticketService = {
 
     return validTransitions[currentStatus]?.includes(newStatus) ?? false;
   },
+
+  // Add this inside `export const ticketService = { ... }`
+
+  async getTicketsOverview(params?: {
+    limit?: number;
+    fromDate?: string; // "YYYY-MM-DD"
+    page?: number;
+  }): Promise<{
+    tickets: Ticket[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const pageSize = params?.limit ?? 50;
+    const page = params?.page ?? 1;
+    const fromIndex = (page - 1) * pageSize;
+    const toIndex = fromIndex + pageSize - 1;
+    const fromDate = params?.fromDate;
+
+    if (!supabase) {
+      throw new Error("Supabase client not initialized");
+    }
+
+    let query = supabase
+      .from("tickets")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false });
+
+    if (fromDate) {
+      // fromDate is "YYYY-MM-DD" – interpret as local day start
+      const start = new Date(fromDate);
+      start.setHours(0, 0, 0, 0);
+      query = query.gte("created_at", start.toISOString());
+    }
+
+    const { data, error, count } = await query.range(fromIndex, toIndex);
+
+    if (error) {
+      console.error("getTicketsOverview Supabase error:", error);
+      throw new Error(error.message || "Failed to load tickets");
+    }
+
+    const rows = (data ?? []) as any[];
+
+    const tickets: Ticket[] = rows.map((row) =>
+      // reuse your existing mapper
+      (ticketService as any).mapDbTicketToTicket
+        ? (ticketService as any).mapDbTicketToTicket(row)
+        : (row as Ticket)
+    );
+
+    return {
+      tickets,
+      total: count ?? tickets.length,
+      page,
+      pageSize,
+    };
+  },
 };

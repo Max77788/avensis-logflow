@@ -176,7 +176,6 @@ const Overview = () => {
       } catch (error) {
         console.error("Error loading tickets overview:", error);
         if (isMounted) {
-          // fail gracefully
           setTicketsHasMore(false);
         }
       } finally {
@@ -191,7 +190,7 @@ const Overview = () => {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateFilter]); // intentionally only depends on dateFilter
+  }, [dateFilter]);
 
   const loadMoreTickets = async () => {
     if (ticketsLoading || !ticketsHasMore) return;
@@ -318,8 +317,8 @@ const Overview = () => {
   const filteredDrivers = useMemo(() => {
     const search = debouncedDriverSearch.trim().toLowerCase();
 
-    return allDrivers.filter((driver) => {
-      const searchKey = (driver._search || "").toLowerCase();
+    return allDrivers.filter((driver: UIDriver) => {
+      const searchKey = driver._search || "";
       const matchesSearch = !search || searchKey.includes(search);
       const matchesStatus =
         !driverStatusFilter || driver.status === driverStatusFilter;
@@ -335,6 +334,12 @@ const Overview = () => {
     ).sort();
   }, [allTickets]);
 
+  // Use backend totals for counts if available, otherwise fallback
+  const ticketsCountLabel =
+    ticketsTotal > 0 ? ticketsTotal : filteredTickets.length;
+  const driversCountLabel =
+    driversTotal > 0 ? driversTotal : filteredDrivers.length;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -344,7 +349,6 @@ const Overview = () => {
         showLogoutButton
         onLogoutClick={() => setShowLogoutWarning(true)}
       />
-
       {/* Tabs Section */}
       <div className="border-b border-border bg-card/50">
         <div className="container mx-auto px-3 md:px-4 py-0">
@@ -357,9 +361,9 @@ const Overview = () => {
             >
               <Truck className="h-4 w-4 mr-1 md:mr-2" />
               <span className="hidden sm:inline">{t("overview.tickets")}</span>
-              <span className="sm:hidden">Tickets</span> (
-              {filteredTickets.length})
+              <span className="sm:hidden">Tickets</span> ({ticketsCountLabel})
             </Button>
+            {/*
             <Button
               variant={activeTab === "drivers" ? "default" : "ghost"}
               size="sm"
@@ -368,13 +372,12 @@ const Overview = () => {
             >
               <Users className="h-4 w-4 mr-1 md:mr-2" />
               <span className="hidden sm:inline">{t("overview.drivers")}</span>
-              <span className="sm:hidden">Drivers</span> (
-              {filteredDrivers.length})
+              <span className="sm:hidden">Drivers</span> ({driversCountLabel})
             </Button>
+            */}
           </div>
         </div>
       </div>
-
       {/* Main Content */}
       <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
         {/* Tickets Tab */}
@@ -688,27 +691,30 @@ const Overview = () => {
         )}
       </main>
 
-      {/* Logout Confirmation Dialog */}
+      {/* Logout Warning Dialog */}
       <AlertDialog open={showLogoutWarning} onOpenChange={setShowLogoutWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("common.confirmLogout")}</AlertDialogTitle>
+            <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("common.areYouSureLogout")}
+              Are you sure you want to log out?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex gap-3 justify-center items-center">
-            <AlertDialogCancel className="min-w-[120px] px-4 py-2">
-              {t("common.cancel")}
+
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              Cancel
             </AlertDialogCancel>
+
             <AlertDialogAction
               onClick={() => {
                 logout();
                 navigate("/login");
               }}
-              className="min-w-[120px] px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {t("common.logout")}
+              Logout
             </AlertDialogAction>
           </div>
         </AlertDialogContent>

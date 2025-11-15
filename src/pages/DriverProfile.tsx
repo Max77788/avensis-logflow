@@ -248,17 +248,20 @@ const DriverProfile = () => {
 
     setIsUpdatingProfile(true);
     try {
-      // Find the truck UUID from the database using truck display name and carrier
-      const truck = await carrierService.getTruckByIdAndCarrier(
+      // Get or create the truck in the database
+      const truckResult = await carrierService.getOrCreateTruck(
         truckDisplayName,
         driverProfile.carrier_id
       );
 
-      if (!truck) {
+      if (!truckResult.success || !truckResult.data) {
         throw new Error(
-          `Truck "${truckDisplayName}" not found for this carrier`
+          truckResult.error ||
+            `Failed to get or create truck "${truckDisplayName}"`
         );
       }
+
+      const truck = truckResult.data;
 
       const updates = {
         default_truck_id: truck.id, // Store the UUID, not the display name
