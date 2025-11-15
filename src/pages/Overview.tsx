@@ -3,15 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Search, Truck, Users, Package, User, Filter } from "lucide-react";
+import { Search, Truck as TruckIcon, Package, Filter } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ticketService } from "@/lib/ticketService";
-import { driverService } from "@/lib/driverService";
+import { truckService } from "@/lib/truckService";
 import type { Ticket } from "@/lib/types";
-import type { Driver } from "@/lib/driverService";
+import type { Truck } from "@/lib/truckService";
 import {
   Select,
   SelectContent,
@@ -34,14 +33,14 @@ type UITicket = Ticket & {
   _isToday: boolean;
 };
 
-type UIDriver = Driver & {
+type UITruck = Truck & {
   _search: string;
 };
 
 const STATUSES = ["CREATED", "VERIFIED", "CLOSED"] as const;
 
 const TICKETS_PAGE_SIZE = 50;
-const DRIVERS_PAGE_SIZE = 50;
+const TRUCKS_PAGE_SIZE = 50;
 
 const Overview = () => {
   const navigate = useNavigate();
@@ -55,29 +54,26 @@ const Overview = () => {
   const [ticketsTotal, setTicketsTotal] = useState(0);
   const [ticketsHasMore, setTicketsHasMore] = useState(true);
 
-  // Drivers state
-  const [allDrivers, setAllDrivers] = useState<UIDriver[]>([]);
-  const [driversLoading, setDriversLoading] = useState(false);
-  const [driversLoaded, setDriversLoaded] = useState(false);
-  const [driversPage, setDriversPage] = useState(1);
-  const [driversTotal, setDriversTotal] = useState(0);
-  const [driversHasMore, setDriversHasMore] = useState(true);
+  // Trucks state
+  const [allTrucks, setAllTrucks] = useState<UITruck[]>([]);
+  const [trucksLoading, setTrucksLoading] = useState(false);
+  const [trucksLoaded, setTrucksLoaded] = useState(false);
+  const [trucksPage, setTrucksPage] = useState(1);
+  const [trucksTotal, setTrucksTotal] = useState(0);
+  const [trucksHasMore, setTrucksHasMore] = useState(true);
 
   // Filters / UI
   const [ticketSearch, setTicketSearch] = useState("");
-  const [driverSearch, setDriverSearch] = useState("");
+  const [truckSearch, setTruckSearch] = useState("");
   const [debouncedTicketSearch, setDebouncedTicketSearch] = useState("");
-  const [debouncedDriverSearch, setDebouncedDriverSearch] = useState("");
+  const [debouncedTruckSearch, setDebouncedTruckSearch] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"tickets" | "drivers">("tickets");
+  const [activeTab, setActiveTab] = useState<"tickets" | "trucks">("tickets");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [carrierFilter, setCarrierFilter] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<string>("today");
-  const [driverStatusFilter, setDriverStatusFilter] = useState<string | null>(
-    null
-  );
-  const [showDriverFilters, setShowDriverFilters] = useState(false);
+  const [showTruckFilters, setShowTruckFilters] = useState(false);
   const [showLogoutWarning, setShowLogoutWarning] = useState(false);
 
   // Debounce ticket search
@@ -89,14 +85,14 @@ const Overview = () => {
     return () => window.clearTimeout(id);
   }, [ticketSearch]);
 
-  // Debounce driver search
+  // Debounce truck search
   useEffect(() => {
     const id = window.setTimeout(
-      () => setDebouncedDriverSearch(driverSearch),
+      () => setDebouncedTruckSearch(truckSearch),
       250
     );
     return () => window.clearTimeout(id);
-  }, [driverSearch]);
+  }, [truckSearch]);
 
   // Helper: normalize tickets (precompute search + isToday)
   const normalizeTickets = (tickets: Ticket[]): UITicket[] => {
@@ -126,16 +122,14 @@ const Overview = () => {
     });
   };
 
-  // Helper: normalize drivers (precompute search)
-  const normalizeDrivers = (drivers: Driver[]): UIDriver[] => {
-    return drivers.map((d) => {
-      const name = d.name || "";
-      const email = d.email || "";
-      const searchKey = `${name} ${email}`.toLowerCase();
+  // Helper: normalize trucks (precompute search)
+  const normalizeTrucks = (trucks: Truck[]): UITruck[] => {
+    return trucks.map((t) => {
+      const truckId = t.truck_id || "";
+      const searchKey = truckId.toLowerCase();
 
       return {
-        ...d,
-        closed_tickets_today: d.closed_tickets_today ?? 0,
+        ...t,
         _search: searchKey,
       };
     });
@@ -223,73 +217,73 @@ const Overview = () => {
     }
   };
 
-  // Lazy-load drivers (page 1) when Drivers tab is opened
+  // Lazy-load trucks (page 1) when Trucks tab is opened
   useEffect(() => {
-    if (activeTab !== "drivers") return;
-    if (driversLoaded || driversLoading) return;
+    if (activeTab !== "trucks") return;
+    if (trucksLoaded) return;
 
     let isMounted = true;
 
-    const loadDriversPage = async (page: number) => {
-      setDriversLoading(true);
+    const loadTrucksPage = async (page: number) => {
+      setTrucksLoading(true);
       try {
-        const res = await driverService.getDriversOverview({
-          limit: DRIVERS_PAGE_SIZE,
+        const res = await truckService.getTrucksOverview({
+          limit: TRUCKS_PAGE_SIZE,
           page,
         });
 
         if (!isMounted) return;
 
-        const normalized = normalizeDrivers(res.drivers);
+        const normalized = normalizeTrucks(res.trucks);
 
         if (page === 1) {
-          setAllDrivers(normalized);
+          setAllTrucks(normalized);
         } else {
-          setAllDrivers((prev) => [...prev, ...normalized]);
+          setAllTrucks((prev) => [...prev, ...normalized]);
         }
 
-        setDriversTotal(res.total ?? 0);
-        setDriversPage(res.page);
+        setTrucksTotal(res.total ?? 0);
+        setTrucksPage(res.page);
         const totalPages = Math.ceil((res.total ?? 0) / res.pageSize);
-        setDriversHasMore(res.page < totalPages);
-        setDriversLoaded(true);
+        setTrucksHasMore(res.page < totalPages);
+        setTrucksLoaded(true);
       } catch (error) {
-        console.error("Error loading drivers overview:", error);
-        if (isMounted) setDriversHasMore(false);
+        console.error("Error loading trucks overview:", error);
+        if (isMounted) setTrucksHasMore(false);
       } finally {
-        if (isMounted) setDriversLoading(false);
+        if (isMounted) setTrucksLoading(false);
       }
     };
 
-    loadDriversPage(1);
+    loadTrucksPage(1);
 
     return () => {
       isMounted = false;
     };
-  }, [activeTab, driversLoaded, driversLoading]);
+  }, [activeTab, trucksLoaded]);
 
-  const loadMoreDrivers = async () => {
-    if (driversLoading || !driversHasMore) return;
-    const nextPage = driversPage + 1;
+  const loadMoreTrucks = async () => {
+    if (trucksLoading || !trucksHasMore) return;
+    const nextPage = trucksPage + 1;
     try {
-      setDriversLoading(true);
-      const res = await driverService.getDriversOverview({
-        limit: DRIVERS_PAGE_SIZE,
+      setTrucksLoading(true);
+      const res = await truckService.getTrucksOverview({
+        limit: TRUCKS_PAGE_SIZE,
         page: nextPage,
       });
 
-      const normalized = normalizeDrivers(res.drivers);
+      const normalized = normalizeTrucks(res.trucks);
 
-      setAllDrivers((prev) => [...prev, ...normalized]);
-      setDriversPage(res.page);
-      setDriversTotal(res.total ?? 0);
+      setAllTrucks((prev) => [...prev, ...normalized]);
+      setTrucksPage(res.page);
+      setTrucksTotal(res.total ?? 0);
       const totalPages = Math.ceil((res.total ?? 0) / res.pageSize);
-      setDriversHasMore(res.page < totalPages);
+      setTrucksHasMore(res.page < totalPages);
     } catch (error) {
-      console.error("Error loading more drivers:", error);
-      setDriversHasMore(false);
+      console.error("Error loading more trucks:", error);
+      setTrucksHasMore(false);
     } finally {
-      setDriversLoading(false);
+      setTrucksLoading(false);
     }
   };
 
@@ -313,19 +307,17 @@ const Overview = () => {
     dateFilter,
   ]);
 
-  // Memoized filtered drivers
-  const filteredDrivers = useMemo(() => {
-    const search = debouncedDriverSearch.trim().toLowerCase();
+  // Memoized filtered trucks
+  const filteredTrucks = useMemo(() => {
+    const search = debouncedTruckSearch.trim().toLowerCase();
 
-    return allDrivers.filter((driver: UIDriver) => {
-      const searchKey = driver._search || "";
+    return allTrucks.filter((truck: UITruck) => {
+      const searchKey = truck._search || "";
       const matchesSearch = !search || searchKey.includes(search);
-      const matchesStatus =
-        !driverStatusFilter || driver.status === driverStatusFilter;
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
-  }, [allDrivers, debouncedDriverSearch, driverStatusFilter]);
+  }, [allTrucks, debouncedTruckSearch]);
 
   // Unique carriers for filter
   const uniqueCarriers = useMemo(() => {
@@ -337,8 +329,8 @@ const Overview = () => {
   // Use backend totals for counts if available, otherwise fallback
   const ticketsCountLabel =
     ticketsTotal > 0 ? ticketsTotal : filteredTickets.length;
-  const driversCountLabel =
-    driversTotal > 0 ? driversTotal : filteredDrivers.length;
+  const trucksCountLabel =
+    trucksTotal > 0 ? trucksTotal : filteredTrucks.length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -359,22 +351,21 @@ const Overview = () => {
               onClick={() => setActiveTab("tickets")}
               className="rounded-b-none whitespace-nowrap text-xs md:text-sm"
             >
-              <Truck className="h-4 w-4 mr-1 md:mr-2" />
+              <Package className="h-4 w-4 mr-1 md:mr-2" />
               <span className="hidden sm:inline">{t("overview.tickets")}</span>
               <span className="sm:hidden">Tickets</span> ({ticketsCountLabel})
             </Button>
-            {/*
+
             <Button
-              variant={activeTab === "drivers" ? "default" : "ghost"}
+              variant={activeTab === "trucks" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setActiveTab("drivers")}
+              onClick={() => setActiveTab("trucks")}
               className="rounded-b-none whitespace-nowrap text-xs md:text-sm"
             >
-              <Users className="h-4 w-4 mr-1 md:mr-2" />
-              <span className="hidden sm:inline">{t("overview.drivers")}</span>
-              <span className="sm:hidden">Drivers</span> ({driversCountLabel})
+              <TruckIcon className="h-4 w-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">{t("overview.trucks")}</span>
+              <span className="sm:hidden">Trucks</span> ({trucksCountLabel})
             </Button>
-            */}
           </div>
         </div>
       </div>
@@ -550,120 +541,62 @@ const Overview = () => {
           </div>
         )}
 
-        {/* Drivers Tab */}
-        {activeTab === "drivers" && (
+        {/* Trucks Tab */}
+        {activeTab === "trucks" && (
           <div className="space-y-4">
-            {/* Search and Filter */}
+            {/* Search */}
             <div className="flex gap-2">
               <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder={t("overview.searchDrivers")}
-                  value={driverSearch}
-                  onChange={(e) => setDriverSearch(e.target.value)}
+                  placeholder={t("overview.searchTrucks")}
+                  value={truckSearch}
+                  onChange={(e) => setTruckSearch(e.target.value)}
                   className="pl-10 text-xs md:text-sm"
                 />
               </div>
-              <Button
-                onClick={() => setShowDriverFilters(!showDriverFilters)}
-                variant={showDriverFilters ? "default" : "outline"}
-                size="icon"
-                className="h-9 w-9 md:h-10 md:w-10"
-                title={t("overview.advancedFilters")}
-              >
-                <Filter className="h-4 w-4" />
-              </Button>
             </div>
 
-            {/* Driver Filters */}
-            {showDriverFilters && (
-              <Card className="p-3 md:p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                  <div>
-                    <label className="text-xs md:text-sm font-medium text-muted-foreground mb-2 block">
-                      {t("overview.status")}
-                    </label>
-                    <Select
-                      value={driverStatusFilter || "all"}
-                      onValueChange={(value) =>
-                        setDriverStatusFilter(value === "all" ? null : value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={t("overview.allStatus")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">
-                          {t("overview.allStatus")}
-                        </SelectItem>
-                        <SelectItem value="active">
-                          {t("overview.active")}
-                        </SelectItem>
-                        <SelectItem value="inactive">
-                          {t("overview.inactive")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Drivers List */}
-            {driversLoading && allDrivers.length === 0 ? (
+            {/* Trucks List */}
+            {trucksLoading && allTrucks.length === 0 ? (
               <div className="space-y-3">
                 {[...Array(5)].map((_, i) => (
                   <Card key={i} className="h-16 animate-pulse bg-muted" />
                 ))}
               </div>
-            ) : filteredDrivers.length === 0 ? (
+            ) : filteredTrucks.length === 0 ? (
               <Card className="p-6 text-center">
-                <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
+                <TruckIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground">
-                  {t("overview.noDriversFound")}
+                  {t("overview.noTrucksFound")}
                 </p>
               </Card>
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {filteredDrivers.map((driver) => (
+                  {filteredTrucks.map((truck) => (
                     <Card
-                      key={driver.id}
+                      key={truck.id}
                       className="overflow-hidden transition-all hover:shadow-md hover:border-primary/50"
                     >
                       <div className="p-4">
                         <div className="flex items-start gap-3 mb-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
-                            <User className="h-5 w-5 text-primary" />
+                            <TruckIcon className="h-5 w-5 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-foreground truncate">
-                              {driver.name}
+                              {truck.truck_id}
                             </p>
                           </div>
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-muted-foreground">
-                              {t("overview.status")}
+                              {t("overview.id")}
                             </span>
-                            <Badge
-                              variant={
-                                driver.status === "active"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="text-xs"
-                            >
-                              {driver.status}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                              {t("overview.closedTicketsToday")}
-                            </span>
-                            <span className="text-sm font-semibold text-foreground">
-                              {driver.closed_tickets_today || 0}
+                            <span className="text-xs font-mono text-foreground truncate">
+                              {truck.id.substring(0, 8)}...
                             </span>
                           </div>
                         </div>
@@ -672,16 +605,16 @@ const Overview = () => {
                   ))}
                 </div>
 
-                {driversHasMore && (
+                {trucksHasMore && (
                   <div className="flex justify-center mt-4">
                     <Button
                       variant="outline"
-                      onClick={loadMoreDrivers}
-                      disabled={driversLoading}
+                      onClick={loadMoreTrucks}
+                      disabled={trucksLoading}
                     >
-                      {driversLoading
+                      {trucksLoading
                         ? t("overview.loadingMore")
-                        : t("overview.loadMoreDrivers")}
+                        : t("overview.loadMoreTrucks")}
                     </Button>
                   </div>
                 )}

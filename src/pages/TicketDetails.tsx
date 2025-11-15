@@ -73,6 +73,14 @@ const TicketDetails = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    if (copied) return;
+    navigator.clipboard.writeText(id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   // Delivery confirmation state
   const [signature, setSignature] = useState<string | null>(null);
   const [confirmerName, setConfirmerName] = useState("");
@@ -574,6 +582,7 @@ const TicketDetails = () => {
                             <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
                               Driver QR Code
                             </p>
+
                             <div className="flex justify-center bg-white p-3 rounded-lg">
                               <QRCodeSVG
                                 value={
@@ -584,8 +593,31 @@ const TicketDetails = () => {
                                 size={120}
                               />
                             </div>
-                          </div>
 
+                            {/* Ticket ID copy section */}
+                            <div className="flex flex-col items-center gap-1">
+                              <p className="text-xs text-muted-foreground">
+                                Ticket ID
+                              </p>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-mono">
+                                  {id}
+                                </span>
+
+                                <button
+                                  onClick={handleCopy}
+                                  className={`text-xs px-2 py-1 rounded transition ${
+                                    copied
+                                      ? "bg-green-600 text-white"
+                                      : "bg-muted hover:bg-muted/70"
+                                  }`}
+                                >
+                                  {copied ? "Copied!" : "Copy"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
                           {/* Ticket URL Section
                           <div className="space-y-2">
                             <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
@@ -614,7 +646,6 @@ const TicketDetails = () => {
                             </div>
                           </div>
                           */}
-
                           {/* Navigation Button 
                           <Button
                             onClick={() =>

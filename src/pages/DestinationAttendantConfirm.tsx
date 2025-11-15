@@ -487,25 +487,59 @@ const DestinationAttendantConfirm = () => {
               {/* Tiles Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 {/* Confirmer Name Tile */}
-                <Card className="border border-border bg-card p-6">
+                <Card
+                  className={`border-2 p-6 ${
+                    !confirmerName
+                      ? "border-orange-400 bg-orange-50/50 dark:bg-orange-950/20"
+                      : "border border-border bg-card"
+                  }`}
+                >
                   <div className="flex flex-col items-center justify-center mb-4">
-                    <User className="h-6 w-6 text-primary" />
+                    <div
+                      className={`p-2 rounded-full ${
+                        !confirmerName
+                          ? "bg-orange-100 dark:bg-orange-900/30"
+                          : "bg-primary/10"
+                      }`}
+                    >
+                      <User
+                        className={`h-6 w-6 ${
+                          !confirmerName
+                            ? "text-orange-600 dark:text-orange-400"
+                            : "text-primary"
+                        }`}
+                      />
+                    </div>
                     <div className="text-center mt-2">
                       <h3 className="text-lg font-bold mb-1 text-foreground">
                         {t("destinationConfirm.confirmerName")}
                       </h3>
-                      {/*
-                      <p className="text-sm text-muted-foreground">
-                        {t("destinationConfirm.enterYourFullName")}
+                      <p
+                        className={`text-sm font-semibold ${
+                          !confirmerName
+                            ? "text-orange-600 dark:text-orange-400"
+                            : "text-green-600 dark:text-green-400"
+                        }`}
+                      >
+                        {!confirmerName ? "⚠️ Required to confirm" : "✓ Filled"}
                       </p>
-                      */}
                     </div>
                   </div>
                   <Input
                     placeholder={t("destinationConfirm.enterYourFullName")}
                     value={confirmerName}
                     onChange={(e) => setConfirmerName(e.target.value)}
+                    className={`${
+                      !confirmerName
+                        ? "border-orange-400 focus:border-orange-500 focus:ring-orange-500"
+                        : ""
+                    }`}
                   />
+                  {!confirmerName && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-2 font-medium">
+                      Please enter your full name to confirm the delivery
+                    </p>
+                  )}
                 </Card>
 
                 {/* Location Tile 
