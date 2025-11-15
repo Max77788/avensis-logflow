@@ -593,10 +593,30 @@ const Overview = () => {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-muted-foreground">
+                              {t("common.carrier")}
+                            </span>
+                            <span className="text-xs font-medium text-foreground truncate">
+                              {truck.carrier_name || "Unknown"}
+                            </span>
+                          </div>
+                          {/*
+                          <div className="flex items-center justify-between">
+                            
+                            <span className="text-xs text-muted-foreground">
                               {t("overview.id")}
                             </span>
+                            
                             <span className="text-xs font-mono text-foreground truncate">
                               {truck.id.substring(0, 8)}...
+                            </span>
+                          </div>
+                          */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">
+                              {t("common.status")}
+                            </span>
+                            <span className="text-xs font-medium text-foreground">
+                              {truck.status || "Active"}
                             </span>
                           </div>
                         </div>

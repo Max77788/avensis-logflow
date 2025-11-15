@@ -198,6 +198,12 @@ export const translations = {
       date: "Date",
       status: "Status",
       closedTicketsToday: "Closed Tickets Today",
+      trucks: "Trucks",
+      searchTrucks: "Search trucks...",
+      noTrucksFound: "No trucks found",
+      loadingMore: "Loading more...",
+      loadMoreTrucks: "Load More Trucks",
+      id: "ID",
     },
     // Create Ticket
     createTicket: {
@@ -497,6 +503,8 @@ export const translations = {
       tryAdjustingFilters: "Try adjusting your filters",
       createFirstTicket: "Create your first ticket to get started",
       pleaseWait: "Please wait while we fetch the ticket details",
+      carrier: "Carrier",
+      truck: "Truck",
     },
   },
   es: {
@@ -698,6 +706,12 @@ export const translations = {
       date: "Fecha",
       status: "Estado",
       closedTicketsToday: "Boletos Cerrados Hoy",
+      trucks: "Camiones",
+      searchTrucks: "Buscar camiones...",
+      noTrucksFound: "No se encontraron camiones",
+      loadingMore: "Cargando más...",
+      loadMoreTrucks: "Cargar Más Camiones",
+      id: "ID",
     },
     // Create Ticket
     createTicket: {
@@ -1031,6 +1045,8 @@ export const translations = {
       tryAdjustingFilters: "Intenta ajustar tus filtros",
       createFirstTicket: "Crea tu primer boleto para comenzar",
       pleaseWait: "Por favor espera mientras obtenemos los detalles del boleto",
+      carrier: "Transportista",
+      truck: "Camión",
     },
   },
 };

@@ -7,6 +7,8 @@ export type Truck = {
   carrier_id: string;
   created_at?: string;
   updated_at?: string;
+  carrier_name?: string;
+  status?: string;
 };
 
 export type TrucksOverviewParams = {
@@ -35,12 +37,15 @@ export const truckService = {
     }
 
     try {
-      // Select only necessary fields for faster query
+      // Select trucks with carrier information
       let query = supabase
         .from("trucks")
-        .select("id, truck_id, carrier_id, created_at, updated_at", {
-          count: "exact",
-        })
+        .select(
+          "id, truck_id, carrier_id, created_at, updated_at, carriers(name)",
+          {
+            count: "exact",
+          }
+        )
         .order("truck_id", { ascending: true })
         .range(fromIndex, toIndex);
 
@@ -51,7 +56,11 @@ export const truckService = {
         throw new Error(error.message || "Failed to load trucks");
       }
 
-      const trucks = (data ?? []) as Truck[];
+      // Map the data to include carrier_name
+      const trucks = (data ?? []).map((truck: any) => ({
+        ...truck,
+        carrier_name: truck.carriers?.name || "Unknown",
+      })) as Truck[];
       const total = count ?? trucks.length;
 
       console.log(
@@ -70,4 +79,3 @@ export const truckService = {
     }
   },
 };
-

@@ -33,6 +33,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/components/ui/use-toast";
 import type { Ticket } from "@/lib/types";
+import { Truck as TruckIconSmall } from "lucide-react";
 
 const Index = () => {
   const [showScanner, setShowScanner] = useState(false);
@@ -43,6 +44,8 @@ const Index = () => {
   const [hasActiveTicket, setHasActiveTicket] = useState(false);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
   const [showLogoutWarning, setShowLogoutWarning] = useState(false);
+  const [carrierName, setCarrierName] = useState<string>("");
+  const [truckName, setTruckName] = useState<string>("");
   const navigate = useNavigate();
   const { user, driverProfile, logout, updateDriverStatus } = useAuth();
   const { t } = useLanguage();
@@ -55,6 +58,40 @@ const Index = () => {
       setTicketIdInput("");
     }
   };
+
+  // Load carrier and truck information for driver
+  useEffect(() => {
+    const loadCarrierAndTruckInfo = async () => {
+      if (user?.role === "driver" && driverProfile) {
+        try {
+          // Fetch carrier name
+          if (driverProfile.carrier_id) {
+            const carriers = await carrierService.getAllCarriers();
+            const carrier = carriers.find(
+              (c) => c.id === driverProfile.carrier_id
+            );
+            if (carrier) {
+              setCarrierName(carrier.name);
+            }
+          }
+
+          // Fetch truck name
+          if (driverProfile.default_truck_id) {
+            const truck = await carrierService.getTruckById(
+              driverProfile.default_truck_id
+            );
+            if (truck) {
+              setTruckName(truck.truck_id);
+            }
+          }
+        } catch (error) {
+          console.error("Error loading carrier and truck info:", error);
+        }
+      }
+    };
+
+    loadCarrierAndTruckInfo();
+  }, [user, driverProfile]);
 
   useEffect(() => {
     const loadRecentTickets = async () => {
@@ -75,6 +112,18 @@ const Index = () => {
       } else {
         // For other roles, show all tickets
         tickets = await ticketService.getAllTickets();
+      }
+
+      // Filter to show only today's tickets for drivers
+      if (user?.role === "driver") {
+        const todayStr = new Date().toDateString();
+        tickets = tickets.filter((t) => {
+          if (t.created_at) {
+            const createdAtStr = new Date(t.created_at).toDateString();
+            return createdAtStr === todayStr;
+          }
+          return false;
+        });
       }
 
       // Get the 5 most recent tickets
@@ -171,6 +220,37 @@ const Index = () => {
         showLogoutButton={!!user}
         onLogoutClick={() => setShowLogoutWarning(true)}
       />
+
+      {/* Driver Carrier + Truck Ribbon */}
+      {user?.role === "driver" && (carrierName || truckName) && (
+        <div className="border-b border-border bg-card/50">
+          <div className="container mx-auto px-3 md:px-4 py-3">
+            <div className="flex flex-row gap-3 justify-center flex-wrap">
+              {carrierName && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {t("common.carrier")}:
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">
+                    {carrierName}
+                  </span>
+                </div>
+              )}
+              {truckName && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
+                  <TruckIconSmall className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {t("common.truck")}:
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">
+                    {truckName}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
