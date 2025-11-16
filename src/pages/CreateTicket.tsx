@@ -21,7 +21,6 @@ import {
   CARRIERS,
   PICKUP_LOCATIONS,
   DESTINATION_SITES,
-  getTrucksByCarrier,
 } from "@/lib/trucksAndCarriers";
 
 // Fallback destination sites (in case database is unavailable)
@@ -34,6 +33,9 @@ const CreateTicket = () => {
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const truckFromQR = searchParams.get("truck");
+  const truckIdFromOverview = searchParams.get("truck_id");
+  const carrierIdFromOverview = searchParams.get("carrier_id");
+  const truckUuidFromOverview = searchParams.get("truck_uuid");
 
   const [formData, setFormData] = useState({
     carrier: "",
@@ -49,6 +51,7 @@ const CreateTicket = () => {
   const [signature, setSignature] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
+  const [availableTrucks, setAvailableTrucks] = useState<any[]>([]);
   const [destinationSites, setDestinationSites] = useState<string[]>(
     FALLBACK_DESTINATION_SITES
   );
@@ -60,6 +63,9 @@ const CreateTicket = () => {
   const [ticketImage, setTicketImage] = useState<File | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
   const [truckNameDisplay, setTruckNameDisplay] = useState<string>("");
+  const [isFromOverview, setIsFromOverview] = useState(false);
+  const [assignedDriverId, setAssignedDriverId] = useState<string>("");
+  const [assignedDriverName, setAssignedDriverName] = useState<string>("");
 
   // Check for existing draft on component mount
   useEffect(() => {
@@ -84,9 +90,92 @@ const CreateTicket = () => {
     fetchData();
   }, []);
 
+  // Fetch available trucks when carrier changes
+  useEffect(() => {
+    const loadAvailableTrucks = async () => {
+      if (!formData.carrier_id) {
+        setAvailableTrucks([]);
+        return;
+      }
+
+      try {
+        const trucks = await carrierService.getAvailableTrucksByCarrier(
+          formData.carrier_id
+        );
+        setAvailableTrucks(trucks);
+      } catch (error) {
+        console.error("Error fetching available trucks:", error);
+        setAvailableTrucks([]);
+      }
+    };
+
+    loadAvailableTrucks();
+  }, [formData.carrier_id]);
+
+  // Handle truck data from Overview page
+  useEffect(() => {
+    const loadTruckDataFromOverview = async () => {
+      if (truckIdFromOverview && carrierIdFromOverview) {
+        setIsFromOverview(true);
+
+        // Find the carrier name
+        const carrier = carriers.find((c) => c.id === carrierIdFromOverview);
+        const carrierName = carrier?.name || "";
+
+        // Set form data with truck and carrier info
+        setFormData((prev) => ({
+          ...prev,
+          truck_id: truckIdFromOverview,
+          carrier: carrierName,
+          carrier_id: carrierIdFromOverview,
+          driver_name: "", // Will be populated by auto-assignment
+          driver_id: "", // Will be populated by auto-assignment
+        }));
+
+        // Find the current driver assigned to this truck
+        if (truckUuidFromOverview) {
+          try {
+            const drivers = await carrierService.getDriversByCarrier(
+              carrierIdFromOverview
+            );
+            // Find driver with this truck as default
+            const assignedDriver = drivers.find(
+              (d) => d.default_truck_id === truckUuidFromOverview
+            );
+            if (assignedDriver) {
+              setAssignedDriverId(assignedDriver.id);
+              setAssignedDriverName(assignedDriver.name);
+              setFormData((prev) => ({
+                ...prev,
+                driver_id: assignedDriver.id,
+                driver_name: assignedDriver.name,
+              }));
+            }
+          } catch (error) {
+            console.error("Error finding driver for truck:", error);
+          }
+        }
+      }
+    };
+
+    if (truckIdFromOverview && carrierIdFromOverview && carriers.length > 0) {
+      loadTruckDataFromOverview();
+    }
+  }, [
+    truckIdFromOverview,
+    carrierIdFromOverview,
+    truckUuidFromOverview,
+    carriers,
+  ]);
+
   // Load driver data on mount
   useEffect(() => {
     const loadData = async () => {
+      // Skip if data is coming from Overview page
+      if (isFromOverview) {
+        return;
+      }
+
       // If driver is logged in, auto-fill their data
       if (user?.role === "driver" && driverProfile) {
         // Get the carrier name from the carrier ID
@@ -160,7 +249,7 @@ const CreateTicket = () => {
       }
     };
     loadData();
-  }, [user, driverProfile, carriers, truckFromQR, shift]);
+  }, [user, driverProfile, carriers, truckFromQR, shift, isFromOverview]);
 
   // Check for active tickets only once when driver profile is loaded
   useEffect(() => {
@@ -208,7 +297,16 @@ const CreateTicket = () => {
       return;
     }
 
-    if (!formData.driver_name) {
+    if (
+      !formData.driver_name ||
+      formData.driver_name === "To be defined later"
+    ) {
+      toast({
+        title: "Driver Required",
+        description:
+          "Cannot create a ticket for a truck without an assigned driver",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -387,12 +485,12 @@ const CreateTicket = () => {
             <div className="space-y-3 p-3 md:p-4">
               {/* Always in row layout for Carrier, Truck, Driver */}
               <div className="grid grid-cols-3 gap-2">
-                {/* Carrier - Read-only for drivers */}
+                {/* Carrier - Read-only for drivers and when from Overview */}
                 <div className="min-w-0">
                   <Label htmlFor="carrier" className="text-xs">
                     {t("createTicket.carrier")}
                   </Label>
-                  {user?.role === "driver" ? (
+                  {user?.role === "driver" || isFromOverview ? (
                     <div className="mt-1 rounded border border-border bg-muted p-1 text-xs text-foreground truncate">
                       {formData.carrier || t("createTicket.notAssigned")}
                     </div>
@@ -433,12 +531,12 @@ const CreateTicket = () => {
                   )}
                 </div>
 
-                {/* Truck ID - Read-only for drivers */}
+                {/* Truck ID - Read-only for drivers and when from Overview */}
                 <div className="min-w-0">
                   <Label htmlFor="truck_id" className="text-xs">
                     {t("createTicket.truckID")}
                   </Label>
-                  {user?.role === "driver" ? (
+                  {user?.role === "driver" || isFromOverview ? (
                     <div className="mt-1 rounded border border-border bg-muted p-1 text-xs text-foreground truncate">
                       {formData.truck_id || t("createTicket.notAssigned")}
                     </div>
@@ -452,10 +550,10 @@ const CreateTicket = () => {
                       className={cn(
                         !formData.truck_id && "border-red-500 border-2"
                       )}
-                      items={getTrucksByCarrier(formData.carrier)
+                      items={availableTrucks
                         .map((truck) => ({
-                          value: truck,
-                          label: truck,
+                          value: truck.truck_id,
+                          label: truck.truck_id,
                         }))
                         .sort((a, b) =>
                           a.label.localeCompare(b.label, undefined, {
@@ -467,14 +565,14 @@ const CreateTicket = () => {
                   )}
                 </div>
 
-                {/* Driver - Read-only for drivers */}
+                {/* Driver - Read-only for drivers and when from Overview */}
                 <div className="min-w-0">
                   <Label htmlFor="driver_name" className="text-xs">
                     {t("createTicket.driver")}
                   </Label>
-                  {user?.role === "driver" ? (
+                  {user?.role === "driver" || isFromOverview ? (
                     <div className="mt-1 rounded border border-border bg-muted p-1 text-xs text-foreground truncate">
-                      {formData.driver_name || t("createTicket.notAssigned")}
+                      {formData.driver_name || "To be defined later"}
                     </div>
                   ) : (
                     <Input
@@ -656,10 +754,15 @@ const CreateTicket = () => {
                 hasActiveTicket ||
                 !isShiftComplete ||
                 isDriverInactive ||
-                !formData.destination_site
+                !formData.destination_site ||
+                !formData.driver_name ||
+                formData.driver_name === "To be defined later"
               }
               title={
-                isDriverInactive
+                !formData.driver_name ||
+                formData.driver_name === "To be defined later"
+                  ? "Truck must have an assigned driver"
+                  : isDriverInactive
                   ? t("createTicket.driverInactiveWarning")
                   : !isShiftComplete
                   ? t("createTicket.completeShiftSetup")

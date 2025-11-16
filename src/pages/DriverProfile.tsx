@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -41,11 +41,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import type { Ticket } from "@/lib/types";
-import {
-  CARRIERS,
-  getTrucksByCarrier,
-  PICKUP_LOCATIONS,
-} from "@/lib/trucksAndCarriers";
+import { PICKUP_LOCATIONS } from "@/lib/trucksAndCarriers";
 
 const DriverProfile = () => {
   const navigate = useNavigate();
@@ -54,6 +50,7 @@ const DriverProfile = () => {
     useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { shift, updateShift } = useShift();
+  const [currentTruck, setCurrentTruck] = useState<any | null>(null);
   const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
   const [isLoadingTickets, setIsLoadingTickets] = useState(true);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
@@ -61,11 +58,26 @@ const DriverProfile = () => {
   const [carrierName, setCarrierName] = useState<string>("");
   const [showLogoutWarning, setShowLogoutWarning] = useState(false);
   const [dbCarriers, setDbCarriers] = useState<any[]>([]);
+  const [availableTrucks, setAvailableTrucks] = useState<any[]>([]);
   const [editFormData, setEditFormData] = useState({
-    truck_id: driverProfile?.default_truck_id || "",
-    carrier_id: driverProfile?.carrier_id || "",
+    truck_id: driverProfile?.default_truck_id || "", // UUID
+    carrier_id: driverProfile?.carrier_id || "", // UUID
     pickup_location: shift?.pickupLocation || "Primal Materials",
   });
+
+  const trucksForSelect = useMemo(() => {
+    if (!currentTruck) return availableTrucks;
+
+    const existsInAvailable = availableTrucks.some(
+      (t) => t.id === currentTruck.id
+    );
+
+    // If current truck is already in availableTrucks, don't duplicate it
+    if (existsInAvailable) return availableTrucks;
+
+    // Otherwise, put current truck at the top
+    return [currentTruck, ...availableTrucks];
+  }, [currentTruck, availableTrucks]);
 
   // Load driver data from Supabase and populate form
   useEffect(() => {
@@ -89,33 +101,54 @@ const DriverProfile = () => {
             updated_at: dbDriver.updated_at,
           });
 
+          // Fetch truck name from truck_id
+          let currentTruckLocal: any = null;
+
+          if (dbDriver.default_truck_id) {
+            const truck = await carrierService.getTruckById(
+              dbDriver.default_truck_id
+            );
+            if (truck) {
+              console.log("Found truck:", truck);
+              currentTruckLocal = truck; // keep full object
+            }
+          }
+
           // Fetch all carriers from database
           const carriers = await carrierService.getAllCarriers();
           setDbCarriers(carriers);
 
           const carrier = carriers.find((c) => c.id === dbDriver.carrier_id);
 
-          // Fetch truck name from truck_id
-          let truckName = "";
-          if (dbDriver.default_truck_id) {
-            const truck = await carrierService.getTruckById(
-              dbDriver.default_truck_id
-            );
-            if (truck) {
-              truckName = truck.truck_id;
-            }
-          }
-
           if (carrier) {
             setCarrierName(carrier.name);
-            // Ensure the carrier name is set to match the SearchableSelect items
+
+            console.log("Set edit form data with:", {
+              truck_id: dbDriver.default_truck_id || "",
+              carrier_id: carrier.id,
+              pickup_location: shift?.pickupLocation || "Primal Materials",
+            });
+
             setEditFormData((prev) => ({
               ...prev,
-              truck_id: truckName || "",
-              carrier_id: carrier.name,
+              truck_id: dbDriver.default_truck_id || "", // <-- UUID only
+              carrier_id: carrier.id, // UUID
               pickup_location: shift?.pickupLocation || "Primal Materials",
             }));
+
+            setCurrentTruck(currentTruckLocal); // <-- store current truck
           }
+
+          const truckDisplayName = availableTrucks.find(
+            (t) => t.id === dbDriver.default_truck_id
+          )?.truck_id;
+
+          // Sync with ShiftContext
+          updateShift({
+            carrier: carrierName,
+            truck: truckDisplayName, // Display name for UI
+            pickupLocation: editFormData.pickup_location,
+          });
         }
       } catch (error) {
         console.error("Error loading driver data from Supabase:", error);
@@ -124,6 +157,28 @@ const DriverProfile = () => {
 
     loadDriverDataFromSupabase();
   }, [user?.driver_id]);
+
+  // Fetch available trucks when carrier changes
+  useEffect(() => {
+    const loadAvailableTrucks = async () => {
+      if (!editFormData.carrier_id) {
+        setAvailableTrucks([]);
+        return;
+      }
+
+      try {
+        const trucks = await carrierService.getAvailableTrucksByCarrier(
+          editFormData.carrier_id
+        );
+        setAvailableTrucks(trucks);
+      } catch (error) {
+        console.error("Error fetching available trucks:", error);
+        setAvailableTrucks([]);
+      }
+    };
+
+    loadAvailableTrucks();
+  }, [editFormData.carrier_id]);
 
   useEffect(() => {
     if (!user || user.role !== "driver") {
@@ -179,33 +234,24 @@ const DriverProfile = () => {
     }
   };
 
-  const handleCarrierChange = async (carrierName: string) => {
-    if (!driverProfile) return;
+  const handleCarrierChange = async (carrierId: string) => {
+    if (!driverProfile || !carrierId) return;
 
+    console.log("carrier ID changed to:", carrierId);
+    
     setIsUpdatingProfile(true);
     try {
       // Reset truck_id when carrier changes since trucks are carrier-specific
       const updates: any = {
-        default_truck_id: "", // Clear truck when carrier changes
+        carrier_id: carrierId, // Store UUID
+        default_truck_id: null, // Clear truck when carrier changes
       };
 
-      let carrierIdForShift = driverProfile.carrier_id;
-      let carrierNameForShift = carrierName;
 
-      if (carrierName) {
-        const carrierResult = await carrierService.getOrCreateCarrier(
-          carrierName
-        );
-        if (carrierResult.success && carrierResult.data) {
-          updates.carrier_id = carrierResult.data.id;
-          carrierIdForShift = carrierResult.data.id;
-          carrierNameForShift = carrierResult.data.name;
-        } else {
-          throw new Error(
-            carrierResult.error || `Failed to get or create carrier`
-          );
-        }
-      }
+
+      // Find the carrier name for display
+      const selectedCarrier = dbCarriers.find((c) => c.id === carrierId);
+      const carrierNameForShift = selectedCarrier?.name || "";
 
       const result = await carrierService.updateDriverProfile(
         driverProfile.id,
@@ -225,7 +271,7 @@ const DriverProfile = () => {
         // Sync with ShiftContext
         updateShift({
           carrier: carrierNameForShift,
-          carrier_id: carrierIdForShift,
+          carrier_id: carrierId,
           truck_id: "", // Clear truck in shift context
           truck: "",
           pickupLocation: editFormData.pickup_location,
@@ -243,28 +289,14 @@ const DriverProfile = () => {
     }
   };
 
-  const handleTruckChange = async (truckDisplayName: string) => {
-    if (!driverProfile || !truckDisplayName) return;
+  const handleTruckChange = async (truckUuid: string) => {
+    if (!driverProfile || !truckUuid) return;
 
     setIsUpdatingProfile(true);
     try {
-      // Get or create the truck in the database
-      const truckResult = await carrierService.getOrCreateTruck(
-        truckDisplayName,
-        driverProfile.carrier_id
-      );
-
-      if (!truckResult.success || !truckResult.data) {
-        throw new Error(
-          truckResult.error ||
-            `Failed to get or create truck "${truckDisplayName}"`
-        );
-      }
-
-      const truck = truckResult.data;
-
+      // Truck UUID is already selected, just update the driver profile
       const updates = {
-        default_truck_id: truck.id, // Store the UUID, not the display name
+        default_truck_id: truckUuid, // Store the UUID
       };
 
       const result = await carrierService.updateDriverProfile(
@@ -275,11 +307,21 @@ const DriverProfile = () => {
       if (result.success && result.data) {
         setDriverProfile(result.data);
 
+        // Get the truck display name for UI
+        const selectedTruck = availableTrucks.find((t) => t.id === truckUuid);
+        const truckDisplayName = selectedTruck?.truck_id || "";
+
+        // Get the carrier name for display
+        const selectedCarrier = dbCarriers.find(
+          (c) => c.id === result.data.carrier_id
+        );
+        const carrierName = selectedCarrier?.name || "";
+
         // Sync with ShiftContext
         updateShift({
-          carrier: editFormData.carrier_id,
-          carrier_id: driverProfile.carrier_id,
-          truck_id: truck.id, // Store UUID in shift context
+          carrier: carrierName,
+          carrier_id: result.data.carrier_id,
+          truck_id: truckUuid, // Store UUID in shift context
           truck: truckDisplayName, // Display name for UI
           pickupLocation: editFormData.pickup_location,
         });
@@ -297,12 +339,26 @@ const DriverProfile = () => {
   };
 
   const handlePickupLocationChange = (location: string) => {
+    // Get the carrier name for display
+    const selectedCarrier = dbCarriers.find(
+      (c) => c.id === driverProfile?.carrier_id
+    );
+    const carrierName = selectedCarrier?.name || "";
+
+    
+    
+    // Get the truck display name for UI
+    const selectedTruck = availableTrucks.find(
+      (t) => t.id === editFormData.truck_id
+    );
+    const truckDisplayName = selectedTruck?.truck_id || "";
+
     // Update ShiftContext immediately for pickup location
     updateShift({
-      carrier: editFormData.carrier_id,
+      carrier: carrierName,
       carrier_id: driverProfile?.carrier_id,
       truck_id: editFormData.truck_id,
-      truck: editFormData.truck_id,
+      truck: truckDisplayName,
       pickupLocation: location,
     });
 
@@ -530,33 +586,22 @@ const DriverProfile = () => {
                       setEditFormData({ ...editFormData, carrier_id: value });
                       handleCarrierChange(value);
                     }}
-                    items={[
-                      // Database carriers
-                      ...dbCarriers.map((carrier) => ({
-                        value: carrier.name,
-                        label: carrier.name,
-                      })),
-                      // Static carriers not in database
-                      ...CARRIERS.filter(
-                        (staticCarrier) =>
-                          !dbCarriers.some(
-                            (dbCarrier) => dbCarrier.name === staticCarrier
-                          )
-                      ).map((carrier) => ({
-                        value: carrier,
-                        label: carrier,
-                      })),
-                    ].sort((a, b) =>
-                      a.label.localeCompare(b.label, undefined, {
-                        numeric: true,
-                        sensitivity: "base",
-                      })
-                    )}
+                    items={dbCarriers
+                      .map((carrier) => ({
+                        value: carrier.id, // Store UUID
+                        label: carrier.name, // Display name
+                      }))
+                      .sort((a, b) =>
+                        a.label.localeCompare(b.label, undefined, {
+                          numeric: true,
+                          sensitivity: "base",
+                        })
+                      )}
                     placeholder="Choose a carrier"
                   />
                 </div>
 
-                {/* Truck Selection - Always Editable */}
+                {/* Truck Selection - Always Editable - Only show available trucks */}
                 <div>
                   <Label className="text-sm font-medium">Select Truck *</Label>
                   <SearchableSelect
@@ -565,10 +610,10 @@ const DriverProfile = () => {
                       setEditFormData({ ...editFormData, truck_id: value });
                       handleTruckChange(value);
                     }}
-                    items={getTrucksByCarrier(editFormData.carrier_id)
+                    items={trucksForSelect
                       .map((truck) => ({
-                        value: truck,
-                        label: truck,
+                        value: truck.id, // UUID
+                        label: truck.truck_id, // display name
                       }))
                       .sort((a, b) =>
                         a.label.localeCompare(b.label, undefined, {

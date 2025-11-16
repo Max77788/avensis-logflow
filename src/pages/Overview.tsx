@@ -307,15 +307,18 @@ const Overview = () => {
     dateFilter,
   ]);
 
-  // Memoized filtered trucks
+  // Memoized filtered trucks - show only active trucks (with assigned active drivers)
   const filteredTrucks = useMemo(() => {
     const search = debouncedTruckSearch.trim().toLowerCase();
 
     return allTrucks.filter((truck: UITruck) => {
       const searchKey = truck._search || "";
       const matchesSearch = !search || searchKey.includes(search);
+      // Only show trucks that are active (have an active driver assigned)
+      // If status is not explicitly shown, assume inactive
+      const isActive = truck.active === true;
 
-      return matchesSearch;
+      return matchesSearch && isActive;
     });
   }, [allTrucks, debouncedTruckSearch]);
 
@@ -577,7 +580,16 @@ const Overview = () => {
                   {filteredTrucks.map((truck) => (
                     <Card
                       key={truck.id}
-                      className="overflow-hidden transition-all hover:shadow-md hover:border-primary/50"
+                      className="overflow-hidden transition-all hover:shadow-md hover:border-primary/50 cursor-pointer"
+                      onClick={() => {
+                        navigate(
+                          `/tickets/create?truck_id=${encodeURIComponent(
+                            truck.truck_id
+                          )}&carrier_id=${encodeURIComponent(
+                            truck.carrier_id
+                          )}&truck_uuid=${encodeURIComponent(truck.id)}`
+                        );
+                      }}
                     >
                       <div className="p-4">
                         <div className="flex items-start gap-3 mb-3">
@@ -599,13 +611,23 @@ const Overview = () => {
                               {truck.carrier_name || "Unknown"}
                             </span>
                           </div>
+                          {truck.driver_name && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-muted-foreground">
+                                {t("common.driver")}
+                              </span>
+                              <span className="text-xs font-medium text-foreground truncate">
+                                {truck.driver_name}
+                              </span>
+                            </div>
+                          )}
                           {/*
                           <div className="flex items-center justify-between">
-                            
+
                             <span className="text-xs text-muted-foreground">
                               {t("overview.id")}
                             </span>
-                            
+
                             <span className="text-xs font-mono text-foreground truncate">
                               {truck.id.substring(0, 8)}...
                             </span>

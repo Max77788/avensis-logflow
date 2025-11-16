@@ -46,6 +46,8 @@ const App = () => {
                     <Route path="/login" element={<Login />} />
                     <Route path="/driver/signup" element={<DriverSignUp />} />
                     <Route path="/overview" element={<Overview />} />
+                    <Route path="/tickets/:id" element={<TicketDetails />} />
+                    <Route path="/tickets/create" element={<CreateTicket />} />
 
                     {/* Protected routes - require authentication */}
                     <Route
@@ -65,26 +67,10 @@ const App = () => {
                       }
                     />
                     <Route
-                      path="/tickets/create"
-                      element={
-                        <ProtectedRoute requiredRole="driver">
-                          <CreateTicket />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
                       path="/scale-house"
                       element={
                         <ProtectedRoute requiredRole="driver">
                           <ScaleHouse />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/tickets/:id"
-                      element={
-                        <ProtectedRoute>
-                          <TicketDetails />
                         </ProtectedRoute>
                       }
                     />

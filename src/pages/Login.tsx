@@ -125,30 +125,6 @@ const Login = () => {
 
               <Card
                 className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
-                onClick={handleAttendantClick}
-              >
-                <div className="p-6 space-y-4 flex flex-col items-center text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 group-hover:bg-blue-200 transition-colors">
-                    <QrCode className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-foreground mb-1">
-                      {t("login.attendant")}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {t("login.attendantDesc")}
-                    </p>
-                  </div>
-                  {/*
-                <Button className="w-full" size="lg">
-                  {t("login.continueAsAttendant")}
-                </Button>
-                */}
-                </div>
-              </Card>
-
-              <Card
-                className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
                 onClick={() => navigate("/overview")}
               >
                 <div className="p-6 space-y-4 flex flex-col items-center text-center">
@@ -170,6 +146,30 @@ const Login = () => {
                   {/*
                 <Button className="w-full" size="lg">
                   {t("login.continueAsOverview")}
+                </Button>
+                */}
+                </div>
+              </Card>
+
+              <Card
+                className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
+                onClick={handleAttendantClick}
+              >
+                <div className="p-6 space-y-4 flex flex-col items-center text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 group-hover:bg-blue-200 transition-colors">
+                    <QrCode className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground mb-1">
+                      {t("login.attendant")}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t("login.attendantDesc")}
+                    </p>
+                  </div>
+                  {/*
+                <Button className="w-full" size="lg">
+                  {t("login.continueAsAttendant")}
                 </Button>
                 */}
                 </div>

@@ -10,7 +10,6 @@ import { UserPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { carrierService, type Carrier, type Truck } from "@/lib/carrierService";
-import { CARRIERS, getTrucksByCarrier } from "@/lib/trucksAndCarriers";
 
 const DriverSignUp = () => {
   const navigate = useNavigate();
@@ -41,7 +40,7 @@ const DriverSignUp = () => {
   useEffect(() => {
     if (formData.carrier_id) {
       const fetchTrucks = async () => {
-        const data = await carrierService.getTrucksByCarrier(
+        const data = await carrierService.getAvailableTrucksByCarrier(
           formData.carrier_id
         );
         setTrucks(data);
@@ -54,47 +53,31 @@ const DriverSignUp = () => {
     }
   }, [formData.carrier_id]);
 
-  // Combine database carriers with static list - sorted alphabetically
-  const carriersList = [
-    // First add database carriers
-    ...carriers.map((carrier) => ({
+  // Database carriers only - sorted alphabetically
+  const carriersList = carriers
+    .map((carrier) => ({
       value: carrier.id,
       label: carrier.name,
-    })),
-    // Then add static carriers that aren't already in the database
-    ...CARRIERS.filter(
-      (staticCarrier) =>
-        !carriers.some((dbCarrier) => dbCarrier.name === staticCarrier)
-    ).map((carrier) => ({
-      value: carrier,
-      label: carrier,
-    })),
-  ].sort((a, b) =>
-    a.label.localeCompare(b.label, undefined, {
-      numeric: true,
-      sensitivity: "base",
-    })
-  );
+    }))
+    .sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      })
+    );
 
-  // Fallback to static trucks if database trucks are empty - sorted alphabetically
-  const trucksList = (
-    trucks.length > 0
-      ? trucks.map((truck) => ({
-          value: truck.id,
-          label: truck.truck_id,
-        }))
-      : getTrucksByCarrier(
-          carriers.find((c) => c.id === formData.carrier_id)?.name || ""
-        ).map((truck) => ({
-          value: truck,
-          label: truck,
-        }))
-  ).sort((a, b) =>
-    a.label.localeCompare(b.label, undefined, {
-      numeric: true,
-      sensitivity: "base",
-    })
-  );
+  // Available trucks from database (those without assigned drivers) - sorted alphabetically
+  const trucksList = trucks
+    .map((truck) => ({
+      value: truck.id,
+      label: truck.truck_id,
+    }))
+    .sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      })
+    );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,47 +94,30 @@ const DriverSignUp = () => {
         return;
       }
 
-      // Get or create carrier
-      let carrierId = formData.carrier_id;
-
-      // If carrier_id looks like a string name (not a UUID), get or create it
-      if (!carrierId.includes("-")) {
-        const carrierResult = await carrierService.getOrCreateCarrier(
-          carrierId
-        );
-        if (!carrierResult.success || !carrierResult.data) {
-          throw new Error(
-            carrierResult.error || "Failed to get or create carrier"
-          );
-        }
-        carrierId = carrierResult.data.id;
-      }
-
-      // Get or create truck
-      let truckId = formData.default_truck_id;
-
-      // If truck_id looks like a string name (not a UUID), get or create it
-      if (!truckId.includes("-")) {
-        const truckResult = await carrierService.getOrCreateTruck(
-          truckId,
-          carrierId
-        );
-        if (!truckResult.success || !truckResult.data) {
-          throw new Error(truckResult.error || "Failed to get or create truck");
-        }
-        truckId = truckResult.data.id;
-      }
-
-      // Create new driver with the resolved IDs
+      // Create new driver with the selected carrier and truck UUIDs
       const result = await carrierService.createDriver(
         formData.name,
-        carrierId,
+        formData.carrier_id, // Already a UUID from database
         formData.email,
-        truckId
+        formData.default_truck_id // Already a UUID from database
       );
 
       if (!result.success || !result.data) {
         throw new Error(result.error || "Failed to create driver");
+      }
+
+      // Assign the driver to the truck (populate truck's driver_id)
+      const assignResult = await carrierService.assignDriverToTruck(
+        formData.default_truck_id,
+        result.data.id
+      );
+
+      if (!assignResult.success) {
+        console.warn(
+          "Warning: Failed to assign driver to truck:",
+          assignResult.error
+        );
+        // Continue anyway - the driver was created successfully
       }
 
       // Log in the driver

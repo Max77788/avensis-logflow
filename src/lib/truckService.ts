@@ -9,6 +9,8 @@ export type Truck = {
   updated_at?: string;
   carrier_name?: string;
   status?: string;
+  driver_name?: string;
+  active?: boolean;
 };
 
 export type TrucksOverviewParams = {
@@ -47,7 +49,8 @@ export const truckService = {
           }
         )
         .order("truck_id", { ascending: true })
-        .range(fromIndex, toIndex);
+        .range(fromIndex, toIndex)
+        .filter("driver_id", "not.is", null);
 
       const { data, error, count } = await query;
 
@@ -57,11 +60,45 @@ export const truckService = {
       }
 
       // Map the data to include carrier_name
-      const trucks = (data ?? []).map((truck: any) => ({
+      let trucks = (data ?? []).map((truck: any) => ({
         ...truck,
         carrier_name: truck.carriers?.name || "Unknown",
       })) as Truck[];
       const total = count ?? trucks.length;
+
+      // Fetch driver information for each truck
+      try {
+        const { data: drivers, error: driversError } = await supabase
+          .from("drivers")
+          .select("id, name, default_truck_id, status");
+
+        if (!driversError && drivers) {
+          // Create maps for driver_name and active status
+          const driverMap = new Map<string, string>();
+          const activeMap = new Map<string, boolean>();
+
+          drivers.forEach((driver: any) => {
+            if (driver.default_truck_id) {
+              driverMap.set(driver.default_truck_id, driver.name);
+              // Truck is active if the assigned driver is active
+              activeMap.set(
+                driver.default_truck_id,
+                driver.status === "active"
+              );
+            }
+          });
+
+          // Add driver_name and active status to trucks
+          trucks = trucks.map((truck) => ({
+            ...truck,
+            driver_name: driverMap.get(truck.id) || undefined,
+            active: activeMap.get(truck.id) ?? false, // Default to false if no driver assigned
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching driver information:", error);
+        // Continue without driver info if fetch fails
+      }
 
       console.log(
         `Loaded ${trucks.length} trucks (page ${page}, total: ${total})`
