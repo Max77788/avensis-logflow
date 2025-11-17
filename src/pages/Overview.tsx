@@ -11,6 +11,9 @@ import {
   User,
   Building2,
   CheckCircle2,
+  Calendar,
+  Clock,
+  MapPin
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -366,7 +369,8 @@ const Overview = () => {
             >
               <Package className="h-4 w-4 mr-1 md:mr-2" />
               <span className="hidden sm:inline">{t("overview.tickets")}</span>
-              <span className="sm:hidden">Tickets</span> {/* ({ticketsCountLabel}) */}
+              <span className="sm:hidden">Tickets</span>{" "}
+              {/* ({ticketsCountLabel}) */}
             </Button>
 
             <Button
@@ -377,7 +381,8 @@ const Overview = () => {
             >
               <TruckIcon className="h-4 w-4 mr-1 md:mr-2" />
               <span className="hidden sm:inline">{t("overview.trucks")}</span>
-              <span className="sm:hidden">Trucks</span> {/* ({trucksCountLabel}) */}
+              <span className="sm:hidden">Trucks</span>{" "}
+              {/* ({trucksCountLabel}) */}
             </Button>
           </div>
         </div>
@@ -512,28 +517,105 @@ const Overview = () => {
               </Card>
             ) : (
               <>
-                <div className="space-y-3">
-                  {filteredTickets.map((ticket) => (
-                    <Card
-                      key={ticket.ticket_id}
-                      className="cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary/50"
-                      onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
-                    >
-                      <div className="flex flex-col items-center justify-center space-y-2 p-6">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-                          <Package className="h-6 w-6 text-primary" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredTickets.map((ticket) => {
+                    // Format created date
+                    const createdDate = ticket.created_at
+                      ? new Date(ticket.created_at)
+                      : null;
+                    const formattedDate = createdDate
+                      ? createdDate.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "N/A";
+                    const formattedTime = createdDate
+                      ? createdDate.toLocaleTimeString(undefined, {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "";
+
+                    // Status badge color
+                    const statusColors = {
+                      CREATED:
+                        "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
+                      VERIFIED:
+                        "bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/20",
+                      CLOSED:
+                        "bg-gray-500/10 text-gray-700 dark:text-gray-300 border-gray-500/20",
+                    };
+                    const statusColor =
+                      statusColors[
+                        ticket.status as keyof typeof statusColors
+                      ] || statusColors.CREATED;
+
+                    return (
+                      <Card
+                        key={ticket.ticket_id}
+                        className="group cursor-pointer overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 border-border/50"
+                        onClick={() => navigate(`/tickets/${ticket.ticket_id}`)}
+                      >
+                        <div className="p-5">
+                          <div className="flex flex-col gap-4">
+                            {/* Header Section */}
+                            <div className="flex items-start gap-3">
+                              {/* Icon */}
+                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex-shrink-0 group-hover:from-primary/30 group-hover:to-primary/20 transition-colors">
+                                <Package className="h-6 w-6 text-primary" />
+                              </div>
+
+                              {/* Ticket ID and Destination */}
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <h3 className="font-bold text-lg text-foreground truncate">
+                                  {ticket.carrier?.name}
+                                </h3>
+
+                                <div className="flex items-start gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">
+                                      {ticket.destination_site}
+                                    </p>
+                                  </div>
+                                </div>
+
+                              </div>
+                            </div>
+
+                            {/* Divider */}
+                            <div className="border-b border-border/50" />
+
+                            {/* Status Badge */}
+                            <div className="flex justify-start gap-4">
+                              <div
+                                className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${statusColor}`}
+                              >
+                                {ticket.status}
+                              </div>
+                              {/* Date and Time */}
+                              <div className="flex flex-row gap-2 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1.5">
+                                  <Calendar className="h-3.5 w-3.5" />
+                                  <span>{formattedDate}</span>
+                                </div>
+                                {formattedTime && (
+                                  <div className="flex items-center gap-1.5">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    <span>{formattedTime}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Hover Effect Indicator */}
+                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
                         </div>
-                        <div className="text-center">
-                          <p className="font-bold text-foreground">
-                            {ticket.ticket_id}
-                          </p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {ticket.destination_site}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    );
+                  })}
                 </div>
 
                 {ticketsHasMore && (
@@ -632,10 +714,10 @@ const Overview = () => {
                         {/* Divider */}
                         <div className="h-px bg-border/50 mb-4" />
 
-                        {/* Information Grid */}
-                        <div className="space-y-3">
+                        {/* Information Grid - Row Layout */}
+                        <div className="grid grid-cols-2 gap-3">
                           {/* Carrier */}
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-start gap-2">
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 flex-shrink-0">
                               <Building2 className="h-4 w-4 text-muted-foreground" />
                             </div>
@@ -650,21 +732,19 @@ const Overview = () => {
                           </div>
 
                           {/* Driver */}
-                          {truck.driver_name && (
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 flex-shrink-0">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-muted-foreground mb-0.5">
-                                  {t("common.driver")}
-                                </p>
-                                <p className="text-sm font-medium text-foreground truncate">
-                                  {truck.driver_name}
-                                </p>
-                              </div>
+                          <div className="flex items-start gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 flex-shrink-0">
+                              <User className="h-4 w-4 text-muted-foreground" />
                             </div>
-                          )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground mb-0.5">
+                                {t("common.driver")}
+                              </p>
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {truck.driver_name || "Not assigned"}
+                              </p>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Hover Effect Indicator */}

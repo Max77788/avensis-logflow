@@ -512,8 +512,17 @@ export const ticketService = {
 
     let query = supabase
       .from("tickets")
-      .select("*", { count: "exact" })
-      .order("created_at", { ascending: false });
+      .select(
+        `
+      *,
+      carrier:carriers (
+        name
+      )
+      `,
+        { count: "exact" }
+      )
+      .order("created_at", { ascending: false })
+      .limit(3000);
 
     if (fromDate) {
       // fromDate is "YYYY-MM-DD" – interpret as local day start
@@ -524,6 +533,8 @@ export const ticketService = {
 
     const { data, error, count } = await query.range(fromIndex, toIndex);
 
+    console.log("getTicketsOverview data:", data);
+    
     if (error) {
       console.error("getTicketsOverview Supabase error:", error);
       throw new Error(error.message || "Failed to load tickets");
