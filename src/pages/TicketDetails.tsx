@@ -472,6 +472,29 @@ const TicketDetails = () => {
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
         <div className="mx-auto max-w-2xl space-y-4">
+          {/* Carrier, Truck, Driver - Always in Row */}
+          <Card className="shadow-md">
+            <div className="grid grid-cols-3 gap-1 p-3">
+              <div className="min-w-0 text-center">
+                <p className="text-xs text-muted-foreground">Carrier</p>
+                <p className="truncate text-xs font-medium text-foreground">
+                  {getCarrierName(ticket)}1
+                </p>
+              </div>
+              <div className="min-w-0 text-center">
+                <p className="text-xs text-muted-foreground">Truck</p>
+                <p className="truncate text-xs font-medium text-foreground">
+                  {ticket.truck_id || "-"}
+                </p>
+              </div>
+              <div className="min-w-0 text-center">
+                <p className="text-xs text-muted-foreground">Driver</p>
+                <p className="truncate text-xs font-medium text-foreground">
+                  {ticket.driver_name || "-"}
+                </p>
+              </div>
+            </div>
+          </Card>
           {/* ATTENDANT VIEW - Simplified */}
           {user?.role === "attendant" ? (
             <>
@@ -514,30 +537,6 @@ const TicketDetails = () => {
                       </div>
                     </div>
                   )}
-                </div>
-              </Card>
-
-              {/* Carrier, Truck, Driver - Always in Row */}
-              <Card className="shadow-md">
-                <div className="grid grid-cols-3 gap-1 p-3">
-                  <div className="min-w-0 text-center">
-                    <p className="text-xs text-muted-foreground">Carrier</p>
-                    <p className="truncate text-xs font-medium text-foreground">
-                      {getCarrierName(ticket)}
-                    </p>
-                  </div>
-                  <div className="min-w-0 text-center">
-                    <p className="text-xs text-muted-foreground">Truck</p>
-                    <p className="truncate text-xs font-medium text-foreground">
-                      {ticket.truck_id || "-"}
-                    </p>
-                  </div>
-                  <div className="min-w-0 text-center">
-                    <p className="text-xs text-muted-foreground">Driver</p>
-                    <p className="truncate text-xs font-medium text-foreground">
-                      {ticket.driver_name || "-"}
-                    </p>
-                  </div>
                 </div>
               </Card>
             </>
@@ -601,9 +600,7 @@ const TicketDetails = () => {
                               </p>
 
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-mono">
-                                  {id}
-                                </span>
+                                <span className="text-sm font-mono">{id}</span>
 
                                 <button
                                   onClick={handleCopy}

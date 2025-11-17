@@ -579,8 +579,13 @@ const Overview = () => {
                                       {ticket.destination_site}
                                     </p>
                                   </div>
+                                  <TruckIcon className="h-3 w-3" />
+                                  <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">
+                                      {ticket.truck_id}
+                                    </p>
+                                  </div>
                                 </div>
-
                               </div>
                             </div>
 
