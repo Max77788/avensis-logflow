@@ -24,6 +24,7 @@ export const translations = {
       driverLogin: "Driver Login",
       enterEmailToLogin: "Enter your email to log in or sign up",
       emailAddress: "Email Address",
+      loginId: "Login ID",
       loggingIn: "Logging in...",
       logInSignUp: "Log In / Sign Up",
       noAccountWarning:
@@ -533,6 +534,7 @@ export const translations = {
       enterEmailToLogin:
         "Ingresa tu correo electrónico para iniciar sesión o registrarte",
       emailAddress: "Dirección de Correo Electrónico",
+      loginId: "ID de inicio de sesión",
       loggingIn: "Iniciando sesión...",
       logInSignUp: "Iniciar Sesión / Registrarse",
       noAccountWarning: "Si no tienes una cuenta, se creará una para ti.",

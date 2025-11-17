@@ -227,7 +227,7 @@ const Login = () => {
         <Card className="p-6">
           <form onSubmit={handleDriverLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">{t("login.emailAddress")}</Label>
+              <Label htmlFor="email">{t("login.loginId")}</Label>
               <Input
                 id="email"
                 type="email"

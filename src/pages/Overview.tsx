@@ -3,7 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Truck as TruckIcon, Package, Filter } from "lucide-react";
+import {
+  Search,
+  Truck as TruckIcon,
+  Package,
+  Filter,
+  User,
+  Building2,
+  CheckCircle2,
+} from "lucide-react";
 import { Header } from "@/components/Header";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -124,6 +132,8 @@ const Overview = () => {
 
   // Helper: normalize trucks (precompute search)
   const normalizeTrucks = (trucks: Truck[]): UITruck[] => {
+    console.log("normalizeTrucks:", trucks);
+
     return trucks.map((t) => {
       const truckId = t.truck_id || "";
       const searchKey = truckId.toLowerCase();
@@ -227,7 +237,7 @@ const Overview = () => {
     const loadTrucksPage = async (page: number) => {
       setTrucksLoading(true);
       try {
-        const res = await truckService.getTrucksOverview({
+        const res = await truckService.getActiveTrucksOverview({
           limit: TRUCKS_PAGE_SIZE,
           page,
         });
@@ -267,7 +277,7 @@ const Overview = () => {
     const nextPage = trucksPage + 1;
     try {
       setTrucksLoading(true);
-      const res = await truckService.getTrucksOverview({
+      const res = await truckService.getActiveTrucksOverview({
         limit: TRUCKS_PAGE_SIZE,
         page: nextPage,
       });
@@ -356,7 +366,7 @@ const Overview = () => {
             >
               <Package className="h-4 w-4 mr-1 md:mr-2" />
               <span className="hidden sm:inline">{t("overview.tickets")}</span>
-              <span className="sm:hidden">Tickets</span> ({ticketsCountLabel})
+              <span className="sm:hidden">Tickets</span> {/* ({ticketsCountLabel}) */}
             </Button>
 
             <Button
@@ -367,7 +377,7 @@ const Overview = () => {
             >
               <TruckIcon className="h-4 w-4 mr-1 md:mr-2" />
               <span className="hidden sm:inline">{t("overview.trucks")}</span>
-              <span className="sm:hidden">Trucks</span> ({trucksCountLabel})
+              <span className="sm:hidden">Trucks</span> {/* ({trucksCountLabel}) */}
             </Button>
           </div>
         </div>
@@ -576,11 +586,11 @@ const Overview = () => {
               </Card>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredTrucks.map((truck) => (
                     <Card
                       key={truck.id}
-                      className="overflow-hidden transition-all hover:shadow-md hover:border-primary/50 cursor-pointer"
+                      className="group relative overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 cursor-pointer border-border/50 bg-card"
                       onClick={() => {
                         navigate(
                           `/tickets/create?truck_id=${encodeURIComponent(
@@ -591,57 +601,74 @@ const Overview = () => {
                         );
                       }}
                     >
-                      <div className="p-4">
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 flex-shrink-0">
-                            <TruckIcon className="h-5 w-5 text-primary" />
+                      {/* Active Status Indicator */}
+                      {truck.active && (
+                        <div className="absolute top-3 right-3 z-10">
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                            <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                            <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                              Active
+                            </span>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-foreground truncate">
+                        </div>
+                      )}
+
+                      <div className="p-5">
+                        {/* Header Section */}
+                        <div className="flex items-start gap-4 mb-4">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex-shrink-0 group-hover:from-primary/30 group-hover:to-primary/20 transition-colors">
+                            <TruckIcon className="h-6 w-6 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0 pt-1">
+                            <h3 className="font-bold text-lg text-foreground truncate mb-0.5">
                               {truck.truck_id}
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                              Truck ID
                             </p>
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                              {t("common.carrier")}
-                            </span>
-                            <span className="text-xs font-medium text-foreground truncate">
-                              {truck.carrier_name || "Unknown"}
-                            </span>
+
+                        {/* Divider */}
+                        <div className="h-px bg-border/50 mb-4" />
+
+                        {/* Information Grid */}
+                        <div className="space-y-3">
+                          {/* Carrier */}
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 flex-shrink-0">
+                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground mb-0.5">
+                                {t("common.carrier")}
+                              </p>
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {truck.carrier_name || "Unknown"}
+                              </p>
+                            </div>
                           </div>
+
+                          {/* Driver */}
                           {truck.driver_name && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground">
-                                {t("common.driver")}
-                              </span>
-                              <span className="text-xs font-medium text-foreground truncate">
-                                {truck.driver_name}
-                              </span>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 flex-shrink-0">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-muted-foreground mb-0.5">
+                                  {t("common.driver")}
+                                </p>
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {truck.driver_name}
+                                </p>
+                              </div>
                             </div>
                           )}
-                          {/*
-                          <div className="flex items-center justify-between">
-
-                            <span className="text-xs text-muted-foreground">
-                              {t("overview.id")}
-                            </span>
-
-                            <span className="text-xs font-mono text-foreground truncate">
-                              {truck.id.substring(0, 8)}...
-                            </span>
-                          </div>
-                          */}
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                              {t("common.status")}
-                            </span>
-                            <span className="text-xs font-medium text-foreground">
-                              {truck.status || "Active"}
-                            </span>
-                          </div>
                         </div>
+
+                        {/* Hover Effect Indicator */}
+                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
                       </div>
                     </Card>
                   ))}

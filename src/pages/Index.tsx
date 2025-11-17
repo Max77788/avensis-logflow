@@ -118,6 +118,11 @@ const Index = () => {
       if (user?.role === "driver") {
         const todayStr = new Date().toDateString();
         tickets = tickets.filter((t) => {
+          // Return ALL unfinished tickets
+          if (t.status !== "CLOSED") {
+            return true;
+          }
+          
           if (t.created_at) {
             const createdAtStr = new Date(t.created_at).toDateString();
             return createdAtStr === todayStr;
