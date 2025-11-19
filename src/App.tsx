@@ -21,6 +21,8 @@ import DestinationAttendant from "./pages/DestinationAttendant";
 import DestinationAttendantConfirm from "./pages/DestinationAttendantConfirm";
 import Admin from "./pages/Admin";
 import Overview from "./pages/Overview";
+import CarrierLogin from "./pages/CarrierLogin";
+import CarrierPortal from "./pages/CarrierPortal";
 import NotFound from "./pages/NotFound";
 import { initDatabase } from "./lib/initDatabase";
 
@@ -45,6 +47,7 @@ const App = () => {
                     {/* Public routes */}
                     <Route path="/login" element={<Login />} />
                     <Route path="/driver/signup" element={<DriverSignUp />} />
+                    <Route path="/carrier/login" element={<CarrierLogin />} />
                     <Route path="/overview" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />
                     <Route path="/tickets/create" element={<CreateTicket />} />
@@ -103,6 +106,14 @@ const App = () => {
                       element={
                         <ProtectedRoute>
                           <Admin />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/carrier/portal"
+                      element={
+                        <ProtectedRoute requiredRole="carrier">
+                          <CarrierPortal />
                         </ProtectedRoute>
                       }
                     />

@@ -227,35 +227,7 @@ const Index = () => {
       />
 
       {/* Driver Carrier + Truck Ribbon */}
-      {user?.role === "driver" && (carrierName || truckName) && (
-        <div className="border-b border-border bg-card/50">
-          <div className="container mx-auto px-3 md:px-4 py-3">
-            <div className="flex flex-row gap-3 justify-center flex-wrap">
-              {carrierName && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {t("common.carrier")}:
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    {carrierName}
-                  </span>
-                </div>
-              )}
-              {truckName && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
-                  <TruckIconSmall className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {t("common.truck")}:
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    {truckName}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {user?.role === "driver" && (carrierName || truckName) && null}
 
       {/* Main Content */}
       <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
@@ -346,7 +318,7 @@ const Index = () => {
             <div className="flex flex-col gap-4">
               {/* Row that ALWAYS stays horizontal */}
               <div className="flex flex-row gap-4 w-full">
-                {/* Create Ticket Card */}
+                {/* Create Ticket Card 
                 <Card
                   className="flex-1 group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
                   onClick={() => navigate("/tickets/create")}
@@ -366,6 +338,7 @@ const Index = () => {
                     </div>
                   </div>
                 </Card>
+                */}
 
                 {/* Start/End Shift Card (Fully Clickable) */}
                 <Card
@@ -402,6 +375,34 @@ const Index = () => {
                     </div>
                   </div>
                 </Card>
+
+                <div className="border-b border-border rounded-lg bg-card/50">
+                  <div className="container mx-auto px-3 md:px-4 py-3">
+                    <div className="flex flex-col items-center justify-center gap-3 h-full">
+                      {carrierName && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {t("common.carrier")}:
+                          </span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {carrierName}
+                          </span>
+                        </div>
+                      )}
+                      {truckName && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
+                          <TruckIconSmall className="h-4 w-4 text-primary" />
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {t("common.truck")}:
+                          </span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {truckName}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Recent Activity */}

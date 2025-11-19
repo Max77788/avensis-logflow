@@ -68,13 +68,34 @@ export const carrierService = {
     }
   },
 
+  async getCarrierById(id: string): Promise<Carrier | null> {
+    try {
+      const { data, error } = await supabase
+        .from("carriers")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data || null;
+    } catch (error) {
+      console.error("Error fetching carrier by id:", error);
+      return null;
+    }
+  },
+
   async getCarrierByName(name: string): Promise<Carrier | null> {
     try {
+
+      console.log("getCarrierByName called with:", name);
+
       const { data, error } = await supabase
         .from("carriers")
         .select("*")
         .eq("name", name)
         .single();
+      
+      console.log("getCarrierByName response:", { data, error });
 
       if (error && error.code !== "PGRST116") throw error;
       return data || null;
@@ -134,7 +155,7 @@ export const carrierService = {
         .eq("carrier_id", carrierId)
         .is("driver_id", null) // Only trucks without a driver assigned
         .order("truck_id", { ascending: true });
-      
+
       console.log("Available trucks:", trucks);
 
       if (trucksError) throw trucksError;

@@ -347,9 +347,16 @@ const CreateTicket = () => {
     setIsSubmitting(false);
 
     if (result.success) {
+      // Show success toast
+      toast({
+        title: "Ticket Created Successfully",
+        description: `Ticket has been created for truck ${formData.truck_id}`,
+        variant: "default",
+      });
+
       // Wait for ticket to be fully registered in Supabase before redirecting
       setTimeout(() => {
-        navigate(`/`);
+        navigate(`/scale-house`);
       }, 700);
     }
   };
