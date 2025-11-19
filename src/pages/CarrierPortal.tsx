@@ -466,9 +466,12 @@ const CarrierPortal = () => {
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Client Name
+                          </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Transaction ID
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Transaction ID
+                        Ticket ID
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Truck ID
@@ -510,6 +513,9 @@ const CarrierPortal = () => {
                         </td>
                         <td className="px-4 py-3 text-sm text-foreground">
                           Avensis Energy
+                        </td>
+                        <td>
+                          {ticket.transaction_id}
                         </td>
                         <td className="px-4 py-3 text-sm font-mono text-foreground">
                           {ticket.ticket_id}

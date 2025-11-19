@@ -37,6 +37,7 @@ export interface Ticket {
   driver_id?: string;
   driver_qr_code?: string;
   ticket_image_url?: string;
+  transaction_id?: string;
 }
 
 export interface GPSCoordinates {

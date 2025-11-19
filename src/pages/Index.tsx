@@ -378,7 +378,10 @@ const Index = () => {
 
                 <div className="border-b border-border rounded-lg bg-card/50">
                   <div className="container mx-auto px-3 md:px-4 py-3">
-                    <div className="flex flex-col items-center justify-center gap-3 h-full">
+                    <div
+                      className={`flex flex-col items-center justify-center gap-3 h-full
+        ${!carrierName && !truckName ? "animate-pulse" : ""}`}
+                    >
                       {carrierName && (
                         <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
                           <span className="text-xs font-medium text-muted-foreground">

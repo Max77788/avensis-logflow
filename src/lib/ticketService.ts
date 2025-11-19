@@ -434,6 +434,7 @@ export const ticketService = {
       driver_id: dbTicket.driver_id,
       carrier_id: dbTicket.carrier_id,
       ticket_image_url: dbTicket.ticket_image_url,
+      transaction_id: dbTicket.transaction_id,
     };
   },
 

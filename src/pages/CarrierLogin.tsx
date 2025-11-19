@@ -73,7 +73,7 @@ const CarrierLogin = () => {
                 <Input
                   id="carrierName"
                   type="text"
-                  placeholder="Enter carrier name"
+                  placeholder="Enter carrier name (e.g. 4HR Trucking)"
                   value={carrierName}
                   onChange={(e) => setCarrierName(e.target.value)}
                   required
