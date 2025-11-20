@@ -23,6 +23,7 @@ import Admin from "./pages/Admin";
 import Overview from "./pages/Overview";
 import CarrierLogin from "./pages/CarrierLogin";
 import CarrierPortal from "./pages/CarrierPortal";
+import SetCarrierPassword from "./pages/SetCarrierPassword";
 import NotFound from "./pages/NotFound";
 import { initDatabase } from "./lib/initDatabase";
 
@@ -48,6 +49,10 @@ const App = () => {
                     <Route path="/login" element={<Login />} />
                     <Route path="/driver/signup" element={<DriverSignUp />} />
                     <Route path="/carrier/login" element={<CarrierLogin />} />
+                    <Route
+                      path="/admin/set-carrier-password"
+                      element={<SetCarrierPassword />}
+                    />
                     <Route path="/overview" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />
                     <Route path="/tickets/create" element={<CreateTicket />} />

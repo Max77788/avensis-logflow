@@ -466,8 +466,8 @@ const CarrierPortal = () => {
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Client Name
-                          </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Transaction ID
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -489,6 +489,9 @@ const CarrierPortal = () => {
                         Net Weight
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        Gross Weight
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Close Time
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -498,7 +501,7 @@ const CarrierPortal = () => {
                         Status
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Actions
+                        Ticket Link
                       </th>
                     </tr>
                   </thead>
@@ -514,11 +517,9 @@ const CarrierPortal = () => {
                         <td className="px-4 py-3 text-sm text-foreground">
                           Avensis Energy
                         </td>
-                        <td>
-                          {ticket.transaction_id}
-                        </td>
+                        <td>{ticket.transaction_id}</td>
                         <td className="px-4 py-3 text-sm font-mono text-foreground">
-                          {ticket.ticket_id}
+                          {ticket.ticket_id.replace("TKT-", "")}
                         </td>
                         <td className="px-4 py-3 text-sm text-foreground">
                           {ticket.truck_id}
@@ -535,6 +536,11 @@ const CarrierPortal = () => {
                         <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">
                           {ticket.net_weight
                             ? `${ticket.net_weight.toFixed(2)} tons`
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">
+                          {ticket.gross_weight
+                            ? `${ticket.gross_weight.toFixed(2)} tons`
                             : "-"}
                         </td>
                         <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">

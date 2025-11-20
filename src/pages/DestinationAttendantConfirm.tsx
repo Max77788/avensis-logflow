@@ -78,6 +78,7 @@ const DestinationAttendantConfirm = () => {
         confirmer_name: confirmerName,
         delivery_gps: coords ? JSON.stringify(coords) : null,
         status: "CLOSED",
+        delivered_at: new Date().toISOString(),
       });
 
       if (result.success) {

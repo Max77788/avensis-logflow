@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Truck, LogIn } from "lucide-react";
+import { Truck, LogIn, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 import { carrierService } from "@/lib/carrierService";
@@ -13,6 +13,8 @@ const CarrierLogin = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [carrierName, setCarrierName] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,15 +24,18 @@ const CarrierLogin = () => {
     setError("");
 
     try {
-      // Verify carrier exists
-      const carrier = await carrierService.getCarrierByName(carrierName.trim());
+      // Authenticate carrier with password
+      const result = await carrierService.authenticateCarrier(
+        carrierName.trim(),
+        password
+      );
 
-      if (carrier) {
-        // Carrier exists, log them in
-        login("carrier", carrier.id);
+      if (result.success && result.data) {
+        // Authentication successful, log them in
+        login("carrier", result.data.id);
         navigate("/carrier/portal");
       } else {
-        setError("Carrier not found. Please check the name and try again.");
+        setError(result.error || "Authentication failed. Please try again.");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -80,6 +85,32 @@ const CarrierLogin = () => {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
               {error && (
                 <div className="text-sm text-destructive bg-destructive/10 p-3 rounded">
                   {error}
@@ -110,8 +141,8 @@ const CarrierLogin = () => {
               <div className="flex items-start gap-3 text-sm text-muted-foreground">
                 <Truck className="h-5 w-5 mt-0.5 flex-shrink-0" />
                 <p>
-                  The Carrier Portal allows you to view all loads your trucks have
-                  completed on the Avensis eTicket platform.
+                  The Carrier Portal allows you to view all loads your trucks
+                  have completed on the Avensis eTicket platform.
                 </p>
               </div>
             </div>
@@ -123,4 +154,3 @@ const CarrierLogin = () => {
 };
 
 export default CarrierLogin;
-

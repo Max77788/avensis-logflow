@@ -1,8 +1,10 @@
 import { supabase } from "./supabase";
+import CryptoJS from "crypto-js";
 
 export interface Carrier {
   id: string;
   name: string;
+  password_hash?: string;
   created_at: string;
   updated_at: string;
 }
@@ -86,7 +88,6 @@ export const carrierService = {
 
   async getCarrierByName(name: string): Promise<Carrier | null> {
     try {
-
       console.log("getCarrierByName called with:", name);
 
       const { data, error } = await supabase
@@ -94,7 +95,7 @@ export const carrierService = {
         .select("*")
         .eq("name", name)
         .single();
-      
+
       console.log("getCarrierByName response:", { data, error });
 
       if (error && error.code !== "PGRST116") throw error;
@@ -120,6 +121,78 @@ export const carrierService = {
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to get or create carrier";
       console.error("Error in getOrCreateCarrier:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  async authenticateCarrier(
+    name: string,
+    password: string
+  ): Promise<{ success: boolean; data?: Carrier; error?: string }> {
+    try {
+      // Get carrier by name
+      const carrier = await this.getCarrierByName(name);
+
+      if (!carrier) {
+        return { success: false, error: "Carrier not found" };
+      }
+
+      // If carrier doesn't have a password hash, they haven't set up password yet
+      if (!carrier.password_hash) {
+        return {
+          success: false,
+          error:
+            "Password not set for this carrier. Please contact administrator.",
+        };
+      }
+
+      // Hash the provided password using SHA-256
+      const hashedPassword = CryptoJS.SHA256(password).toString();
+
+      // Compare with stored hash
+      if (hashedPassword === carrier.password_hash) {
+        return { success: true, data: carrier };
+      } else {
+        return { success: false, error: "Invalid password" };
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || "Authentication failed";
+      console.error("Error authenticating carrier:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  async setCarrierPassword(
+    carrierId: string,
+    password: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Validate password strength (minimum 8 characters)
+      if (password.length < 8) {
+        return {
+          success: false,
+          error: "Password must be at least 8 characters long",
+        };
+      }
+
+      // Hash the password using SHA-256
+      const passwordHash = CryptoJS.SHA256(password).toString();
+
+      // Update carrier with hashed password
+      const { error } = await supabase
+        .from("carriers")
+        .update({ password_hash: passwordHash } as any)
+        .eq("id", carrierId);
+
+      if (error) {
+        console.error("Error setting password:", error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to set password";
+      console.error("Error in setCarrierPassword:", error);
       return { success: false, error: errorMessage };
     }
   },
