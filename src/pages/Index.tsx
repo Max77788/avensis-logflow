@@ -122,7 +122,7 @@ const Index = () => {
           if (t.status !== "CLOSED") {
             return true;
           }
-          
+
           if (t.created_at) {
             const createdAtStr = new Date(t.created_at).toDateString();
             return createdAtStr === todayStr;
@@ -318,7 +318,7 @@ const Index = () => {
             <div className="flex flex-col gap-4">
               {/* Row that ALWAYS stays horizontal */}
               <div className="flex flex-row gap-4 w-full">
-                {/* Create Ticket Card 
+                {/* Create Ticket Card
                 <Card
                   className="flex-1 group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
                   onClick={() => navigate("/tickets/create")}
@@ -358,9 +358,11 @@ const Index = () => {
                       </h3>
 
                       <div className="flex items-center justify-center gap-2">
+                        {/*
                         <span className="text-xs font-medium text-muted-foreground">
                           {t("index.shiftStatus")}
                         </span>
+                        */}
 
                         <Badge
                           variant={
@@ -376,34 +378,39 @@ const Index = () => {
                   </div>
                 </Card>
 
-                <div className="border-b border-border rounded-lg bg-card/50">
-                  <div className="container mx-auto px-3 md:px-4 py-3">
-                    <div
-                      className={`flex flex-col items-center justify-center gap-3 h-full
-        ${!carrierName && !truckName ? "animate-pulse" : ""}`}
-                    >
-                      {carrierName && (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {t("common.carrier")}:
-                          </span>
-                          <span className="text-sm font-semibold text-foreground">
-                            {carrierName}
-                          </span>
-                        </div>
-                      )}
-                      {truckName && (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
-                          <TruckIconSmall className="h-4 w-4 text-primary" />
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {t("common.truck")}:
-                          </span>
-                          <span className="text-sm font-semibold text-foreground">
-                            {truckName}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                {/* Carrier and Truck Info - Stacked Vertically in Tiles */}
+                <div className="flex flex-col gap-2 flex-1">
+                  {/* Carrier Tile - Top Half */}
+                  <div className="flex-1 flex items-center justify-center rounded-lg bg-card/50 border border-border p-2">
+                    {carrierName ? (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full border border-primary/20">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {t("common.carrier")}:
+                        </span>
+                        <span className="text-sm font-semibold text-foreground">
+                          {carrierName}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="h-7 w-32 bg-muted/50 rounded-full animate-pulse"></div>
+                    )}
+                  </div>
+
+                  {/* Truck Tile - Bottom Half */}
+                  <div className="flex-1 flex items-center justify-center rounded-lg bg-card/50 border border-border p-2">
+                    {truckName ? (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full border border-primary/20">
+                        <TruckIconSmall className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {t("common.truck")}:
+                        </span>
+                        <span className="text-sm font-semibold text-foreground">
+                          {truckName}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="h-7 w-32 bg-muted/50 rounded-full animate-pulse"></div>
+                    )}
                   </div>
                 </div>
               </div>

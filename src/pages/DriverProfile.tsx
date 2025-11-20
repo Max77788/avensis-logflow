@@ -31,6 +31,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { carrierService } from "@/lib/carrierService";
 import { ticketService } from "@/lib/ticketService";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { toast } from "@/hooks/use-toast";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -237,8 +238,24 @@ const DriverProfile = () => {
   const handleCarrierChange = async (carrierId: string) => {
     if (!driverProfile || !carrierId) return;
 
+    // Check if driver is active - prevent changes
+    if (driverProfile.status === "active") {
+      toast({
+        title: "Cannot Change Carrier",
+        description:
+          "Please change your status to INACTIVE before changing your carrier.",
+        variant: "destructive",
+      });
+      // Revert the selection back to current carrier
+      setEditFormData((prev) => ({
+        ...prev,
+        carrier_id: driverProfile.carrier_id,
+      }));
+      return;
+    }
+
     console.log("carrier ID changed to:", carrierId);
-    
+
     setIsUpdatingProfile(true);
     try {
       // Reset truck_id when carrier changes since trucks are carrier-specific
@@ -246,8 +263,6 @@ const DriverProfile = () => {
         carrier_id: carrierId, // Store UUID
         default_truck_id: null, // Clear truck when carrier changes
       };
-
-
 
       // Find the carrier name for display
       const selectedCarrier = dbCarriers.find((c) => c.id === carrierId);
@@ -291,6 +306,22 @@ const DriverProfile = () => {
 
   const handleTruckChange = async (truckUuid: string) => {
     if (!driverProfile || !truckUuid) return;
+
+    // Check if driver is active - prevent changes
+    if (driverProfile.status === "active") {
+      toast({
+        title: "Cannot Change Truck",
+        description:
+          "Please change your status to INACTIVE before changing your truck.",
+        variant: "destructive",
+      });
+      // Revert the selection back to current truck
+      setEditFormData((prev) => ({
+        ...prev,
+        truck_id: driverProfile.default_truck_id || "",
+      }));
+      return;
+    }
 
     setIsUpdatingProfile(true);
     try {
@@ -345,8 +376,6 @@ const DriverProfile = () => {
     );
     const carrierName = selectedCarrier?.name || "";
 
-    
-    
     // Get the truck display name for UI
     const selectedTruck = availableTrucks.find(
       (t) => t.id === editFormData.truck_id

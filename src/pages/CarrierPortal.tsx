@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { redirect, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -270,6 +270,10 @@ const CarrierPortal = () => {
       <Header
         showLogoutButton
         onLogoutClick={() => setShowLogoutWarning(true)}
+        showHomeButton
+        onHomeClick={() =>
+          (window.location.href = "https://avensis-logistics-pl-tjsx.bolt.host/")
+        }
       />
 
       {/* Content */}

@@ -44,6 +44,15 @@ const DestinationAttendantConfirm = () => {
       try {
         const found = await ticketService.getTicket(id);
         setTicket(found);
+
+        // Check if ticket is already confirmed
+        if (found.status === "CLOSED" || found.status === "DELIVERED") {
+          setIsConfirmed(true);
+          // Set confirmer name if it exists
+          if (found.confirmer_name) {
+            setConfirmerName(found.confirmer_name);
+          }
+        }
       } catch (error) {
         console.error("Error loading ticket:", error);
         toast({
@@ -63,6 +72,17 @@ const DestinationAttendantConfirm = () => {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if ticket is already confirmed (CLOSED or DELIVERED status)
+    if (ticket.status === "CLOSED" || ticket.status === "DELIVERED") {
+      toast({
+        title: "Ticket Already Confirmed",
+        description:
+          "This ticket has already been confirmed and cannot be confirmed again.",
         variant: "destructive",
       });
       return;
@@ -428,6 +448,26 @@ const DestinationAttendantConfirm = () => {
           ) : (
             // Confirmation Form View
             <>
+              {/* Already Confirmed Warning */}
+              {(ticket.status === "CLOSED" ||
+                ticket.status === "DELIVERED") && (
+                <Card className="mb-6 p-6 border-2 border-destructive bg-destructive/10">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0" />
+                    <div>
+                      <h3 className="text-lg font-bold text-destructive mb-1">
+                        Ticket Already Confirmed
+                      </h3>
+                      <p className="text-sm text-destructive/80">
+                        This ticket has already been confirmed and cannot be
+                        confirmed again. Status:{" "}
+                        <strong>{ticket.status}</strong>
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
               {/* Ticket Info Card */}
               <Card className="mb-8 p-6 border border-border bg-card">
                 <div className="flex flex-row justify-center gap-12">
@@ -669,14 +709,26 @@ const DestinationAttendantConfirm = () => {
                 </Button>
                 <Button
                   onClick={handleSignOff}
-                  disabled={isSubmitting || !confirmerName || !signature}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  disabled={
+                    isSubmitting ||
+                    !confirmerName ||
+                    !signature ||
+                    ticket.status === "CLOSED" ||
+                    ticket.status === "DELIVERED"
+                  }
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   size="lg"
                 >
                   {isSubmitting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       {t("destinationConfirm.confirmingDots")}
+                    </>
+                  ) : ticket.status === "CLOSED" ||
+                    ticket.status === "DELIVERED" ? (
+                    <>
+                      <AlertCircle className="h-5 w-5 mr-2" />
+                      Already Confirmed
                     </>
                   ) : (
                     <>
