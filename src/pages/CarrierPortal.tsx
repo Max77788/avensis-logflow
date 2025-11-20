@@ -27,6 +27,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 type DateRangePreset =
   | "today"
@@ -35,6 +45,12 @@ type DateRangePreset =
   | "last-6-months"
   | "this-year"
   | "custom";
+
+type ExportColumn = {
+  id: string;
+  label: string;
+  enabled: boolean;
+};
 
 const CarrierPortal = () => {
   const navigate = useNavigate();
@@ -52,6 +68,24 @@ const CarrierPortal = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
+
+  // Export dialog states
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportType, setExportType] = useState<"csv" | "pdf">("csv");
+  const [exportColumns, setExportColumns] = useState<ExportColumn[]>([
+    { id: "ticket_date", label: "Ticket Date", enabled: true },
+    { id: "client_name", label: "Client Name", enabled: true },
+    { id: "transaction_id", label: "Transaction/Ticket ID", enabled: true },
+    { id: "truck_id", label: "Truck ID", enabled: true },
+    { id: "driver_name", label: "Driver Name", enabled: true },
+    { id: "pickup_location", label: "Pickup Location", enabled: true },
+    { id: "dropoff_location", label: "Drop-off Location", enabled: true },
+    { id: "net_weight", label: "Net Weight", enabled: true },
+    { id: "gross_weight", label: "Gross Weight", enabled: false },
+    { id: "close_time", label: "Ticket Close Time", enabled: true },
+    { id: "attendant", label: "Destination Attendant Name", enabled: true },
+    { id: "status", label: "Status", enabled: true },
+  ]);
 
   // Load carrier data and tickets
   useEffect(() => {
@@ -200,37 +234,62 @@ const CarrierPortal = () => {
     customEndDate,
   ]);
 
-  // Export to CSV
-  const exportToCSV = () => {
-    const headers = [
-      "Ticket Date",
-      "Client Name",
-      "Transaction/Ticket ID",
-      "Truck ID",
-      "Driver Name",
-      "Pickup Location",
-      "Drop-off Location",
-      "Net Weight",
-      "Ticket Close Time",
-      "Destination Attendant Name",
-      "Status",
-    ];
+  // Toggle column selection
+  const toggleColumn = (columnId: string) => {
+    setExportColumns((prev) =>
+      prev.map((col) =>
+        col.id === columnId ? { ...col, enabled: !col.enabled } : col
+      )
+    );
+  };
 
-    const rows = filteredTickets.map((ticket) => [
-      new Date(ticket.created_at).toLocaleDateString(),
-      "Avensis Energy",
-      ticket.ticket_id,
-      ticket.truck_id,
-      ticket.driver_name || "-",
-      ticket.origin_site,
-      ticket.destination_site,
-      ticket.net_weight ? ticket.net_weight.toFixed(2) : "-",
-      ticket.delivered_at
-        ? new Date(ticket.delivered_at).toLocaleString()
-        : "-",
-      ticket.confirmer_name || "-",
-      ticket.status,
-    ]);
+  // Select/Deselect all columns
+  const toggleAllColumns = (enabled: boolean) => {
+    setExportColumns((prev) => prev.map((col) => ({ ...col, enabled })));
+  };
+
+  // Get column value from ticket
+  const getColumnValue = (ticket: Ticket, columnId: string): string => {
+    switch (columnId) {
+      case "ticket_date":
+        return new Date(ticket.created_at).toLocaleDateString();
+      case "client_name":
+        return "Avensis Energy";
+      case "transaction_id":
+        return ticket.ticket_id;
+      case "truck_id":
+        return ticket.truck_id;
+      case "driver_name":
+        return ticket.driver_name || "-";
+      case "pickup_location":
+        return ticket.origin_site;
+      case "dropoff_location":
+        return ticket.destination_site;
+      case "net_weight":
+        return ticket.net_weight ? ticket.net_weight.toFixed(2) : "-";
+      case "gross_weight":
+        return ticket.gross_weight ? ticket.gross_weight.toFixed(2) : "-";
+      case "close_time":
+        return ticket.delivered_at
+          ? new Date(ticket.delivered_at).toLocaleString()
+          : "-";
+      case "attendant":
+        return ticket.confirmer_name || "-";
+      case "status":
+        return ticket.status;
+      default:
+        return "-";
+    }
+  };
+
+  // Export to CSV with selected columns
+  const exportToCSV = () => {
+    const enabledColumns = exportColumns.filter((col) => col.enabled);
+    const headers = enabledColumns.map((col) => col.label);
+
+    const rows = filteredTickets.map((ticket) =>
+      enabledColumns.map((col) => getColumnValue(ticket, col.id))
+    );
 
     const csvContent = [
       headers.join(","),
@@ -253,11 +312,19 @@ const CarrierPortal = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setShowExportDialog(false);
   };
 
   // Export to PDF (simplified - creates a printable view)
   const exportToPDF = () => {
     window.print();
+    setShowExportDialog(false);
+  };
+
+  // Open export dialog
+  const openExportDialog = (type: "csv" | "pdf") => {
+    setExportType(type);
+    setShowExportDialog(true);
   };
 
   if (!user || user.role !== "carrier") {
@@ -272,7 +339,8 @@ const CarrierPortal = () => {
         onLogoutClick={() => setShowLogoutWarning(true)}
         showHomeButton
         onHomeClick={() =>
-          (window.location.href = "https://avensis-logistics-pl-tjsx.bolt.host/")
+          (window.location.href =
+            "https://avensis-logistics-pl-tjsx.bolt.host/")
         }
       />
 
@@ -391,7 +459,7 @@ const CarrierPortal = () => {
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    onClick={exportToCSV}
+                    onClick={() => openExportDialog("csv")}
                     className="flex-1"
                   >
                     <Download className="h-4 w-4 mr-2" />
@@ -399,7 +467,7 @@ const CarrierPortal = () => {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={exportToPDF}
+                    onClick={() => openExportDialog("pdf")}
                     className="flex-1"
                   >
                     <Download className="h-4 w-4 mr-2" />
@@ -586,6 +654,87 @@ const CarrierPortal = () => {
         onOpenChange={setShowLogoutWarning}
         redirectPath="/carrier/login"
       />
+
+      {/* Export Column Selection Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Select Columns to Export ({exportType.toUpperCase()})
+            </DialogTitle>
+            <DialogDescription>
+              Choose which columns you want to include in your export
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Select/Deselect All */}
+            <div className="flex items-center justify-between pb-3 border-b">
+              <Label className="text-sm font-medium">Select All</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleAllColumns(true)}
+                >
+                  All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleAllColumns(false)}
+                >
+                  None
+                </Button>
+              </div>
+            </div>
+
+            {/* Column Checkboxes */}
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {exportColumns.map((column) => (
+                <div
+                  key={column.id}
+                  className="flex items-center space-x-3 p-2 rounded hover:bg-muted/50"
+                >
+                  <Checkbox
+                    id={column.id}
+                    checked={column.enabled}
+                    onCheckedChange={() => toggleColumn(column.id)}
+                  />
+                  <Label
+                    htmlFor={column.id}
+                    className="text-sm font-normal cursor-pointer flex-1"
+                  >
+                    {column.label}
+                  </Label>
+                </div>
+              ))}
+            </div>
+
+            {/* Selected Count */}
+            <div className="pt-3 border-t text-sm text-muted-foreground">
+              {exportColumns.filter((col) => col.enabled).length} of{" "}
+              {exportColumns.length} columns selected
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowExportDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={exportType === "csv" ? exportToCSV : exportToPDF}
+              disabled={exportColumns.filter((col) => col.enabled).length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export {exportType.toUpperCase()}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
