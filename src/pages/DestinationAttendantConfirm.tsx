@@ -96,7 +96,7 @@ const DestinationAttendantConfirm = () => {
       const result = await ticketService.updateTicket(ticket.ticket_id, {
         destination_signature: signature,
         confirmer_name: confirmerName,
-        delivery_gps: coords ? JSON.stringify(coords) : null,
+        delivery_gps: coords ? `${coords.latitude},${coords.longitude}` : null,
         status: "CLOSED",
         delivered_at: new Date().toISOString(),
       });

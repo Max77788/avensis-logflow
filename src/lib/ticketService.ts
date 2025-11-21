@@ -406,6 +406,18 @@ export const ticketService = {
   },
 
   mapDbTicketToTicket(dbTicket: any): Ticket {
+    // Handle carrier field - it might be a string or an object { name: "..." } from a join
+    let carrierValue: string | undefined;
+    if (typeof dbTicket.carrier === "string") {
+      carrierValue = dbTicket.carrier;
+    } else if (
+      dbTicket.carrier &&
+      typeof dbTicket.carrier === "object" &&
+      "name" in dbTicket.carrier
+    ) {
+      carrierValue = dbTicket.carrier.name;
+    }
+
     return {
       ticket_id: dbTicket.ticket_id,
       truck_qr_id: dbTicket.truck_qr_id,
@@ -429,7 +441,7 @@ export const ticketService = {
       scale_ticket_file_url: dbTicket.scale_ticket_file_url,
       include_scale_ticket_in_email: dbTicket.include_scale_ticket_in_email,
       confirmer_name: dbTicket.confirmer_name,
-      carrier: dbTicket.carrier,
+      carrier: carrierValue,
       driver_name: dbTicket.driver_name,
       driver_id: dbTicket.driver_id,
       carrier_id: dbTicket.carrier_id,
@@ -535,7 +547,7 @@ export const ticketService = {
     const { data, error, count } = await query.range(fromIndex, toIndex);
 
     console.log("getTicketsOverview data:", data);
-    
+
     if (error) {
       console.error("getTicketsOverview Supabase error:", error);
       throw new Error(error.message || "Failed to load tickets");

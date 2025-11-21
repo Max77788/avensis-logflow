@@ -569,7 +569,7 @@ const Overview = () => {
                               {/* Ticket ID and Destination */}
                               <div className="flex-1 min-w-0 space-y-1">
                                 <h3 className="font-bold text-lg text-foreground truncate">
-                                  {ticket.carrier?.name}
+                                  {ticket.carrier}
                                 </h3>
 
                                 <div className="flex items-start gap-1">
