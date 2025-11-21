@@ -174,7 +174,8 @@ const Login = () => {
                 */}
                 </div>
               </Card>
-
+              
+              {/*
               <Card
                 className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
                 onClick={() => navigate("/carrier/login")}
@@ -193,6 +194,7 @@ const Login = () => {
                   </div>
                 </div>
               </Card>
+              */}
               {/* Driver Onboarding Button - Bottom of Page */}
               <div className="flex justify-center pt-4 md:pt-8">
                 <Button
