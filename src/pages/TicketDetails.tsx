@@ -478,7 +478,7 @@ const TicketDetails = () => {
               <div className="min-w-0 text-center">
                 <p className="text-xs text-muted-foreground">Carrier</p>
                 <p className="truncate text-xs font-medium text-foreground">
-                  {getCarrierName(ticket)}1
+                  {getCarrierName(ticket)}
                 </p>
               </div>
               <div className="min-w-0 text-center">
