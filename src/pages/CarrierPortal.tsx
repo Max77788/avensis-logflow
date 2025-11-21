@@ -465,6 +465,7 @@ const CarrierPortal = () => {
                     <Download className="h-4 w-4 mr-2" />
                     CSV
                   </Button>
+                  {/*
                   <Button
                     variant="outline"
                     onClick={() => openExportDialog("pdf")}
@@ -473,6 +474,7 @@ const CarrierPortal = () => {
                     <Download className="h-4 w-4 mr-2" />
                     PDF
                   </Button>
+                  */}
                 </div>
               </div>
 
