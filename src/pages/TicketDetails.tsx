@@ -116,6 +116,9 @@ const TicketDetails = () => {
         console.log("Fetching ticket from service...");
         // Otherwise fetch from service
         const found = await ticketService.getTicket(id);
+        
+        console.log("Found ticket:", found);
+
         setTicket(found);
       }
     };
@@ -484,7 +487,7 @@ const TicketDetails = () => {
               <div className="min-w-0 text-center">
                 <p className="text-xs text-muted-foreground">Truck</p>
                 <p className="truncate text-xs font-medium text-foreground">
-                  {ticket.truck_id || "-"}
+                  {ticket.truck_name || "-"}
                 </p>
               </div>
               <div className="min-w-0 text-center">

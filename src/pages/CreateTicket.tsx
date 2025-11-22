@@ -40,7 +40,8 @@ const CreateTicket = () => {
   const [formData, setFormData] = useState({
     carrier: "",
     carrier_id: "",
-    truck_id: truckFromQR || "",
+    truck_id: truckFromQR || "", // Display name (text)
+    truck_uuid: "", // UUID (foreign key)
     driver_id: "",
     driver_name: "",
     pickup_location: "Primal Materials",
@@ -125,7 +126,8 @@ const CreateTicket = () => {
         // Set form data with truck and carrier info
         setFormData((prev) => ({
           ...prev,
-          truck_id: truckIdFromOverview,
+          truck_id: truckIdFromOverview, // Display name
+          truck_uuid: truckUuidFromOverview || "", // UUID
           carrier: carrierName,
           carrier_id: carrierIdFromOverview,
           driver_name: "", // Will be populated by auto-assignment
@@ -195,35 +197,32 @@ const CreateTicket = () => {
           carrierId = driverProfile.carrier_id;
         }
 
-        // Get the truck name from active shift or QR code
+        // Get the truck name and UUID from active shift or QR code
         let truckName = "";
-        let truckId = "";
+        let truckUuid = "";
 
         if (truckFromQR) {
           truckName = truckFromQR;
-          truckId = truckFromQR;
+          // For QR code, we need to look up the truck UUID
+          // This is a display name, not a UUID
         } else if (shift.isActive && shift.truck_id) {
           // Use truck from active shift
           truckName = shift.truck_id;
-          truckId = shift.truck_id;
+          // shift.truck_id might be display name or UUID, need to check
         } else if (driverProfile.default_truck_id) {
           // Fall back to driver profile default truck
-          truckId = driverProfile.default_truck_id;
-          // If it looks like a UUID, fetch the truck name from Supabase
-          if (truckId.includes("-")) {
-            try {
-              const truck = await carrierService.getTruckById(truckId);
-              if (truck) {
-                truckName = truck.truck_id;
-              } else {
-                truckName = truckId;
-              }
-            } catch (error) {
-              console.error("Error fetching truck name:", error);
-              truckName = truckId;
+          truckUuid = driverProfile.default_truck_id; // This is the UUID
+          // Fetch the truck display name from Supabase
+          try {
+            const truck = await carrierService.getTruckById(truckUuid);
+            if (truck) {
+              truckName = truck.truck_id; // Display name
+            } else {
+              truckName = truckUuid;
             }
-          } else {
-            truckName = truckId;
+          } catch (error) {
+            console.error("Error fetching truck name:", error);
+            truckName = truckUuid;
           }
         }
 
@@ -241,7 +240,8 @@ const CreateTicket = () => {
           ...prev,
           carrier: carrierName,
           carrier_id: carrierId,
-          truck_id: truckName,
+          truck_id: truckName, // Display name
+          truck_uuid: truckUuid, // UUID
           driver_id: driverProfile.id,
           driver_name: driverProfile.name,
           pickup_location: pickupLocation,
@@ -321,10 +321,13 @@ const CreateTicket = () => {
 
     setIsSubmitting(true);
 
+    // Create ticket with only foreign keys (truck_uuid and driver_id)
+    // Carrier name will be fetched via: truck_uuid -> trucks.carrier_id -> carriers.name
+    // Driver name will be fetched via: driver_id -> drivers.name
     const ticket: Ticket = {
       ticket_id: `TKT-${Date.now()}`,
       truck_qr_id: `TRUCK-${formData.truck_id}`,
-      truck_id: formData.truck_id,
+      truck_id: formData.truck_uuid, // UUID (foreign key to trucks table)
       product: "", // Optional field, left empty
       origin_site: formData.pickup_location, // Pickup location as origin
       destination_site: formData.destination_site,
@@ -333,9 +336,10 @@ const CreateTicket = () => {
       status: "VERIFIED",
       created_at: new Date().toISOString(),
       verified_at_scale: new Date().toISOString(),
-      carrier: formData.carrier,
-      carrier_id: formData.carrier_id,
-      driver_name: formData.driver_name,
+      // Removed denormalized fields - use FKs instead:
+      // carrier: formData.carrier,
+      // carrier_id: formData.carrier_id,
+      // driver_name: formData.driver_name,
       driver_id: formData.driver_id,
     };
 
@@ -347,6 +351,10 @@ const CreateTicket = () => {
     setIsSubmitting(false);
 
     if (result.success) {
+      // Clear the draft after successful submission
+      localStorage.removeItem("ticketDraft");
+      setHasDraft(false);
+
       // Show success toast
       toast({
         title: "Ticket Created Successfully",
@@ -354,9 +362,26 @@ const CreateTicket = () => {
         variant: "default",
       });
 
+      // Determine redirect destination based on how the page was opened
+      // If URL parameters are present (truck_id, carrier_id, truck_uuid), it means
+      // the page was opened from the scale house/overview page, so redirect back there
+      const hasUrlParams =
+        truckIdFromOverview || carrierIdFromOverview || truckUuidFromOverview;
+
       // Wait for ticket to be fully registered in Supabase before redirecting
       setTimeout(() => {
-        navigate(`/scale-house`);
+        if (hasUrlParams) {
+          // Redirect to overview page if opened via URL parameters (from scale house/overview)
+          navigate(`/overview`);
+        } else {
+          // For drivers creating tickets normally, redirect to home/dashboard
+          if (user?.role === "driver") {
+            navigate(`/`);
+          } else {
+            // For other users (attendants, carriers), redirect to overview
+            navigate(`/overview`);
+          }
+        }
       }, 700);
     }
   };
@@ -550,9 +575,17 @@ const CreateTicket = () => {
                   ) : (
                     <SearchableSelect
                       value={formData.truck_id}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, truck_id: value })
-                      }
+                      onValueChange={(value) => {
+                        // Find the selected truck to get its UUID
+                        const selectedTruck = availableTrucks.find(
+                          (truck) => truck.truck_id === value
+                        );
+                        setFormData({
+                          ...formData,
+                          truck_id: value, // Display name
+                          truck_uuid: selectedTruck?.id || "", // UUID
+                        });
+                      }}
                       placeholder="Select Truck"
                       className={cn(
                         !formData.truck_id && "border-red-500 border-2"
@@ -677,20 +710,15 @@ const CreateTicket = () => {
             </div>
           </Card>
 
-          {/* Ticket Image Upload - For drivers to store ticket images 
-          {user?.role === "driver" && <TicketImageUpload />}
-          */}
+          {/* Ticket Image Upload - For all users to store ticket images */}
+          <TicketImageUpload onImageSelected={setTicketImage} />
 
-          {/* Ticket Image Upload - Optional */}
-          {user?.role === "driver" && (
-            <TicketImageUpload onImageSelected={setTicketImage} />
-          )}
-
-          {/* Signature - Optional */}
+          {/* Signature - Optional 
           <SignaturePad
             onSave={setSignature}
             label="Scale Operator Signature (Optional)"
           />
+          */}
 
           {signature && (
             <Card className="overflow-hidden shadow-md">

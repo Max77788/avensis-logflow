@@ -49,8 +49,7 @@ export const truckService = {
           }
         )
         .order("truck_id", { ascending: true })
-        .range(fromIndex, toIndex)
-        .filter("driver_id", "not.is", null);
+        .range(fromIndex, toIndex);
 
       const { data, error, count } = await query;
 
@@ -100,12 +99,6 @@ export const truckService = {
         // Continue without driver info if fetch fails
       }
 
-      console.log("Trucks:", trucks);
-
-      console.log(
-        `Loaded ${trucks.length} trucks (page ${page}, total: ${total})`
-      );
-
       return {
         trucks,
         total,
@@ -118,6 +111,11 @@ export const truckService = {
     }
   },
 
+  /**
+   * Get active trucks overview with driver information
+   * A truck is active if its status is 'active'
+   * Driver information is obtained by left joining drivers table on default_truck_id
+   */
   async getActiveTrucksOverview(
     params?: TrucksOverviewParams
   ): Promise<TrucksOverviewResponse> {
@@ -131,48 +129,52 @@ export const truckService = {
     }
 
     try {
-      // Select trucks with carrier information and filter by driver status
-      let query = supabase
+      // Select trucks with carrier information and driver information
+      // Driver is found by left joining drivers table where drivers.default_truck_id = trucks.id
+      const { data, error, count } = await supabase
         .from("trucks")
         .select(
           `
-    id,
-    truck_id,
-    carrier_id,
-    created_at,
-    updated_at,
-    carriers(name),
-    active_driver:drivers!trucks_driver_id_fkey(*)
-  `,
+      id,
+      truck_id,
+      carrier_id,
+      status,
+      created_at,
+      updated_at,
+      carriers(name),
+      drivers:drivers!inner(
+        id,
+        name,
+        email,
+        status
+      )
+    `,
           { count: "exact" }
         )
-        // Use .filter() method with the full path as a string
-        // .filter("status!drivers_default_truck_id_fkey", "eq", "active")
-        .not("driver_id", "is", null)
+        .eq("status", "active")
+        .eq("drivers.status", "active")
         .order("truck_id", { ascending: true })
         .range(fromIndex, toIndex);
 
-      const { data, error, count } = await supabase.rpc(
-        "get_trucks_overview_filtered",
-        {
-          from_index: fromIndex,
-          to_index: toIndex,
-        }
-      );
-
-      // console.log("Active trucks data:", data);
+      
+      console.log("getActiveTrucksOverview data:", data);
 
       if (error) {
         console.error("getTrucksOverview Supabase error:", error);
         throw new Error(error.message || "Failed to load trucks");
       }
 
-      console.log("Active trucks data:", data);
+      // Transform the data to match expected format
+      // The drivers join returns an array, but we only expect one driver per truck
+      const trucks = (data || []).map((truck: any) => ({
+        ...truck,
+        active_driver: truck.drivers?.[0] || null,
+        drivers: undefined, // Remove the drivers array from the response
+      }));
 
-      // The 'data' object already has 'trucks' (array) and 'total' (count) properties
       const result: TrucksOverviewResponse = {
-        trucks: data.trucks || [],
-        total: data.total || 0,
+        trucks,
+        total: count || 0,
         page,
         pageSize,
       };

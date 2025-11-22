@@ -235,9 +235,9 @@ export const translations = {
       errorCreatingTicket: "Error creating ticket",
       failedToCreateTicket: "Failed to create ticket",
       driverInactiveWarning:
-        "Your driver status is inactive. Please start your shift at your profile page.",
+        "Driver status is inactive. Please start the shift at driver profile page.",
       driverInactiveWarningFull:
-        "Your driver status is inactive. Please start your shift at your dashboard page to create tickets.",
+        "Driver status is inactive. Please start the shift at driver dashboard page to create tickets.",
       completeShiftSetup:
         "Please complete your shift setup (carrier, truck, and pickup location) to create tickets.",
       activeTicketWarning:

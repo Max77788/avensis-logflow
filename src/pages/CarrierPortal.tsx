@@ -596,7 +596,7 @@ const CarrierPortal = () => {
                           {ticket.ticket_id.replace("TKT-", "")}
                         </td>
                         <td className="px-4 py-3 text-sm text-foreground">
-                          {ticket.truck_id}
+                          {ticket.truck_name}
                         </td>
                         <td className="px-4 py-3 text-sm text-foreground">
                           {ticket.driver_name || "-"}

@@ -38,6 +38,7 @@ export interface Ticket {
   driver_qr_code?: string;
   ticket_image_url?: string;
   transaction_id?: string;
+  truck_name?: string;
 }
 
 export interface GPSCoordinates {

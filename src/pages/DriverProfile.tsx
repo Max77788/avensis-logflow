@@ -211,6 +211,12 @@ const DriverProfile = () => {
     loadActiveTickets();
   }, [user, driverProfile, navigate]);
 
+  /**
+   * Toggle driver shift status between active and inactive
+   * This controls whether the driver is currently on shift
+   * Note: Truck status is NOT affected by driver shift status
+   * Truck status only reflects assignment (whether truck is assigned to a driver)
+   */
   const handleToggleStatus = async () => {
     if (!driverProfile) return;
 
@@ -225,11 +231,21 @@ const DriverProfile = () => {
 
       if (result.success) {
         updateDriverStatus(newStatus);
+
+        toast({
+          title: "Status Updated",
+          description: `Status changed to ${newStatus.toUpperCase()}`,
+        });
       } else {
         throw new Error(result.error);
       }
     } catch (error: any) {
       console.error("Error updating status:", error);
+      toast({
+        title: "Error",
+        description: `Failed to update status: ${error.message}`,
+        variant: "destructive",
+      });
     } finally {
       setIsTogglingStatus(false);
     }
@@ -304,10 +320,23 @@ const DriverProfile = () => {
     }
   };
 
+  /**
+   * Handle truck change for driver
+   * Process:
+   * 1. Prevent changes if driver's shift is active (must be inactive first)
+   * 2. Update driver's default_truck_id to new truck
+   * 3. Set old truck status to 'inactive' (unassigned, available for other drivers)
+   * 4. Set new truck status to 'active' (assigned to this driver)
+   * 5. Update shift context with new truck information
+   *
+   * Note: Truck status reflects assignment, not driver's shift status:
+   * - Truck status 'active' = truck is assigned to a driver
+   * - Truck status 'inactive' = truck is not assigned (available)
+   */
   const handleTruckChange = async (truckUuid: string) => {
     if (!driverProfile || !truckUuid) return;
 
-    // Check if driver is active - prevent changes
+    // Check if driver's shift is active - prevent changes
     if (driverProfile.status === "active") {
       toast({
         title: "Cannot Change Truck",
@@ -325,7 +354,42 @@ const DriverProfile = () => {
 
     setIsUpdatingProfile(true);
     try {
-      // Truck UUID is already selected, just update the driver profile
+      const oldTruckId = driverProfile.default_truck_id;
+
+      // Step 1: Update truck statuses FIRST (before updating driver profile)
+      // This ensures data consistency - if truck updates fail, driver profile won't be changed
+
+      // Set old truck to inactive (unassigned, available for other drivers)
+      if (oldTruckId) {
+        const oldTruckResult = await carrierService.updateTruckStatus(
+          oldTruckId,
+          "inactive"
+        );
+        if (!oldTruckResult.success) {
+          throw new Error(
+            `Failed to update old truck status: ${oldTruckResult.error}`
+          );
+        }
+        console.log(`Old truck ${oldTruckId} set to inactive`);
+      }
+
+      // Set new truck status to active (assigned to this driver)
+      const newTruckResult = await carrierService.updateTruckStatus(
+        truckUuid,
+        "active"
+      );
+      if (!newTruckResult.success) {
+        // Rollback: Set old truck back to active if it was changed
+        if (oldTruckId) {
+          await carrierService.updateTruckStatus(oldTruckId, "active");
+        }
+        throw new Error(
+          `Failed to update new truck status: ${newTruckResult.error}`
+        );
+      }
+      console.log(`New truck ${truckUuid} set to active`);
+
+      // Step 2: Update the driver's default_truck_id
       const updates = {
         default_truck_id: truckUuid, // Store the UUID
       };
@@ -357,13 +421,22 @@ const DriverProfile = () => {
           pickupLocation: editFormData.pickup_location,
         });
 
+        toast({
+          title: "Truck Updated",
+          description: `Successfully changed truck`,
+        });
+
         console.log("Truck updated successfully");
       } else {
         throw new Error(result.error || "Failed to update truck");
       }
     } catch (error: any) {
       console.error("Error updating truck:", error);
-      alert(`Error updating truck: ${error.message}`);
+      toast({
+        title: "Error",
+        description: `Failed to update truck: ${error.message}`,
+        variant: "destructive",
+      });
     } finally {
       setIsUpdatingProfile(false);
     }

@@ -106,19 +106,14 @@ const DriverSignUp = () => {
         throw new Error(result.error || "Failed to create driver");
       }
 
-      // Assign the driver to the truck (populate truck's driver_id)
-      const assignResult = await carrierService.assignDriverToTruck(
+      // Set the truck status to active (truck is now assigned to this driver)
+      // Truck status reflects assignment, not driver's shift status:
+      // - 'active' = truck is assigned to a driver
+      // - 'inactive' = truck is not assigned (available for selection)
+      await carrierService.updateTruckStatus(
         formData.default_truck_id,
-        result.data.id
+        "active"
       );
-
-      if (!assignResult.success) {
-        console.warn(
-          "Warning: Failed to assign driver to truck:",
-          assignResult.error
-        );
-        // Continue anyway - the driver was created successfully
-      }
 
       // Log in the driver
       login("driver", result.data.id);

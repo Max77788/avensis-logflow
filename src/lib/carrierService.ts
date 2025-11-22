@@ -13,7 +13,6 @@ export interface Truck {
   id: string;
   truck_id: string;
   carrier_id: string;
-  driver_id?: string | null; // UUID of assigned driver, null if no driver assigned
   status?: "active" | "inactive";
   created_at: string;
   updated_at: string;
@@ -200,6 +199,9 @@ export const carrierService = {
   // ============================================================================
   // TRUCKS
   // ============================================================================
+  // Note: Trucks no longer have driver_id. The relationship is reversed:
+  // drivers.default_truck_id points to trucks.id
+  // Truck status is managed based on driver status and assignments
 
   async getTrucksByCarrier(carrierId: string): Promise<Truck[]> {
     try {
@@ -219,27 +221,45 @@ export const carrierService = {
     }
   },
 
+  /**
+   * Get available trucks for a carrier
+   * A truck is available if no driver has it as their default_truck_id
+   * @param carrierId - The carrier's UUID
+   * @returns Array of available trucks
+   */
   async getAvailableTrucksByCarrier(carrierId: string): Promise<Truck[]> {
     try {
-      // Get all trucks for the carrier that don't have a driver_id assigned
+      // Get all trucks for the carrier
       const { data: trucks, error: trucksError } = await supabase
         .from("trucks")
         .select("*")
         .eq("carrier_id", carrierId)
-        .is("driver_id", null) // Only trucks without a driver assigned
         .order("truck_id", { ascending: true });
-
-      console.log("Available trucks:", trucks);
 
       if (trucksError) throw trucksError;
 
-      // Add status field to each truck (all available trucks are inactive since no driver is assigned)
-      const trucksWithStatus = (trucks || []).map((truck: any) => ({
-        ...truck,
-        status: "inactive",
-      }));
+      // Get all drivers with their default_truck_id for this carrier
+      const { data: drivers, error: driversError } = await supabase
+        .from("drivers")
+        .select("default_truck_id")
+        .eq("carrier_id", carrierId)
+        .not("default_truck_id", "is", null);
 
-      return trucksWithStatus;
+      if (driversError) throw driversError;
+
+      // Create a set of truck IDs that are assigned to drivers
+      const assignedTruckIds = new Set(
+        (drivers || []).map((d: any) => d.default_truck_id)
+      );
+
+      // Filter out trucks that are assigned to drivers
+      const availableTrucks = (trucks || []).filter(
+        (truck: any) => !assignedTruckIds.has(truck.id)
+      );
+
+      console.log("Available trucks:", availableTrucks);
+
+      return availableTrucks;
     } catch (error) {
       console.error("Error fetching available trucks:", error);
       return [];
@@ -322,14 +342,22 @@ export const carrierService = {
     }
   },
 
-  async assignDriverToTruck(
+  /**
+   * Update truck status (active/inactive)
+   * Called when:
+   * - Driver changes status (truck status should match driver status)
+   * - Driver changes trucks (old truck → inactive, new truck → driver's status)
+   * @param truckId - The truck's UUID
+   * @param status - 'active' or 'inactive'
+   */
+  async updateTruckStatus(
     truckId: string,
-    driverId: string
+    status: "active" | "inactive"
   ): Promise<{ success: boolean; data?: Truck; error?: string }> {
     try {
       const { data, error } = await supabase
         .from("trucks")
-        .update({ driver_id: driverId })
+        .update({ status } as any)
         .eq("id", truckId)
         .select()
         .single();
@@ -337,29 +365,8 @@ export const carrierService = {
       if (error) throw error;
       return { success: true, data };
     } catch (error: any) {
-      const errorMessage = error?.message || "Failed to assign driver to truck";
-      console.error("Error assigning driver to truck:", error);
-      return { success: false, error: errorMessage };
-    }
-  },
-
-  async releaseDriverFromTruck(
-    truckId: string
-  ): Promise<{ success: boolean; data?: Truck; error?: string }> {
-    try {
-      const { data, error } = await supabase
-        .from("trucks")
-        .update({ driver_id: null })
-        .eq("id", truckId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error: any) {
-      const errorMessage =
-        error?.message || "Failed to release driver from truck";
-      console.error("Error releasing driver from truck:", error);
+      const errorMessage = error?.message || "Failed to update truck status";
+      console.error("Error updating truck status:", error);
       return { success: false, error: errorMessage };
     }
   },

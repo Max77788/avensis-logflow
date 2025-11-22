@@ -13,7 +13,7 @@ import {
   CheckCircle2,
   Calendar,
   Clock,
-  MapPin
+  MapPin,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -133,16 +133,29 @@ const Overview = () => {
     });
   };
 
-  // Helper: normalize trucks (precompute search)
+  /**
+   * Normalize trucks for UI display
+   * Extracts nested data from Supabase joins and adds search key
+   * - Extracts carrier name from carriers object
+   * - Extracts driver name from active_driver object
+   * - Adds lowercase search key for filtering
+   */
   const normalizeTrucks = (trucks: Truck[]): UITruck[] => {
-    console.log("normalizeTrucks:", trucks);
-
-    return trucks.map((t) => {
+    return trucks.map((t: any) => {
       const truckId = t.truck_id || "";
       const searchKey = truckId.toLowerCase();
 
+      // Extract carrier name from nested carriers object
+      const carrierName = t.carriers?.name || t.carrier_name || "Unknown";
+
+      // Extract driver name from nested active_driver object
+      const driverName =
+        t.active_driver?.name || t.driver_name || "Not assigned";
+
       return {
         ...t,
+        carrier_name: carrierName,
+        driver_name: driverName,
         _search: searchKey,
       };
     });
@@ -320,18 +333,17 @@ const Overview = () => {
     dateFilter,
   ]);
 
-  // Memoized filtered trucks - show only active trucks (with assigned active drivers)
+  // Memoized filtered trucks - show only active trucks (trucks that are assigned to drivers)
   const filteredTrucks = useMemo(() => {
     const search = debouncedTruckSearch.trim().toLowerCase();
 
     return allTrucks.filter((truck: UITruck) => {
       const searchKey = truck._search || "";
       const matchesSearch = !search || searchKey.includes(search);
-      // Only show trucks that are active (have an active driver assigned)
-      // If status is not explicitly shown, assume inactive
-      const isActive = truck.active === true;
+      // Only show trucks that have status = 'active' (assigned to a driver)
+      const isAssigned = truck.status === "active";
 
-      return matchesSearch && isActive;
+      return matchesSearch && isAssigned;
     });
   }, [allTrucks, debouncedTruckSearch]);
 
@@ -582,7 +594,7 @@ const Overview = () => {
                                   <TruckIcon className="h-3 w-3" />
                                   <div className="flex-1">
                                     <p className="text-xs text-muted-foreground">
-                                      {ticket.truck_id}
+                                      {ticket.truck_name}
                                     </p>
                                   </div>
                                 </div>

@@ -84,6 +84,9 @@ export const ticketService = {
         }
       }
 
+      // Insert ticket with only foreign keys (truck_id and driver_id)
+      // Carrier is fetched via truck_id -> trucks.carrier_id -> carriers.name
+      // Driver name is fetched via driver_id -> drivers.name
       const { error } = await supabase.from("tickets").insert({
         ticket_id: ticket.ticket_id,
         truck_qr_id: ticket.truck_qr_id,
@@ -98,20 +101,20 @@ export const ticketService = {
         destination_signature: ticket.destination_signature || null,
         status: ticket.status,
         created_at: ticket.created_at,
-        verified_at_scale: ticket.verified_at_scale || null,
+        // verified_at_scale: ticket.verified_at_scale || null,
         delivered_at: ticket.delivered_at || null,
-        load_gps: ticket.load_gps || null,
+        // load_gps: ticket.load_gps || null,
         delivery_gps: ticket.delivery_gps || null,
         // pdf_url: ticket.pdf_url || null,
         // customer_email: ticket.customer_email || null,
         // scale_ticket_file_url: ticket.scale_ticket_file_url || null,
-        include_scale_ticket_in_email:
-          ticket.include_scale_ticket_in_email || false,
+        // include_scale_ticket_in_email: ticket.include_scale_ticket_in_email || false,
         confirmer_name: ticket.confirmer_name || null,
-        carrier: ticket.carrier || null,
-        driver_name: ticket.driver_name || null,
+        // Removed denormalized fields - use FKs instead:
+        // carrier: ticket.carrier || null,
+        // driver_name: ticket.driver_name || null,
+        // carrier_id: ticket.carrier_id || null,
         driver_id: ticket.driver_id || null,
-        carrier_id: ticket.carrier_id || null,
         ticket_image_url: imageUrl,
       });
 
@@ -134,34 +137,35 @@ export const ticketService = {
 
   async getTicket(ticketId: string): Promise<Ticket | null> {
     try {
+      // Join with trucks, carriers, and drivers to get related data
       const { data, error } = await supabase
         .from("tickets")
-        .select("*")
+        .select(
+          `
+          *,
+          truck:trucks!tickets_truck_id_fkey (
+            id,
+            truck_id,
+            carrier:carriers (
+              id,
+              name
+            )
+          ),
+          driver:drivers (
+            id,
+            name,
+            driver_qr_code
+          )
+        `
+        )
         .eq("ticket_id", ticketId)
         .maybeSingle();
 
       if (error) throw error;
       if (!data) return null;
 
-      // Map the ticket data
+      // Map the ticket data with joined data
       const ticket = this.mapDbTicketToTicket(data as any);
-
-      // Fetch driver QR code if driver_id exists
-      if (ticket.driver_id) {
-        try {
-          const { data: driverData, error: driverError } = await supabase
-            .from("drivers")
-            .select("driver_qr_code")
-            .eq("id", ticket.driver_id)
-            .maybeSingle();
-
-          if (!driverError && driverData) {
-            ticket.driver_qr_code = driverData.driver_qr_code;
-          }
-        } catch (err) {
-          console.error("Error fetching driver QR code:", err);
-        }
-      }
 
       return ticket;
     } catch (error) {
@@ -172,39 +176,36 @@ export const ticketService = {
 
   async getAllTickets(): Promise<Ticket[]> {
     try {
+      // Join with trucks, carriers, and drivers to get related data
       const { data, error } = await supabase
         .from("tickets")
-        .select("*")
+        .select(
+          `
+          *,
+          truck:trucks!tickets_truck_id_fkey (
+            id,
+            truck_id,
+            carrier:carriers (
+              id,
+              name
+            )
+          ),
+          driver:drivers (
+            id,
+            name,
+            driver_qr_code
+          )
+        `
+        )
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Fetch driver QR codes for all tickets
+      // Map tickets with joined data
       const tickets = (data || []).map((item: any) => {
         const ticket = this.mapDbTicketToTicket(item);
         return ticket;
       });
-
-      // Fetch driver QR codes in parallel
-      await Promise.all(
-        tickets.map(async (ticket) => {
-          if (ticket.driver_id) {
-            try {
-              const { data: driverData } = await supabase
-                .from("drivers")
-                .select("driver_qr_code")
-                .eq("id", ticket.driver_id)
-                .maybeSingle();
-
-              if (driverData) {
-                ticket.driver_qr_code = driverData.driver_qr_code;
-              }
-            } catch (err) {
-              console.error("Error fetching driver QR code:", err);
-            }
-          }
-        })
-      );
 
       return tickets;
     } catch (error) {
@@ -215,9 +216,27 @@ export const ticketService = {
 
   async getActiveTicketsByDriver(driverId: string): Promise<Ticket[]> {
     try {
+      // Join with trucks, carriers, and drivers to get related data
       const { data, error } = await supabase
         .from("tickets")
-        .select("*")
+        .select(
+          `
+          *,
+          truck:trucks!tickets_truck_id_fkey (
+            id,
+            truck_id,
+            carrier:carriers (
+              id,
+              name
+            )
+          ),
+          driver:drivers (
+            id,
+            name,
+            driver_qr_code
+          )
+        `
+        )
         .eq("driver_id", driverId)
         .in("status", ["CREATED", "VERIFIED"])
         .order("created_at", { ascending: false });
@@ -229,25 +248,6 @@ export const ticketService = {
         return ticket;
       });
 
-      // Fetch driver QR code
-      if (tickets.length > 0 && driverId) {
-        try {
-          const { data: driverData } = await supabase
-            .from("drivers")
-            .select("driver_qr_code")
-            .eq("id", driverId)
-            .maybeSingle();
-
-          if (driverData) {
-            tickets.forEach((ticket) => {
-              ticket.driver_qr_code = driverData.driver_qr_code;
-            });
-          }
-        } catch (err) {
-          console.error("Error fetching driver QR code:", err);
-        }
-      }
-
       return tickets;
     } catch (error) {
       console.error("Error getting active tickets for driver:", error);
@@ -257,9 +257,27 @@ export const ticketService = {
 
   async getTicketsByDriver(driverId: string): Promise<Ticket[]> {
     try {
+      // Join with trucks, carriers, and drivers to get related data
       const { data, error } = await supabase
         .from("tickets")
-        .select("*")
+        .select(
+          `
+          *,
+          truck:trucks!tickets_truck_id_fkey (
+            id,
+            truck_id,
+            carrier:carriers (
+              id,
+              name
+            )
+          ),
+          driver:drivers (
+            id,
+            name,
+            driver_qr_code
+          )
+        `
+        )
         .eq("driver_id", driverId)
         .order("created_at", { ascending: false });
 
@@ -269,25 +287,6 @@ export const ticketService = {
         const ticket = this.mapDbTicketToTicket(item);
         return ticket;
       });
-
-      // Fetch driver QR code
-      if (tickets.length > 0 && driverId) {
-        try {
-          const { data: driverData } = await supabase
-            .from("drivers")
-            .select("driver_qr_code")
-            .eq("id", driverId)
-            .maybeSingle();
-
-          if (driverData) {
-            tickets.forEach((ticket) => {
-              ticket.driver_qr_code = driverData.driver_qr_code;
-            });
-          }
-        } catch (err) {
-          console.error("Error fetching driver QR code:", err);
-        }
-      }
 
       return tickets;
     } catch (error) {
@@ -406,16 +405,41 @@ export const ticketService = {
   },
 
   mapDbTicketToTicket(dbTicket: any): Ticket {
-    // Handle carrier field - it might be a string or an object { name: "..." } from a join
+    // Extract carrier name from joined truck -> carrier data
+    // Path: dbTicket.truck.carrier.name
     let carrierValue: string | undefined;
-    if (typeof dbTicket.carrier === "string") {
+    let carrierIdValue: string | undefined;
+    let truckNameValue: string | undefined;
+
+    console.log("Mapping DB ticket to ticket:", dbTicket);
+
+    if (dbTicket.truck?.carrier) {
+      // New structure: truck join with carrier
+      carrierValue = dbTicket.truck.carrier.name;
+      carrierIdValue = dbTicket.truck.carrier.id;
+    } else if (typeof dbTicket.carrier === "string") {
+      // Old structure: carrier as string (denormalized)
       carrierValue = dbTicket.carrier;
     } else if (
       dbTicket.carrier &&
       typeof dbTicket.carrier === "object" &&
       "name" in dbTicket.carrier
     ) {
+      // Old structure: carrier as object from direct join
       carrierValue = dbTicket.carrier.name;
+    }
+
+    // Extract driver name and QR code from joined driver data
+    let driverNameValue: string | undefined;
+    let driverQrCodeValue: string | undefined;
+
+    if (dbTicket.driver) {
+      // New structure: driver join
+      driverNameValue = dbTicket.driver.name;
+      driverQrCodeValue = dbTicket.driver.driver_qr_code;
+    } else if (typeof dbTicket.driver_name === "string") {
+      // Old structure: driver_name as string (denormalized)
+      driverNameValue = dbTicket.driver_name;
     }
 
     return {
@@ -442,11 +466,13 @@ export const ticketService = {
       include_scale_ticket_in_email: dbTicket.include_scale_ticket_in_email,
       confirmer_name: dbTicket.confirmer_name,
       carrier: carrierValue,
-      driver_name: dbTicket.driver_name,
+      driver_name: driverNameValue,
       driver_id: dbTicket.driver_id,
-      carrier_id: dbTicket.carrier_id,
+      carrier_id: carrierIdValue || dbTicket.carrier_id,
+      driver_qr_code: driverQrCodeValue,
       ticket_image_url: dbTicket.ticket_image_url,
       transaction_id: dbTicket.transaction_id,
+      truck_name: dbTicket.truck.truck_id,
     };
   },
 
@@ -523,13 +549,24 @@ export const ticketService = {
       throw new Error("Supabase client not initialized");
     }
 
+    // Join with trucks, carriers, and drivers to get related data
     let query = supabase
       .from("tickets")
       .select(
         `
       *,
-      carrier:carriers (
-        name
+      truck:trucks!tickets_truck_id_fkey (
+        id,
+        truck_id,
+        carrier:carriers (
+          id,
+          name
+        )
+      ),
+      driver:drivers (
+        id,
+        name,
+        driver_qr_code
       )
       `,
         { count: "exact" }

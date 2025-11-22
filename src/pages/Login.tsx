@@ -167,35 +167,10 @@ const Login = () => {
                       {t("login.attendantDesc")}
                     </p>
                   </div>
-                  {/*
-                <Button className="w-full" size="lg">
-                  {t("login.continueAsAttendant")}
-                </Button>
-                */}
                 </div>
               </Card>
-              
-              {/*
-              <Card
-                className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
-                onClick={() => navigate("/carrier/login")}
-              >
-                <div className="p-6 space-y-4 flex flex-col items-center text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-100 group-hover:bg-orange-200 transition-colors">
-                    <Truck className="h-6 w-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-foreground mb-1">
-                      Carrier Portal
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      View your trucks' activity and completed loads
-                    </p>
-                  </div>
-                </div>
-              </Card>
-              */}
-              {/* Driver Onboarding Button - Bottom of Page */}
+
+              {/* Driver Onboarding Button */}
               <div className="flex justify-center pt-4 md:pt-8">
                 <Button
                   variant="outline"
@@ -207,6 +182,7 @@ const Login = () => {
                   Driver Onboarding
                 </Button>
               </div>
+
               {/* Driver Onboarding Modal */}
               <DriverOnboardingModal
                 open={showOnboarding}
