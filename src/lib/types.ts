@@ -1,6 +1,6 @@
 export type TicketStatus = "CREATED" | "VERIFIED" | "DELIVERED" | "CLOSED";
 
-export type UserRole = "driver" | "attendant" | "carrier";
+export type UserRole = "driver" | "attendant" | "carrier" | "admin";
 
 export type DriverStatus = "active" | "inactive";
 

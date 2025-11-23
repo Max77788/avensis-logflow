@@ -20,10 +20,13 @@ import DeliverTicket from "./pages/DeliverTicket";
 import DestinationAttendant from "./pages/DestinationAttendant";
 import DestinationAttendantConfirm from "./pages/DestinationAttendantConfirm";
 import Admin from "./pages/Admin";
+import AdminDashboard from "./pages/AdminDashboard";
+import CompanyDetail from "./pages/CompanyDetail";
 import Overview from "./pages/Overview";
 import CarrierLogin from "./pages/CarrierLogin";
 import CarrierPortal from "./pages/CarrierPortal";
 import SetCarrierPassword from "./pages/SetCarrierPassword";
+import VendorOnboarding from "./pages/VendorOnboarding";
 import NotFound from "./pages/NotFound";
 import { initDatabase } from "./lib/initDatabase";
 
@@ -56,6 +59,10 @@ const App = () => {
                     <Route path="/overview" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />
                     <Route path="/tickets/create" element={<CreateTicket />} />
+                    <Route
+                      path="/vendor/onboarding"
+                      element={<VendorOnboarding />}
+                    />
 
                     {/* Protected routes - require authentication */}
                     <Route
@@ -111,6 +118,22 @@ const App = () => {
                       element={
                         <ProtectedRoute>
                           <Admin />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/dashboard"
+                      element={
+                        <ProtectedRoute>
+                          <AdminDashboard />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/admin/companies/:id"
+                      element={
+                        <ProtectedRoute>
+                          <CompanyDetail />
                         </ProtectedRoute>
                       }
                     />

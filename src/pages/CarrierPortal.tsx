@@ -104,7 +104,14 @@ const CarrierPortal = () => {
         }
 
         // Get all tickets
-        const allTickets = await ticketService.getAllTickets();
+        const allTickets = await ticketService.getAllTickets(
+          {
+            sourceTableName: "tickets_duplicate_for_reports"
+          }
+        );
+        
+        console.log(`All tickets: ${allTickets.length}`)
+
         // Filter tickets for this carrier
         const carrierTickets = allTickets.filter(
           (ticket) => ticket.carrier_id === user.id

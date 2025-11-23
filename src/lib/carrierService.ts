@@ -35,10 +35,10 @@ export const carrierService = {
   // CARRIERS
   // ============================================================================
 
-  async getAllCarriers(): Promise<Carrier[]> {
+  async getAllCarriers(tableName: string = "companies"): Promise<Carrier[]> {
     try {
       const { data, error } = await supabase
-        .from("carriers")
+        .from(tableName)
         .select("*")
         .order("name", { ascending: true });
 
@@ -51,11 +51,12 @@ export const carrierService = {
   },
 
   async createCarrier(
-    name: string
+    name: string,
+    tableName: string = "companies"
   ): Promise<{ success: boolean; data?: Carrier; error?: string }> {
     try {
       const { data, error } = await supabase
-        .from("carriers")
+        .from(tableName)
         .insert({ name })
         .select()
         .single();
@@ -69,10 +70,13 @@ export const carrierService = {
     }
   },
 
-  async getCarrierById(id: string): Promise<Carrier | null> {
+  async getCarrierById(
+    id: string,
+    tableName: string = "companies"
+  ): Promise<Carrier | null> {
     try {
       const { data, error } = await supabase
-        .from("carriers")
+        .from(tableName)
         .select("*")
         .eq("id", id)
         .single();
@@ -85,12 +89,15 @@ export const carrierService = {
     }
   },
 
-  async getCarrierByName(name: string): Promise<Carrier | null> {
+  async getCarrierByName(
+    name: string,
+    tableName: string = "companies"
+  ): Promise<Carrier | null> {
     try {
       console.log("getCarrierByName called with:", name);
 
       const { data, error } = await supabase
-        .from("carriers")
+        .from(tableName)
         .select("*")
         .eq("name", name)
         .single();
@@ -106,17 +113,18 @@ export const carrierService = {
   },
 
   async getOrCreateCarrier(
-    name: string
+    name: string,
+    tableName: string = "companies"
   ): Promise<{ success: boolean; data?: Carrier; error?: string }> {
     try {
       // First try to find existing carrier
-      const existing = await this.getCarrierByName(name);
+      const existing = await this.getCarrierByName(name, tableName);
       if (existing) {
         return { success: true, data: existing };
       }
 
       // If not found, create it
-      return await this.createCarrier(name);
+      return await this.createCarrier(name, tableName);
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to get or create carrier";
       console.error("Error in getOrCreateCarrier:", error);
@@ -126,11 +134,12 @@ export const carrierService = {
 
   async authenticateCarrier(
     name: string,
-    password: string
+    password: string,
+    tableName: string = "companies"
   ): Promise<{ success: boolean; data?: Carrier; error?: string }> {
     try {
       // Get carrier by name
-      const carrier = await this.getCarrierByName(name);
+      const carrier = await this.getCarrierByName(name, tableName);
 
       if (!carrier) {
         return { success: false, error: "Carrier not found" };
@@ -163,7 +172,8 @@ export const carrierService = {
 
   async setCarrierPassword(
     carrierId: string,
-    password: string
+    password: string,
+    tableName: string = "companies"
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Validate password strength (minimum 8 characters)
@@ -179,7 +189,7 @@ export const carrierService = {
 
       // Update carrier with hashed password
       const { error } = await supabase
-        .from("carriers")
+        .from(tableName)
         .update({ password_hash: passwordHash } as any)
         .eq("id", carrierId);
 
@@ -549,14 +559,17 @@ export const carrierService = {
   // COMBINED OPERATIONS
   // ============================================================================
 
-  async getCarrierWithTrucksAndDrivers(carrierId: string): Promise<{
+  async getCarrierWithTrucksAndDrivers(
+    carrierId: string,
+    tableName: string = "companies"
+  ): Promise<{
     carrier: Carrier | null;
     trucks: Truck[];
     drivers: Driver[];
   }> {
     try {
       const { data: carrier, error: carrierError } = await supabase
-        .from("carriers")
+        .from(tableName)
         .select("*")
         .eq("id", carrierId)
         .single();

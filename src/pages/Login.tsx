@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Truck, User, QrCode, LogIn, BookOpen } from "lucide-react";
+import { Truck, User, QrCode, LogIn, BookOpen, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -27,6 +27,11 @@ const Login = () => {
   const handleAttendantClick = () => {
     login("attendant");
     navigate("/");
+  };
+
+  const handleAdminClick = () => {
+    login("admin");
+    navigate("/admin/dashboard");
   };
 
   const handleDriverLogin = async (e: React.FormEvent) => {
@@ -165,6 +170,25 @@ const Login = () => {
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {t("login.attendantDesc")}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card
+                className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
+                onClick={handleAdminClick}
+              >
+                <div className="p-6 space-y-4 flex flex-col items-center text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-100 group-hover:bg-orange-200 transition-colors">
+                    <Shield className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground mb-1">
+                      Admin
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Manage companies, sites, and onboarding
                     </p>
                   </div>
                 </div>

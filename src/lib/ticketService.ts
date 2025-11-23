@@ -146,7 +146,7 @@ export const ticketService = {
           truck:trucks!tickets_truck_id_fkey (
             id,
             truck_id,
-            carrier:carriers (
+            carrier:companies (
               id,
               name
             )
@@ -174,18 +174,20 @@ export const ticketService = {
     }
   },
 
-  async getAllTickets(): Promise<Ticket[]> {
+  async getAllTickets({ sourceTableName = "tickets" }: {
+    sourceTableName?: string;
+  }): Promise<Ticket[]> {
     try {
       // Join with trucks, carriers, and drivers to get related data
       const { data, error } = await supabase
-        .from("tickets")
+        .from(sourceTableName)
         .select(
           `
           *,
-          truck:trucks!tickets_truck_id_fkey (
+          truck:trucks!${sourceTableName}_truck_id_fkey (
             id,
             truck_id,
-            carrier:carriers (
+            carrier:companies (
               id,
               name
             )
@@ -225,7 +227,7 @@ export const ticketService = {
           truck:trucks!tickets_truck_id_fkey (
             id,
             truck_id,
-            carrier:carriers (
+            carrier:companies (
               id,
               name
             )
@@ -266,7 +268,7 @@ export const ticketService = {
           truck:trucks!tickets_truck_id_fkey (
             id,
             truck_id,
-            carrier:carriers (
+            carrier:companies (
               id,
               name
             )
@@ -533,7 +535,7 @@ export const ticketService = {
     limit?: number;
     fromDate?: string; // "YYYY-MM-DD"
     page?: number;
-  }): Promise<{
+  }, sourceTableName: string = "tickets"): Promise<{
     tickets: Ticket[];
     total: number;
     page: number;
@@ -551,14 +553,14 @@ export const ticketService = {
 
     // Join with trucks, carriers, and drivers to get related data
     let query = supabase
-      .from("tickets")
+      .from(sourceTableName)
       .select(
         `
       *,
-      truck:trucks!tickets_truck_id_fkey (
+      truck:trucks!${sourceTableName}_truck_id_fkey (
         id,
         truck_id,
-        carrier:carriers (
+        carrier:companies (
           id,
           name
         )

@@ -43,7 +43,7 @@ export const truckService = {
       let query = supabase
         .from("trucks")
         .select(
-          "id, truck_id, carrier_id, created_at, updated_at, carriers(name)",
+          "id, truck_id, carrier_id, created_at, updated_at, companies(name)",
           {
             count: "exact",
           }
@@ -61,7 +61,7 @@ export const truckService = {
       // Map the data to include carrier_name
       let trucks = (data ?? []).map((truck: any) => ({
         ...truck,
-        carrier_name: truck.carriers?.name || "Unknown",
+        carrier_name: truck.companies?.name || "Unknown",
       })) as Truck[];
       const total = count ?? trucks.length;
 
@@ -141,7 +141,7 @@ export const truckService = {
       status,
       created_at,
       updated_at,
-      carriers(name),
+      companies(name),
       drivers:drivers!inner(
         id,
         name,

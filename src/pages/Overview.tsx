@@ -145,8 +145,10 @@ const Overview = () => {
       const truckId = t.truck_id || "";
       const searchKey = truckId.toLowerCase();
 
+       console.log("Truck:", t);
+
       // Extract carrier name from nested carriers object
-      const carrierName = t.carriers?.name || t.carrier_name || "Unknown";
+      const carrierName = t.carriers?.name || t.carrier_name || t.companies.name || "Unknown";
 
       // Extract driver name from nested active_driver object
       const driverName =
