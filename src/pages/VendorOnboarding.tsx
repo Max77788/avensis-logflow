@@ -103,6 +103,8 @@ const VendorOnboarding = () => {
 
   // Initial contract acceptance state (must accept before accessing form)
   const [initialContractAccepted, setInitialContractAccepted] = useState(false);
+  const [hasAgreedToInitialContract, setHasAgreedToInitialContract] =
+    useState(false);
 
   // Final contract acceptance state (on compliance tab)
   const [finalContractAccepted, setFinalContractAccepted] = useState(false);
@@ -352,7 +354,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
   }
 
   // Show initial contract acceptance screen before allowing access to form
-  if (!initialContractAccepted) {
+  if (!hasAgreedToInitialContract) {
     return (
       <div className="min-h-screen bg-background">
         <Header showHomeButton onHomeClick={() => navigate("/")} />
@@ -487,6 +489,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   disabled={!initialContractAccepted}
                   onClick={() => {
                     if (initialContractAccepted) {
+                      setHasAgreedToInitialContract(true);
                       toast({
                         title: "Terms Accepted",
                         description:
@@ -496,7 +499,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   }}
                 >
                   <CheckCircle2 className="mr-2 h-5 w-5" />
-                  Accept Terms and Continue to Onboarding
+                  Continue to Onboarding
                 </Button>
               </div>
             </Card>
