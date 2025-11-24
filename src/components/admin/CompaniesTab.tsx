@@ -18,9 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Search, Eye, Building2 } from "lucide-react";
-import { adminService, Company, CompanyStatus, CompanyType } from "@/lib/adminService";
+import { Plus, Search, Eye, Building2, Lock, KeyRound } from "lucide-react";
+import {
+  adminService,
+  Company,
+  CompanyStatus,
+  CompanyType,
+} from "@/lib/adminService";
 import { CreateCompanyDialog } from "./CreateCompanyDialog";
+import { SetPasswordDialog } from "./SetPasswordDialog";
 import { toast } from "@/hooks/use-toast";
 
 export const CompaniesTab = () => {
@@ -30,6 +36,8 @@ export const CompaniesTab = () => {
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -44,12 +52,17 @@ export const CompaniesTab = () => {
   };
 
   const filteredCompanies = companies.filter((company) => {
-    const matchesSearch = company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      company.primary_contact_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch =
+      company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      company.primary_contact_name
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
       company.contact_email?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesType = filterType === "all" || company.company_type === filterType;
-    const matchesStatus = filterStatus === "all" || company.status === filterStatus;
+
+    const matchesType =
+      filterType === "all" || company.company_type === filterType;
+    const matchesStatus =
+      filterStatus === "all" || company.status === filterStatus;
 
     return matchesSearch && matchesType && matchesStatus;
   });
@@ -117,7 +130,9 @@ export const CompaniesTab = () => {
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="Carrier">Carrier</SelectItem>
               <SelectItem value="Scale House">Scale House</SelectItem>
-              <SelectItem value="Destination Client">Destination Client</SelectItem>
+              <SelectItem value="Destination Client">
+                Destination Client
+              </SelectItem>
               <SelectItem value="Other">Other</SelectItem>
             </SelectContent>
           </Select>
@@ -128,8 +143,12 @@ export const CompaniesTab = () => {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="Draft">Draft</SelectItem>
-              <SelectItem value="Onboarding Invited">Onboarding Invited</SelectItem>
-              <SelectItem value="Onboarding In Progress">Onboarding In Progress</SelectItem>
+              <SelectItem value="Onboarding Invited">
+                Onboarding Invited
+              </SelectItem>
+              <SelectItem value="Onboarding In Progress">
+                Onboarding In Progress
+              </SelectItem>
               <SelectItem value="Active">Active</SelectItem>
               <SelectItem value="Suspended">Suspended</SelectItem>
             </SelectContent>
@@ -184,14 +203,37 @@ export const CompaniesTab = () => {
                   <TableCell>{company.primary_contact_name || "-"}</TableCell>
                   <TableCell>{company.contact_email || "-"}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/admin/companies/${company.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedCompany(company);
+                          setShowPasswordDialog(true);
+                        }}
+                        title={
+                          company.password_hash
+                            ? "Change password"
+                            : "Set password"
+                        }
+                      >
+                        {company.password_hash ? (
+                          <KeyRound className="h-4 w-4" />
+                        ) : (
+                          <Lock className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          navigate(`/admin/companies/${company.id}`)
+                        }
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -206,7 +248,16 @@ export const CompaniesTab = () => {
         onOpenChange={setShowCreateDialog}
         onSuccess={handleCompanyCreated}
       />
+
+      {/* Set Password Dialog */}
+      {selectedCompany && (
+        <SetPasswordDialog
+          open={showPasswordDialog}
+          onOpenChange={setShowPasswordDialog}
+          company={selectedCompany}
+          onSuccess={loadCompanies}
+        />
+      )}
     </div>
   );
 };
-

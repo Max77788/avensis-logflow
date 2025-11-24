@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -30,9 +30,12 @@ import {
   Upload,
   FileSpreadsheet,
   Download,
+  FileText,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import Papa from "papaparse";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface VendorFormData {
   // Company Details
@@ -86,6 +89,7 @@ interface VendorFormData {
 
 const VendorOnboarding = () => {
   const navigate = useNavigate();
+  const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState("company_details");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signature, setSignature] = useState<string>("");
@@ -97,8 +101,23 @@ const VendorOnboarding = () => {
   const [fleetCsvData, setFleetCsvData] = useState<any[]>([]);
   const [driverCsvData, setDriverCsvData] = useState<any[]>([]);
 
-  // Contract acceptance state
-  const [contractAccepted, setContractAccepted] = useState(false);
+  // Initial contract acceptance state (must accept before accessing form)
+  const [initialContractAccepted, setInitialContractAccepted] = useState(false);
+
+  // Final contract acceptance state (on compliance tab)
+  const [finalContractAccepted, setFinalContractAccepted] = useState(false);
+
+  // Check authentication
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to access the vendor onboarding portal",
+        variant: "destructive",
+      });
+      navigate("/vendor/login");
+    }
+  }, [user, authLoading, navigate]);
 
   const [formData, setFormData] = useState<VendorFormData>({
     vendor_company_name: "",
@@ -265,7 +284,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
   };
 
   const handleSubmit = async () => {
-    if (!contractAccepted) {
+    if (!finalContractAccepted) {
       toast({
         title: "Contract Acceptance Required",
         description:
@@ -294,7 +313,8 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
       console.log("Submitting vendor onboarding data:", formData);
       console.log("Fleet CSV data:", fleetCsvData);
       console.log("Driver CSV data:", driverCsvData);
-      console.log("Contract accepted:", contractAccepted);
+      console.log("Initial contract accepted:", initialContractAccepted);
+      console.log("Final contract accepted:", finalContractAccepted);
       console.log("Signature:", signature);
 
       // Simulate API call
@@ -318,6 +338,173 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
       setIsSubmitting(false);
     }
   };
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show initial contract acceptance screen before allowing access to form
+  if (!initialContractAccepted) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header showHomeButton onHomeClick={() => navigate("/")} />
+
+        <main className="container mx-auto px-4 py-8 max-w-4xl">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="text-center space-y-2">
+              <div className="flex justify-center mb-4">
+                <div className="p-4 bg-primary/10 rounded-full">
+                  <FileText className="h-12 w-12 text-primary" />
+                </div>
+              </div>
+              <h1 className="text-3xl font-bold text-foreground">
+                Vendor Service Agreement
+              </h1>
+              <p className="text-muted-foreground">
+                Please read and accept the terms before proceeding with
+                onboarding
+              </p>
+            </div>
+
+            {/* Contract Card */}
+            <Card className="shadow-lg">
+              <div className="p-8">
+                <div className="bg-muted p-6 rounded-lg max-h-[500px] overflow-y-auto mb-6">
+                  <div className="prose prose-sm max-w-none">
+                    <h4 className="font-semibold text-lg mb-4">
+                      VENDOR SERVICE AGREEMENT
+                    </h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      This Vendor Service Agreement ("Agreement") is entered
+                      into between the Company and the Vendor identified in this
+                      onboarding form.
+                    </p>
+
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      1. SCOPE OF SERVICES
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The Vendor agrees to provide transportation and logistics
+                      services as requested by the Company, including but not
+                      limited to the hauling of materials, equipment operation,
+                      and compliance with all applicable regulations.
+                    </p>
+
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      2. COMPLIANCE AND SAFETY
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The Vendor certifies that all drivers, vehicles, and
+                      equipment meet or exceed federal, state, and local safety
+                      requirements. The Vendor agrees to maintain current
+                      insurance, licenses, and certifications throughout the
+                      term of this Agreement.
+                    </p>
+
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      3. INSURANCE REQUIREMENTS
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The Vendor shall maintain comprehensive general liability
+                      insurance, commercial auto insurance, and workers'
+                      compensation insurance as required by law. Proof of
+                      insurance must be provided and kept current.
+                    </p>
+
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      4. INDEMNIFICATION
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The Vendor agrees to indemnify and hold harmless the
+                      Company from any claims, damages, or liabilities arising
+                      from the Vendor's performance of services under this
+                      Agreement.
+                    </p>
+
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      5. TERMINATION
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Either party may terminate this Agreement with written
+                      notice. The Company reserves the right to terminate
+                      immediately for cause, including safety violations or
+                      breach of contract terms.
+                    </p>
+
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      6. DATA PRIVACY AND CONFIDENTIALITY
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      The Vendor agrees to maintain the confidentiality of all
+                      Company information and comply with applicable data
+                      privacy regulations.
+                    </p>
+
+                    <p className="text-sm text-muted-foreground mt-8 italic">
+                      [Additional contract terms and conditions will be provided
+                      by the Company]
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 mb-6 p-4 bg-primary/5 rounded-lg">
+                  <Checkbox
+                    id="initial-contract-acceptance"
+                    checked={initialContractAccepted}
+                    onCheckedChange={(checked) =>
+                      setInitialContractAccepted(checked as boolean)
+                    }
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="initial-contract-acceptance"
+                      className="text-base font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      I have read and agree to the terms of this Vendor Service
+                      Agreement *
+                    </label>
+                    <p className="text-sm text-muted-foreground">
+                      By checking this box, you acknowledge that you have read,
+                      understood, and agree to be bound by the terms and
+                      conditions outlined above. You must accept these terms to
+                      proceed with the onboarding process.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  size="lg"
+                  className="w-full"
+                  disabled={!initialContractAccepted}
+                  onClick={() => {
+                    if (initialContractAccepted) {
+                      toast({
+                        title: "Terms Accepted",
+                        description:
+                          "You can now proceed with the onboarding form",
+                      });
+                    }
+                  }}
+                >
+                  <CheckCircle2 className="mr-2 h-5 w-5" />
+                  Accept Terms and Continue to Onboarding
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -1119,9 +1306,9 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                       <div className="flex items-start space-x-3 mb-6">
                         <Checkbox
                           id="contract-acceptance"
-                          checked={contractAccepted}
+                          checked={finalContractAccepted}
                           onCheckedChange={(checked) =>
-                            setContractAccepted(checked as boolean)
+                            setFinalContractAccepted(checked as boolean)
                           }
                         />
                         <div className="grid gap-1.5 leading-none">

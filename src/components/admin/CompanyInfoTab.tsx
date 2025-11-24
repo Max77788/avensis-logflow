@@ -9,9 +9,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { adminService, Company, CompanyType, CompanyStatus } from "@/lib/adminService";
-import { Loader2, Save } from "lucide-react";
+import {
+  adminService,
+  Company,
+  CompanyType,
+  CompanyStatus,
+} from "@/lib/adminService";
+import { Loader2, Save, Lock, KeyRound } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { SetPasswordDialog } from "./SetPasswordDialog";
 
 interface CompanyInfoTabProps {
   company: Company;
@@ -21,6 +27,7 @@ interface CompanyInfoTabProps {
 export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [formData, setFormData] = useState({
     name: company.name,
     company_type: company.company_type,
@@ -38,7 +45,7 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
     setIsSaving(true);
     try {
       const result = await adminService.updateCompany(company.id, formData);
-      
+
       if (result.success) {
         toast({
           title: "Success",
@@ -84,20 +91,46 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Company Information</h3>
-        {!isEditing ? (
-          <Button onClick={() => setIsEditing(true)}>Edit</Button>
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Save className="mr-2 h-4 w-4" />
-              Save
-            </Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          {/* Password Management Button */}
+          <Button
+            variant="outline"
+            onClick={() => setShowPasswordDialog(true)}
+            className="gap-2"
+          >
+            {company.password_hash ? (
+              <>
+                <KeyRound className="h-4 w-4" />
+                Change Password
+              </>
+            ) : (
+              <>
+                <Lock className="h-4 w-4" />
+                Set Password
+              </>
+            )}
+          </Button>
+
+          {/* Edit/Save Buttons */}
+          {!isEditing ? (
+            <Button onClick={() => setIsEditing(true)}>Edit</Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Save className="mr-2 h-4 w-4" />
+                Save
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4">
@@ -128,7 +161,9 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
             <SelectContent>
               <SelectItem value="Carrier">Carrier</SelectItem>
               <SelectItem value="Scale House">Scale House</SelectItem>
-              <SelectItem value="Destination Client">Destination Client</SelectItem>
+              <SelectItem value="Destination Client">
+                Destination Client
+              </SelectItem>
               <SelectItem value="Other">Other</SelectItem>
             </SelectContent>
           </Select>
@@ -149,8 +184,12 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="Draft">Draft</SelectItem>
-              <SelectItem value="Onboarding Invited">Onboarding Invited</SelectItem>
-              <SelectItem value="Onboarding In Progress">Onboarding In Progress</SelectItem>
+              <SelectItem value="Onboarding Invited">
+                Onboarding Invited
+              </SelectItem>
+              <SelectItem value="Onboarding In Progress">
+                Onboarding In Progress
+              </SelectItem>
               <SelectItem value="Active">Active</SelectItem>
               <SelectItem value="Suspended">Suspended</SelectItem>
             </SelectContent>
@@ -204,7 +243,9 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
           <Input
             id="address"
             value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, address: e.target.value })
+            }
             disabled={!isEditing}
           />
         </div>
@@ -216,7 +257,9 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
             <Input
               id="city"
               value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, city: e.target.value })
+              }
               disabled={!isEditing}
             />
           </div>
@@ -225,7 +268,9 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
             <Input
               id="state"
               value={formData.state}
-              onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, state: e.target.value })
+              }
               disabled={!isEditing}
             />
           </div>
@@ -234,13 +279,22 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
             <Input
               id="zip"
               value={formData.zip}
-              onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, zip: e.target.value })
+              }
               disabled={!isEditing}
             />
           </div>
         </div>
       </div>
+
+      {/* Password Management Dialog */}
+      <SetPasswordDialog
+        open={showPasswordDialog}
+        onOpenChange={setShowPasswordDialog}
+        company={company}
+        onSuccess={onUpdate}
+      />
     </div>
   );
 };
-

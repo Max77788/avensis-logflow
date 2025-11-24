@@ -10,7 +10,7 @@ import {
   Building2,
   Users,
   Truck,
-  UserCircle,
+  // UserCircle, // Not needed - Portal Users tab hidden
   Mail,
   MapPin,
   Shield,
@@ -18,7 +18,7 @@ import {
 import { adminService, Company } from "@/lib/adminService";
 import { CompanyInfoTab } from "@/components/admin/CompanyInfoTab";
 import { CompanyContactsTab } from "@/components/admin/CompanyContactsTab";
-import { CompanyPortalUsersTab } from "@/components/admin/CompanyPortalUsersTab";
+// import { CompanyPortalUsersTab } from "@/components/admin/CompanyPortalUsersTab"; // Hidden
 import { CompanyOnboardingTab } from "@/components/admin/CompanyOnboardingTab";
 import { CompanyFleetTab } from "@/components/admin/CompanyFleetTab";
 import { CompanySitesTab } from "@/components/admin/CompanySitesTab";
@@ -47,10 +47,7 @@ const CompanyDetail = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header
-          showHomeButton
-          onHomeClick={() => navigate("/")}
-        />
+        <Header showHomeButton onHomeClick={() => navigate("/")} />
         <main className="container mx-auto px-4 py-6">
           <div className="text-center py-12">Loading...</div>
         </main>
@@ -61,10 +58,7 @@ const CompanyDetail = () => {
   if (!company) {
     return (
       <div className="min-h-screen bg-background">
-        <Header
-          showHomeButton
-          onHomeClick={() => navigate("/")}
-        />
+        <Header showHomeButton onHomeClick={() => navigate("/")} />
         <main className="container mx-auto px-4 py-6">
           <div className="text-center py-12">Company not found</div>
         </main>
@@ -140,7 +134,7 @@ const CompanyDetail = () => {
           {/* Tabs */}
           <Card className="shadow-md">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5">
                 <TabsTrigger value="info" className="gap-2">
                   <Building2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Info</span>
@@ -149,10 +143,11 @@ const CompanyDetail = () => {
                   <Users className="h-4 w-4" />
                   <span className="hidden sm:inline">Contacts</span>
                 </TabsTrigger>
-                <TabsTrigger value="portal_users" className="gap-2">
+                {/* Portal Users tab hidden */}
+                {/* <TabsTrigger value="portal_users" className="gap-2">
                   <UserCircle className="h-4 w-4" />
                   <span className="hidden sm:inline">Portal Users</span>
-                </TabsTrigger>
+                </TabsTrigger> */}
                 <TabsTrigger value="onboarding" className="gap-2">
                   <Mail className="h-4 w-4" />
                   <span className="hidden sm:inline">Onboarding</span>
@@ -176,12 +171,19 @@ const CompanyDetail = () => {
                   <CompanyContactsTab companyId={company.id} />
                 </TabsContent>
 
-                <TabsContent value="portal_users" className="mt-0">
-                  <CompanyPortalUsersTab companyId={company.id} company={company} />
-                </TabsContent>
+                {/* Portal Users tab content hidden */}
+                {/* <TabsContent value="portal_users" className="mt-0">
+                  <CompanyPortalUsersTab
+                    companyId={company.id}
+                    company={company}
+                  />
+                </TabsContent> */}
 
                 <TabsContent value="onboarding" className="mt-0">
-                  <CompanyOnboardingTab company={company} onUpdate={loadCompany} />
+                  <CompanyOnboardingTab
+                    company={company}
+                    onUpdate={loadCompany}
+                  />
                 </TabsContent>
 
                 <TabsContent value="fleet" className="mt-0">
@@ -201,4 +203,3 @@ const CompanyDetail = () => {
 };
 
 export default CompanyDetail;
-

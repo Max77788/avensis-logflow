@@ -4,7 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Truck, User, QrCode, LogIn, BookOpen, Shield } from "lucide-react";
+import {
+  Truck,
+  User,
+  QrCode,
+  LogIn,
+  BookOpen,
+  Shield,
+  Building2,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -195,7 +203,7 @@ const Login = () => {
               </Card>
 
               {/* Driver Onboarding Button */}
-              <div className="flex justify-center pt-4 md:pt-8">
+              <div className="flex flex-col items-center gap-3 pt-4 md:pt-8">
                 <Button
                   variant="outline"
                   onClick={() => setShowOnboarding(true)}
@@ -204,6 +212,16 @@ const Login = () => {
                 >
                   <BookOpen className="h-4 w-4" />
                   Driver Onboarding
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/vendor/login")}
+                  className="gap-2"
+                  size="sm"
+                >
+                  <Building2 className="h-4 w-4" />
+                  Vendor Portal
                 </Button>
               </div>
 

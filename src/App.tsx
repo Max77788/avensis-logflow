@@ -26,6 +26,7 @@ import Overview from "./pages/Overview";
 import CarrierLogin from "./pages/CarrierLogin";
 import CarrierPortal from "./pages/CarrierPortal";
 import SetCarrierPassword from "./pages/SetCarrierPassword";
+import VendorLogin from "./pages/VendorLogin";
 import VendorOnboarding from "./pages/VendorOnboarding";
 import NotFound from "./pages/NotFound";
 import { initDatabase } from "./lib/initDatabase";
@@ -56,15 +57,20 @@ const App = () => {
                       path="/admin/set-carrier-password"
                       element={<SetCarrierPassword />}
                     />
+                    <Route path="/vendor/login" element={<VendorLogin />} />
                     <Route path="/overview" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />
                     <Route path="/tickets/create" element={<CreateTicket />} />
-                    <Route
-                      path="/vendor/onboarding"
-                      element={<VendorOnboarding />}
-                    />
 
                     {/* Protected routes - require authentication */}
+                    <Route
+                      path="/vendor/onboarding"
+                      element={
+                        <ProtectedRoute requiredRole="carrier">
+                          <VendorOnboarding />
+                        </ProtectedRoute>
+                      }
+                    />
                     <Route
                       path="/"
                       element={

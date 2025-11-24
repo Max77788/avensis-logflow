@@ -193,6 +193,8 @@ export const DestinationSitesTab = () => {
       site.city?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  
+
   const getCompanyName = (companyId: string) => {
     const company = companies.find((c) => c.id === companyId);
     return company?.name || "Unknown";

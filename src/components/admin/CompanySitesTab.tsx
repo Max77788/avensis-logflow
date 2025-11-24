@@ -77,7 +77,7 @@ export const CompanySitesTab = ({ companyId }: CompanySitesTabProps) => {
                 ) : (
                   destinationSites.map((site) => (
                     <TableRow key={site.id}>
-                      <TableCell className="font-medium">{site.site_name}</TableCell>
+                      <TableCell className="font-medium">{site.name}</TableCell>
                       <TableCell>{site.address || "-"}</TableCell>
                       <TableCell>{site.city || "-"}</TableCell>
                       <TableCell>{site.state || "-"}</TableCell>
@@ -116,7 +116,7 @@ export const CompanySitesTab = ({ companyId }: CompanySitesTabProps) => {
                 ) : (
                   pickupSites.map((site) => (
                     <TableRow key={site.id}>
-                      <TableCell className="font-medium">{site.site_name}</TableCell>
+                      <TableCell className="font-medium">{site.name}</TableCell>
                       <TableCell>{site.gps_location || "-"}</TableCell>
                       <TableCell>{site.address || "-"}</TableCell>
                       <TableCell>{site.description || "-"}</TableCell>
