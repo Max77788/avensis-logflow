@@ -96,7 +96,7 @@ const DriverDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex flex-col">
       {/* Header */}
-      <Header showHomeButton onHomeClick={() => navigate("/")} />
+      <Header showHomeButton onHomeClick={() => navigate("/home")} />
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

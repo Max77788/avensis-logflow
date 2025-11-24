@@ -132,7 +132,7 @@ const DriverSignUp = () => {
 
       // Redirect based on driver status
       if (result.data.status === "active") {
-        navigate("/");
+        navigate("/home");
       } else {
         navigate("/driver/profile");
       }

@@ -4,13 +4,7 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Building2,
-  MapPin,
-  Users,
-  Settings,
-  Plus,
-} from "lucide-react";
+import { Building2, MapPin, Users, Settings, Plus } from "lucide-react";
 import { CompaniesTab } from "@/components/admin/CompaniesTab";
 import { DestinationSitesTab } from "@/components/admin/DestinationSitesTab";
 import { PickupSitesTab } from "@/components/admin/PickupSitesTab";
@@ -23,7 +17,7 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-background">
       <Header
         showHomeButton
-        onHomeClick={() => navigate("/")}
+        onHomeClick={() => navigate("/home")}
         showLogoutButton
         onLogoutClick={() => navigate("/login")}
       />
@@ -82,4 +76,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-

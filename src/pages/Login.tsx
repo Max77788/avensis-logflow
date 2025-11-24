@@ -34,7 +34,7 @@ const Login = () => {
 
   const handleAttendantClick = () => {
     login("attendant");
-    navigate("/");
+    navigate("/home");
   };
 
   const handleAdminClick = () => {
@@ -68,7 +68,7 @@ const Login = () => {
 
         // Redirect based on driver status
         if (driver.status === "active") {
-          navigate("/");
+          navigate("/home");
         } else {
           navigate("/driver/profile");
         }

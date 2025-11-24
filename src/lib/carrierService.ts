@@ -170,6 +170,28 @@ export const carrierService = {
     }
   },
 
+  async updateCarrier(
+    carrierId: string,
+    updates: Partial<Carrier>,
+    tableName: string = "companies"
+  ): Promise<{ success: boolean; data?: Carrier; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from(tableName)
+        .update(updates as any)
+        .eq("id", carrierId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to update carrier";
+      console.error("Error updating carrier:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
   async setCarrierPassword(
     carrierId: string,
     password: string,
@@ -278,12 +300,13 @@ export const carrierService = {
 
   async createTruck(
     truckId: string,
-    carrierId: string
+    carrierId: string,
+    status: "active" | "inactive" = "active"
   ): Promise<{ success: boolean; data?: Truck; error?: string }> {
     try {
       const { data, error } = await supabase
         .from("trucks")
-        .insert({ truck_id: truckId, carrier_id: carrierId })
+        .insert({ truck_id: truckId, carrier_id: carrierId, status })
         .select()
         .single();
 
@@ -292,6 +315,45 @@ export const carrierService = {
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to create truck";
       console.error("Error creating truck:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  async updateTruck(
+    truckUuid: string,
+    updates: Partial<Truck>
+  ): Promise<{ success: boolean; data?: Truck; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from("trucks")
+        .update(updates as any)
+        .eq("id", truckUuid)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to update truck";
+      console.error("Error updating truck:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  async deleteTruck(
+    truckUuid: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase
+        .from("trucks")
+        .delete()
+        .eq("id", truckUuid);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to delete truck";
+      console.error("Error deleting truck:", error);
       return { success: false, error: errorMessage };
     }
   },
@@ -498,6 +560,45 @@ export const carrierService = {
     } catch (error: any) {
       const errorMessage = error?.message || "Failed to update driver status";
       console.error("Error updating driver status:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  async updateDriver(
+    driverId: string,
+    updates: Partial<Driver>
+  ): Promise<{ success: boolean; data?: Driver; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from("drivers")
+        .update(updates as any)
+        .eq("id", driverId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to update driver";
+      console.error("Error updating driver:", error);
+      return { success: false, error: errorMessage };
+    }
+  },
+
+  async deleteDriver(
+    driverId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase
+        .from("drivers")
+        .delete()
+        .eq("id", driverId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error?.message || "Failed to delete driver";
+      console.error("Error deleting driver:", error);
       return { success: false, error: errorMessage };
     }
   },

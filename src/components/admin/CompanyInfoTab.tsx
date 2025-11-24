@@ -18,6 +18,7 @@ import {
 import { Loader2, Save, Lock, KeyRound } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SetPasswordDialog } from "./SetPasswordDialog";
+import { OnboardingRibbon } from "./OnboardingRibbon";
 
 interface CompanyInfoTabProps {
   company: Company;
@@ -32,9 +33,6 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
     name: company.name,
     company_type: company.company_type,
     status: company.status,
-    primary_contact_name: company.primary_contact_name || "",
-    contact_email: company.contact_email || "",
-    contact_phone: company.contact_phone || "",
     address: company.address || "",
     city: company.city || "",
     state: company.state || "",
@@ -76,9 +74,6 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
       name: company.name,
       company_type: company.company_type,
       status: company.status,
-      primary_contact_name: company.primary_contact_name || "",
-      contact_email: company.contact_email || "",
-      contact_phone: company.contact_phone || "",
       address: company.address || "",
       city: company.city || "",
       state: company.state || "",
@@ -89,6 +84,9 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Onboarding Progress Ribbon */}
+      <OnboardingRibbon company={company} />
+
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Company Information</h3>
         <div className="flex gap-2">
@@ -194,47 +192,6 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
               <SelectItem value="Suspended">Suspended</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-
-        {/* Primary Contact */}
-        <div className="grid gap-2">
-          <Label htmlFor="primary_contact_name">Primary Contact Name</Label>
-          <Input
-            id="primary_contact_name"
-            value={formData.primary_contact_name}
-            onChange={(e) =>
-              setFormData({ ...formData, primary_contact_name: e.target.value })
-            }
-            disabled={!isEditing}
-          />
-        </div>
-
-        {/* Contact Email */}
-        <div className="grid gap-2">
-          <Label htmlFor="contact_email">Contact Email</Label>
-          <Input
-            id="contact_email"
-            type="email"
-            value={formData.contact_email}
-            onChange={(e) =>
-              setFormData({ ...formData, contact_email: e.target.value })
-            }
-            disabled={!isEditing}
-          />
-        </div>
-
-        {/* Contact Phone */}
-        <div className="grid gap-2">
-          <Label htmlFor="contact_phone">Contact Phone</Label>
-          <Input
-            id="contact_phone"
-            type="tel"
-            value={formData.contact_phone}
-            onChange={(e) =>
-              setFormData({ ...formData, contact_phone: e.target.value })
-            }
-            disabled={!isEditing}
-          />
         </div>
 
         {/* Address */}

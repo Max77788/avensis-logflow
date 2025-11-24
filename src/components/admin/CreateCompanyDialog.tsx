@@ -37,9 +37,6 @@ export const CreateCompanyDialog = ({
     name: "",
     company_type: "Carrier" as CompanyType,
     status: "Draft" as CompanyStatus,
-    primary_contact_name: "",
-    contact_email: "",
-    contact_phone: "",
     address: "",
     city: "",
     state: "",
@@ -52,7 +49,7 @@ export const CreateCompanyDialog = ({
 
     try {
       const result = await adminService.createCompany(formData);
-      
+
       if (result.success) {
         toast({
           title: "Success",
@@ -64,9 +61,6 @@ export const CreateCompanyDialog = ({
           name: "",
           company_type: "Carrier",
           status: "Draft",
-          primary_contact_name: "",
-          contact_email: "",
-          contact_phone: "",
           address: "",
           city: "",
           state: "",
@@ -108,7 +102,9 @@ export const CreateCompanyDialog = ({
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 required
               />
             </div>
@@ -119,7 +115,10 @@ export const CreateCompanyDialog = ({
               <Select
                 value={formData.company_type}
                 onValueChange={(value) =>
-                  setFormData({ ...formData, company_type: value as CompanyType })
+                  setFormData({
+                    ...formData,
+                    company_type: value as CompanyType,
+                  })
                 }
               >
                 <SelectTrigger>
@@ -128,7 +127,9 @@ export const CreateCompanyDialog = ({
                 <SelectContent>
                   <SelectItem value="Carrier">Carrier</SelectItem>
                   <SelectItem value="Scale House">Scale House</SelectItem>
-                  <SelectItem value="Destination Client">Destination Client</SelectItem>
+                  <SelectItem value="Destination Client">
+                    Destination Client
+                  </SelectItem>
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -148,50 +149,16 @@ export const CreateCompanyDialog = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Draft">Draft</SelectItem>
-                  <SelectItem value="Onboarding Invited">Onboarding Invited</SelectItem>
-                  <SelectItem value="Onboarding In Progress">Onboarding In Progress</SelectItem>
+                  <SelectItem value="Onboarding Invited">
+                    Onboarding Invited
+                  </SelectItem>
+                  <SelectItem value="Onboarding In Progress">
+                    Onboarding In Progress
+                  </SelectItem>
                   <SelectItem value="Active">Active</SelectItem>
                   <SelectItem value="Suspended">Suspended</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Primary Contact */}
-            <div className="grid gap-2">
-              <Label htmlFor="primary_contact_name">Primary Contact Name</Label>
-              <Input
-                id="primary_contact_name"
-                value={formData.primary_contact_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, primary_contact_name: e.target.value })
-                }
-              />
-            </div>
-
-            {/* Contact Email */}
-            <div className="grid gap-2">
-              <Label htmlFor="contact_email">Contact Email</Label>
-              <Input
-                id="contact_email"
-                type="email"
-                value={formData.contact_email}
-                onChange={(e) =>
-                  setFormData({ ...formData, contact_email: e.target.value })
-                }
-              />
-            </div>
-
-            {/* Contact Phone */}
-            <div className="grid gap-2">
-              <Label htmlFor="contact_phone">Contact Phone</Label>
-              <Input
-                id="contact_phone"
-                type="tel"
-                value={formData.contact_phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, contact_phone: e.target.value })
-                }
-              />
             </div>
 
             {/* Address */}
@@ -200,7 +167,9 @@ export const CreateCompanyDialog = ({
               <Input
                 id="address"
                 value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, address: e.target.value })
+                }
               />
             </div>
 
@@ -211,7 +180,9 @@ export const CreateCompanyDialog = ({
                 <Input
                   id="city"
                   value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, city: e.target.value })
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -219,7 +190,9 @@ export const CreateCompanyDialog = ({
                 <Input
                   id="state"
                   value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, state: e.target.value })
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -227,7 +200,9 @@ export const CreateCompanyDialog = ({
                 <Input
                   id="zip"
                   value={formData.zip}
-                  onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, zip: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -243,7 +218,9 @@ export const CreateCompanyDialog = ({
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Create Company
             </Button>
           </DialogFooter>
@@ -252,4 +229,3 @@ export const CreateCompanyDialog = ({
     </Dialog>
   );
 };
-

@@ -90,7 +90,7 @@ const Admin = () => {
       {/* Header */}
       <Header
         showHomeButton
-        onHomeClick={() => navigate("/")}
+        onHomeClick={() => navigate("/home")}
         showLogoutButton
         onLogoutClick={() => setShowLogoutWarning(true)}
       />

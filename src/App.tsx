@@ -50,6 +50,7 @@ const App = () => {
                 <BrowserRouter>
                   <Routes>
                     {/* Public routes */}
+                    <Route path="/" element={<Login />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/driver/signup" element={<DriverSignUp />} />
                     <Route path="/carrier/login" element={<CarrierLogin />} />
@@ -72,7 +73,7 @@ const App = () => {
                       }
                     />
                     <Route
-                      path="/"
+                      path="/home"
                       element={
                         <ProtectedRoute>
                           <Index />

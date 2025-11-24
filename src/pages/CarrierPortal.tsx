@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Header } from "@/components/Header";
 import { LogoutModal } from "@/components/LogoutModal";
+import { CarrierCompanyModal } from "@/components/carrier/CarrierCompanyModal";
 import {
   Search,
   Download,
@@ -59,6 +60,7 @@ const CarrierPortal = () => {
   const [carrierName, setCarrierName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [showLogoutWarning, setShowLogoutWarning] = useState(false);
+  const [showCompanyModal, setShowCompanyModal] = useState(false);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -104,13 +106,11 @@ const CarrierPortal = () => {
         }
 
         // Get all tickets
-        const allTickets = await ticketService.getAllTickets(
-          {
-            // sourceTableName: "tickets_duplicate_for_reports"
-          }
-        );
-        
-        console.log(`All tickets: ${allTickets.length}`)
+        const allTickets = await ticketService.getAllTickets({
+          sourceTableName: "tickets_duplicate_for_reports",
+        });
+
+        console.log(`All tickets: ${allTickets.length}`);
 
         // Filter tickets for this carrier
         const carrierTickets = allTickets.filter(
@@ -342,6 +342,8 @@ const CarrierPortal = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <Header
+        showSettingsButton
+        onSettingsClick={() => setShowCompanyModal(true)}
         showLogoutButton
         onLogoutClick={() => setShowLogoutWarning(true)}
         showHomeButton
@@ -663,6 +665,15 @@ const CarrierPortal = () => {
         onOpenChange={setShowLogoutWarning}
         redirectPath="/carrier/login"
       />
+
+      {/* Company Settings Modal */}
+      {user && (
+        <CarrierCompanyModal
+          open={showCompanyModal}
+          onOpenChange={setShowCompanyModal}
+          carrierId={user.id}
+        />
+      )}
 
       {/* Export Column Selection Dialog */}
       <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>

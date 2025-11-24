@@ -36,6 +36,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import Papa from "papaparse";
 import { useAuth } from "@/contexts/AuthContext";
+import { APP_TITLE } from "@/lib/config";
 
 interface VendorFormData {
   // Company Details
@@ -93,9 +94,15 @@ const VendorOnboarding = () => {
   const [activeTab, setActiveTab] = useState("company_details");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signature, setSignature] = useState<string>("");
+  const [signerName, setSignerName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fleetCsvInputRef = useRef<HTMLInputElement>(null);
   const driverCsvInputRef = useRef<HTMLInputElement>(null);
+
+  // Track completed tabs
+  const [completedTabs, setCompletedTabs] = useState<string[]>([
+    "company_details",
+  ]);
 
   // CSV upload state
   const [fleetCsvData, setFleetCsvData] = useState<any[]>([]);
@@ -261,6 +268,8 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     window.URL.revokeObjectURL(url);
   };
 
+
+
   const tabOrder = [
     "company_details",
     "contacts",
@@ -273,9 +282,82 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
   const isLastTab = currentTabIndex === tabOrder.length - 1;
   const isFirstTab = currentTabIndex === 0;
 
+  const validateCurrentTab = (): boolean => {
+    switch (activeTab) {
+      case "company_details":
+        if (
+          !formData.vendor_company_name ||
+          !formData.business_address ||
+          !formData.city ||
+          !formData.state ||
+          !formData.zip
+        ) {
+          toast({
+            title: "Required Fields Missing",
+            description:
+              "Please fill in all required fields in Company Details",
+            variant: "destructive",
+          });
+          return false;
+        }
+        return true;
+      case "contacts":
+        if (
+          !formData.primary_contact_name ||
+          !formData.contact_email ||
+          !formData.contact_phone
+        ) {
+          toast({
+            title: "Required Fields Missing",
+            description: "Please fill in all required fields in Contacts",
+            variant: "destructive",
+          });
+          return false;
+        }
+        return true;
+      case "fleet_details":
+        if (
+          !formData.truck_id ||
+          !formData.license_plate ||
+          !formData.truck_type
+        ) {
+          toast({
+            title: "Required Fields Missing",
+            description: "Please fill in all required fields in Fleet Details",
+            variant: "destructive",
+          });
+          return false;
+        }
+        return true;
+      case "driver_details":
+        if (
+          !formData.driver_name ||
+          !formData.phone_number ||
+          !formData.license_number
+        ) {
+          toast({
+            title: "Required Fields Missing",
+            description: "Please fill in all required fields in Driver Details",
+            variant: "destructive",
+          });
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  };
+
   const handleNext = () => {
     if (!isLastTab) {
-      setActiveTab(tabOrder[currentTabIndex + 1]);
+      if (validateCurrentTab()) {
+        const nextTab = tabOrder[currentTabIndex + 1];
+        setActiveTab(nextTab);
+        // Mark next tab as available
+        if (!completedTabs.includes(nextTab)) {
+          setCompletedTabs([...completedTabs, nextTab]);
+        }
+      }
     }
   };
 
@@ -286,22 +368,11 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
   };
 
   const handleSubmit = async () => {
-    if (!finalContractAccepted) {
+    if (!signerName) {
       toast({
-        title: "Contract Acceptance Required",
+        title: "Signer Name Required",
         description:
-          "Please read and accept the Vendor Service Agreement on the Compliance & Safety tab",
-        variant: "destructive",
-      });
-      setActiveTab("compliance_and_safety");
-      return;
-    }
-
-    if (!signature) {
-      toast({
-        title: "Signature Required",
-        description:
-          "Please provide your signature on the Compliance & Safety tab",
+          "Please provide the signer name on the Compliance & Safety tab",
         variant: "destructive",
       });
       setActiveTab("compliance_and_safety");
@@ -316,8 +387,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
       console.log("Fleet CSV data:", fleetCsvData);
       console.log("Driver CSV data:", driverCsvData);
       console.log("Initial contract accepted:", initialContractAccepted);
-      console.log("Final contract accepted:", finalContractAccepted);
-      console.log("Signature:", signature);
+      console.log("Signer Name:", signerName);
 
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -380,83 +450,124 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
             {/* Contract Card */}
             <Card className="shadow-lg">
               <div className="p-8">
+                
                 <div className="bg-muted p-6 rounded-lg max-h-[500px] overflow-y-auto mb-6">
-                  <div className="prose prose-sm max-w-none">
-                    <h4 className="font-semibold text-lg mb-4">
-                      VENDOR SERVICE AGREEMENT
-                    </h4>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      This Vendor Service Agreement ("Agreement") is entered
-                      into between the Company and the Vendor identified in this
-                      onboarding form.
-                    </p>
+  <div className="prose prose-sm max-w-none">
+    <h4 className="font-semibold text-lg mb-4">
+      {APP_TITLE} APP USAGE AGREEMENT
+    </h4>
 
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      1. SCOPE OF SERVICES
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      The Vendor agrees to provide transportation and logistics
-                      services as requested by the Company, including but not
-                      limited to the hauling of materials, equipment operation,
-                      and compliance with all applicable regulations.
-                    </p>
+    <p className="text-sm text-muted-foreground mb-4">
+      This App Usage Agreement ("Agreement") governs the use of the {APP_TITLE} digital platform ("Platform"),
+      powered by FusionIQ Labs LLC, by any trucking or transportation vendor ("Vendor") and its authorized
+      users. By selecting "I Agree", the Vendor acknowledges that it has read, understood, and accepted the
+      terms of this Agreement. Last updated: [Insert Date].
+    </p>
 
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      2. COMPLIANCE AND SAFETY
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      The Vendor certifies that all drivers, vehicles, and
-                      equipment meet or exceed federal, state, and local safety
-                      requirements. The Vendor agrees to maintain current
-                      insurance, licenses, and certifications throughout the
-                      term of this Agreement.
-                    </p>
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      1. PURPOSE
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      {APP_TITLE} provides a secure, paperless environment for creating, verifying, and managing load tickets
+      and delivery documentation. The Platform supports Avensis Energy LLC and its approved vendors in
+      executing digital hauling operations.
+    </p>
 
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      3. INSURANCE REQUIREMENTS
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      The Vendor shall maintain comprehensive general liability
-                      insurance, commercial auto insurance, and workers'
-                      compensation insurance as required by law. Proof of
-                      insurance must be provided and kept current.
-                    </p>
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      2. PLATFORM ACCESS
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      Vendors may access the Platform solely for legitimate business activities authorized by Avensis Energy.
+      Login credentials are for internal company use only and must not be shared or transferred. {APP_TITLE} may
+      monitor usage to maintain system security and performance.
+    </p>
 
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      4. INDEMNIFICATION
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      The Vendor agrees to indemnify and hold harmless the
-                      Company from any claims, damages, or liabilities arising
-                      from the Vendor's performance of services under this
-                      Agreement.
-                    </p>
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      3. PLATFORM FEES
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      A Platform Fee of USD $1.00 per load processed through {APP_TITLE} applies. The fee will be automatically
+      deducted from Vendor payout settlements processed through Avensis Energy. {APP_TITLE} may adjust this fee
+      with a minimum of 30 days’ notice, provided through the app or in writing.
+    </p>
 
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      5. TERMINATION
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Either party may terminate this Agreement with written
-                      notice. The Company reserves the right to terminate
-                      immediately for cause, including safety violations or
-                      breach of contract terms.
-                    </p>
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      4. DATA OWNERSHIP
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      All operational data related to loads—including pickup and delivery details, ticket images, signatures,
+      weights, and GPS data—are owned by Avensis Energy LLC. FusionIQ Labs LLC retains ownership of the software,
+      code, workflows, and analytics comprising the {APP_TITLE} Platform. The Vendor grants {APP_TITLE} and Avensis
+      Energy permission to use Vendor-submitted data for operational processing, audits, and compliance.
+    </p>
 
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      6. DATA PRIVACY AND CONFIDENTIALITY
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      The Vendor agrees to maintain the confidentiality of all
-                      Company information and comply with applicable data
-                      privacy regulations.
-                    </p>
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      5. CONFIDENTIALITY & DATA PROTECTION
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      {APP_TITLE} implements reasonable technical and administrative safeguards to protect data entered into the
+      Platform. Vendors must not attempt to access, obtain, or disclose data belonging to other parties.
+    </p>
 
-                    <p className="text-sm text-muted-foreground mt-8 italic">
-                      [Additional contract terms and conditions will be provided
-                      by the Company]
-                    </p>
-                  </div>
-                </div>
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      6. SERVICE NATURE
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      {APP_TITLE} is not a broker, carrier, dispatcher, or employer of the Vendor or its drivers. It functions
+      solely as a digital documentation and workflow system. Vendors remain fully responsible for their own
+      operations, equipment, and personnel.
+    </p>
+
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      7. LIMITATION OF LIABILITY
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      {APP_TITLE} and FusionIQ Labs LLC are not liable for any indirect, incidental, or consequential damages
+      arising from Platform use. Total liability to any Vendor shall not exceed the Platform Fees charged for
+      that Vendor’s loads during the three (3) months preceding any claim.
+    </p>
+
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      8. SUSPENSION OF ACCESS
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      {APP_TITLE} may suspend or revoke Platform access if a Vendor misuses the system, introduces security risks,
+      or engages in fraudulent activity. Because billing is handled through Avensis Energy, suspension affects
+      access only and does not modify payment obligations between Avensis Energy and FusionIQ Labs.
+    </p>
+
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      9. UPDATES TO TERMS
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      {APP_TITLE} may update this Agreement from time to time. Continued use of the Platform after notice of any
+      update constitutes acceptance of the revised terms.
+    </p>
+
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      10. GOVERNING LAW & DISPUTE RESOLUTION
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      This Agreement is governed by the laws of the State of Texas. Any dispute will first be addressed through
+      informal discussion, and if unresolved, through arbitration held in Texas.
+    </p>
+
+    <h5 className="font-semibold text-base mt-6 mb-3">
+      11. ACKNOWLEDGMENT
+    </h5>
+    <p className="text-sm text-muted-foreground mb-4">
+      By clicking "I Agree", the Vendor confirms that:
+      <br />• It is authorized to act on behalf of its company;
+      <br />• It understands {APP_TITLE} is a digital documentation service only; and
+      <br />• It agrees to the USD $1.00 per load Platform Fee and all terms listed above.
+    </p>
+
+    <p className="text-sm text-muted-foreground mt-8 italic">
+      © 2025 {APP_TITLE} — Powered by FusionIQ Labs LLC. All Rights Reserved.
+    </p>
+  </div>
+</div>
+
 
                 <div className="flex items-start space-x-3 mb-6 p-4 bg-primary/5 rounded-lg">
                   <Checkbox
@@ -530,44 +641,124 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
           <Card className="shadow-md">
             <Tabs
               value={activeTab}
-              onValueChange={setActiveTab}
+              onValueChange={(value) => {
+                // Only allow switching to completed tabs
+                if (completedTabs.includes(value)) {
+                  setActiveTab(value);
+                }
+              }}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-5 h-auto">
+              <TabsList className="grid w-full grid-cols-5 h-auto p-4 bg-muted/50">
                 <TabsTrigger
                   value="company_details"
-                  className="flex flex-col items-center gap-1 py-3"
+                  disabled={!completedTabs.includes("company_details")}
+                  className={`flex flex-col items-center gap-2 py-4 ${
+                    !completedTabs.includes("company_details")
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
                 >
-                  <Building2 className="h-4 w-4" />
-                  <span className="text-xs">Company</span>
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
+                      activeTab === "company_details"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : completedTabs.includes("company_details")
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "bg-red-500 border-red-500 text-white"
+                    }`}
+                  >
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium">Company</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="contacts"
-                  className="flex flex-col items-center gap-1 py-3"
+                  disabled={!completedTabs.includes("contacts")}
+                  className={`flex flex-col items-center gap-2 py-4 ${
+                    !completedTabs.includes("contacts")
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
                 >
-                  <Users className="h-4 w-4" />
-                  <span className="text-xs">Contacts</span>
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
+                      activeTab === "contacts"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : completedTabs.includes("contacts")
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "bg-red-500 border-red-500 text-white"
+                    }`}
+                  >
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium">Contacts</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="fleet_details"
-                  className="flex flex-col items-center gap-1 py-3"
+                  disabled={!completedTabs.includes("fleet_details")}
+                  className={`flex flex-col items-center gap-2 py-4 ${
+                    !completedTabs.includes("fleet_details")
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
                 >
-                  <Truck className="h-4 w-4" />
-                  <span className="text-xs">Fleet</span>
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
+                      activeTab === "fleet_details"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : completedTabs.includes("fleet_details")
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "bg-red-500 border-red-500 text-white"
+                    }`}
+                  >
+                    <Truck className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium">Fleet</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="driver_details"
-                  className="flex flex-col items-center gap-1 py-3"
+                  disabled={!completedTabs.includes("driver_details")}
+                  className={`flex flex-col items-center gap-2 py-4 ${
+                    !completedTabs.includes("driver_details")
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
                 >
-                  <UserCircle className="h-4 w-4" />
-                  <span className="text-xs">Driver</span>
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
+                      activeTab === "driver_details"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : completedTabs.includes("driver_details")
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "bg-red-500 border-red-500 text-white"
+                    }`}
+                  >
+                    <UserCircle className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium">Drivers</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="compliance_and_safety"
-                  className="flex flex-col items-center gap-1 py-3"
+                  disabled={!completedTabs.includes("compliance_and_safety")}
+                  className={`flex flex-col items-center gap-2 py-4 ${
+                    !completedTabs.includes("compliance_and_safety")
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
                 >
-                  <Shield className="h-4 w-4" />
-                  <span className="text-xs">Compliance</span>
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
+                      activeTab === "compliance_and_safety"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : completedTabs.includes("compliance_and_safety")
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "bg-red-500 border-red-500 text-white"
+                    }`}
+                  >
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium">Compliance</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -1229,135 +1420,43 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                     )}
                   </div>
 
-                  {/* Contract Agreement Section */}
+                  {/* Signer Name Section */}
                   <div className="space-y-2 md:col-span-2 mt-6">
                     <div className="border-t pt-6">
                       <h3 className="text-lg font-semibold mb-4">
-                        Vendor Agreement
-                      </h3>
-                      <div className="bg-muted p-6 rounded-lg max-h-96 overflow-y-auto mb-4">
-                        <div className="prose prose-sm max-w-none">
-                          <h4 className="font-semibold text-base mb-3">
-                            VENDOR SERVICE AGREEMENT
-                          </h4>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            This Vendor Service Agreement ("Agreement") is
-                            entered into between the Company and the Vendor
-                            identified in this onboarding form.
-                          </p>
-
-                          <h5 className="font-semibold text-sm mt-4 mb-2">
-                            1. SCOPE OF SERVICES
-                          </h5>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            The Vendor agrees to provide transportation and
-                            logistics services as requested by the Company,
-                            including but not limited to the hauling of
-                            materials, equipment operation, and compliance with
-                            all applicable regulations.
-                          </p>
-
-                          <h5 className="font-semibold text-sm mt-4 mb-2">
-                            2. COMPLIANCE AND SAFETY
-                          </h5>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            The Vendor certifies that all drivers, vehicles, and
-                            equipment meet or exceed federal, state, and local
-                            safety requirements. The Vendor agrees to maintain
-                            current insurance, licenses, and certifications
-                            throughout the term of this Agreement.
-                          </p>
-
-                          <h5 className="font-semibold text-sm mt-4 mb-2">
-                            3. INSURANCE REQUIREMENTS
-                          </h5>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            The Vendor shall maintain comprehensive general
-                            liability insurance, commercial auto insurance, and
-                            workers' compensation insurance as required by law.
-                            Proof of insurance must be provided and kept
-                            current.
-                          </p>
-
-                          <h5 className="font-semibold text-sm mt-4 mb-2">
-                            4. INDEMNIFICATION
-                          </h5>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            The Vendor agrees to indemnify and hold harmless the
-                            Company from any claims, damages, or liabilities
-                            arising from the Vendor's performance of services
-                            under this Agreement.
-                          </p>
-
-                          <h5 className="font-semibold text-sm mt-4 mb-2">
-                            5. TERMINATION
-                          </h5>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Either party may terminate this Agreement with
-                            written notice. The Company reserves the right to
-                            terminate immediately for cause, including safety
-                            violations or breach of contract terms.
-                          </p>
-
-                          <p className="text-sm text-muted-foreground mt-6 italic">
-                            [Additional contract terms and conditions will be
-                            provided by the Company]
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start space-x-3 mb-6">
-                        <Checkbox
-                          id="contract-acceptance"
-                          checked={finalContractAccepted}
-                          onCheckedChange={(checked) =>
-                            setFinalContractAccepted(checked as boolean)
-                          }
-                        />
-                        <div className="grid gap-1.5 leading-none">
-                          <label
-                            htmlFor="contract-acceptance"
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                          >
-                            I have read and agree to the terms of this Vendor
-                            Service Agreement *
-                          </label>
-                          <p className="text-sm text-muted-foreground">
-                            By checking this box, you acknowledge that you have
-                            read, understood, and agree to be bound by the terms
-                            and conditions outlined above.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Signature Section */}
-                  <div className="space-y-2 md:col-span-2 mt-6">
-                    <div className="border-t pt-6">
-                      <h3 className="text-lg font-semibold mb-4">
-                        Signature *
+                        Authorized Signer *
                       </h3>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Please sign below to confirm all information provided is
-                        accurate and complete.
+                        Please provide the name of the authorized person signing
+                        this onboarding form. This name will serve as your
+                        digital signature.
                       </p>
-                      <div className="bg-background rounded-lg">
-                        <SignaturePad
-                          onSave={(data) => setSignature(data)}
-                          label="Vendor Signature"
+                      <div className="space-y-2">
+                        <Label htmlFor="signer_name">Signer Name *</Label>
+                        <Input
+                          id="signer_name"
+                          value={signerName}
+                          onChange={(e) => setSignerName(e.target.value)}
+                          placeholder="Enter full name of authorized signer"
+                          className="max-w-md"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          By providing your name, you confirm that all
+                          information provided is accurate and complete, and you
+                          are authorized to sign on behalf of the company.
+                        </p>
                       </div>
-                      {signature && (
-                        <div className="mt-4">
+                      {signerName && (
+                        <div className="mt-4 p-4 bg-muted rounded-lg max-w-md">
                           <p className="text-sm font-medium mb-2">
-                            Signature Preview:
+                            Digital Signature:
                           </p>
-                          <img
-                            src={signature}
-                            alt="Signature"
-                            className="h-32 w-full rounded border border-border object-contain bg-white"
-                          />
+                          <p className="text-lg font-serif italic">
+                            {signerName}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Signed on {new Date().toLocaleDateString()}
+                          </p>
                         </div>
                       )}
                     </div>

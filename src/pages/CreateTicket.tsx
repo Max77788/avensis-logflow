@@ -376,7 +376,7 @@ const CreateTicket = () => {
         } else {
           // For drivers creating tickets normally, redirect to home/dashboard
           if (user?.role === "driver") {
-            navigate(`/`);
+            navigate(`/home`);
           } else {
             // For other users (attendants, carriers), redirect to overview
             navigate(`/overview`);

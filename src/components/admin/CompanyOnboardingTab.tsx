@@ -21,7 +21,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Mail, CheckCircle2, Circle, Loader2, Send } from "lucide-react";
-import { adminService, Company, OnboardingEmail, PortalUser } from "@/lib/adminService";
+import {
+  adminService,
+  Company,
+  OnboardingEmail,
+  PortalUser,
+} from "@/lib/adminService";
 import { toast } from "@/hooks/use-toast";
 
 interface CompanyOnboardingTabProps {
@@ -135,125 +140,121 @@ export const CompanyOnboardingTab = ({
     }
   };
 
+  // Define onboarding stages
+  const stages = [
+    {
+      id: "agreement",
+      label: "Agreement",
+      status: company.agreement_status,
+      isComplete:
+        company.agreement_status === "Complete" ||
+        company.agreement_status === "Accepted",
+      subtitle: company.agreement_accepted_at
+        ? new Date(company.agreement_accepted_at).toLocaleDateString()
+        : "Not accepted",
+    },
+    {
+      id: "company_details",
+      label: "Company Details",
+      status: company.company_details_status,
+      isComplete: company.company_details_status === "Complete",
+      subtitle: "",
+    },
+    {
+      id: "contacts",
+      label: "Contacts",
+      status: company.contacts_status,
+      isComplete: company.contacts_status === "Complete",
+      subtitle: `${stats.contacts_count} contact(s)`,
+    },
+    {
+      id: "fleet",
+      label: "Fleet",
+      status: company.fleet_status,
+      isComplete: company.fleet_status === "Complete",
+      subtitle: `${stats.trucks_count} truck(s)`,
+    },
+    {
+      id: "drivers",
+      label: "Drivers",
+      status: company.drivers_status,
+      isComplete: company.drivers_status === "Complete",
+      subtitle: `${stats.drivers_count} driver(s)`,
+    },
+    {
+      id: "portal_access",
+      label: "Portal Access",
+      status: company.portal_access_enabled ? "Complete" : "Not Started",
+      isComplete: company.portal_access_enabled,
+      subtitle: company.portal_activated_at
+        ? new Date(company.portal_activated_at).toLocaleDateString()
+        : "Not activated",
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Onboarding Progress */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Onboarding Progress</h3>
-        <div className="space-y-4">
-          {/* Agreement Status */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {company.agreement_status === "Accepted" ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              ) : (
-                <Circle className="h-5 w-5 text-muted-foreground" />
-              )}
-              <div>
-                <p className="font-medium">Agreement</p>
-                <p className="text-sm text-muted-foreground">
-                  {company.agreement_accepted_at
-                    ? `Accepted on ${new Date(company.agreement_accepted_at).toLocaleDateString()}`
-                    : "Not accepted yet"}
-                </p>
-              </div>
-            </div>
-            {getStatusBadge(company.agreement_status)}
-          </div>
+      {/* Onboarding Progress Ribbon */}
+      <Card className="p-8">
+        <h3 className="text-lg font-semibold mb-8 text-center">
+          Onboarding Progress
+        </h3>
 
-          {/* Company Details */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {company.company_details_status === "Complete" ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              ) : (
-                <Circle className="h-5 w-5 text-muted-foreground" />
-              )}
-              <div>
-                <p className="font-medium">Company Details</p>
-              </div>
-            </div>
-            {getStatusBadge(company.company_details_status)}
-          </div>
+        {/* Timeline Ribbon */}
+        <div className="relative">
+          {/* Connecting Line */}
+          <div
+            className="absolute top-6 left-0 right-0 h-0.5 bg-border"
+            style={{ left: "5%", right: "5%" }}
+          />
 
-          {/* Contacts */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {company.contacts_status === "Complete" ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              ) : (
-                <Circle className="h-5 w-5 text-muted-foreground" />
-              )}
-              <div>
-                <p className="font-medium">Contacts</p>
-                <p className="text-sm text-muted-foreground">
-                  {stats.contacts_count} contact(s)
-                </p>
-              </div>
-            </div>
-            {getStatusBadge(company.contacts_status)}
-          </div>
+          {/* Stages */}
+          <div className="relative flex justify-between items-start">
+            {stages.map((stage, index) => (
+              <div
+                key={stage.id}
+                className="flex flex-col items-center"
+                style={{ flex: 1 }}
+              >
+                {/* Circle */}
+                <div className="relative z-10 mb-4">
+                  <div
+                    className={`w-12 h-12 rounded-full flex items-center justify-center border-4 transition-all ${
+                      stage.isComplete
+                        ? "bg-green-500 border-green-500"
+                        : stage.status === "In Progress"
+                        ? "bg-blue-500 border-blue-500"
+                        : "bg-background border-border"
+                    }`}
+                  >
+                    {stage.isComplete ? (
+                      <CheckCircle2 className="h-6 w-6 text-white" />
+                    ) : stage.status === "In Progress" ? (
+                      <Circle className="h-6 w-6 text-white fill-white" />
+                    ) : (
+                      <Circle className="h-6 w-6 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
 
-          {/* Fleet */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {company.fleet_status === "Complete" ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              ) : (
-                <Circle className="h-5 w-5 text-muted-foreground" />
-              )}
-              <div>
-                <p className="font-medium">Fleet</p>
-                <p className="text-sm text-muted-foreground">
-                  {stats.trucks_count} truck(s)
-                </p>
+                {/* Label */}
+                <div className="text-center max-w-[120px]">
+                  <p
+                    className={`font-medium text-sm mb-1 ${
+                      stage.isComplete ? "text-green-600" : ""
+                    }`}
+                  >
+                    {stage.label}
+                  </p>
+                  {stage.subtitle && (
+                    <p className="text-xs text-muted-foreground">
+                      {stage.subtitle}
+                    </p>
+                  )}
+                  <div className="mt-2">{getStatusBadge(stage.status)}</div>
+                </div>
               </div>
-            </div>
-            {getStatusBadge(company.fleet_status)}
-          </div>
-
-          {/* Drivers */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {company.drivers_status === "Complete" ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              ) : (
-                <Circle className="h-5 w-5 text-muted-foreground" />
-              )}
-              <div>
-                <p className="font-medium">Drivers</p>
-                <p className="text-sm text-muted-foreground">
-                  {stats.drivers_count} driver(s)
-                </p>
-              </div>
-            </div>
-            {getStatusBadge(company.drivers_status)}
-          </div>
-
-          {/* Portal Access */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {company.portal_access_enabled ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              ) : (
-                <Circle className="h-5 w-5 text-muted-foreground" />
-              )}
-              <div>
-                <p className="font-medium">Portal Access</p>
-                <p className="text-sm text-muted-foreground">
-                  {company.portal_activated_at
-                    ? `Activated on ${new Date(company.portal_activated_at).toLocaleDateString()}`
-                    : "Not activated"}
-                </p>
-              </div>
-            </div>
-            <Badge
-              className={
-                company.portal_access_enabled ? "bg-green-500" : "bg-gray-500"
-              }
-            >
-              {company.portal_access_enabled ? "Enabled" : "Disabled"}
-            </Badge>
+            ))}
           </div>
         </div>
       </Card>
@@ -300,7 +301,9 @@ export const CompanyOnboardingTab = ({
                       {new Date(email.sent_at).toLocaleString()}
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-green-500">{email.email_status}</Badge>
+                      <Badge className="bg-green-500">
+                        {email.email_status}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))
@@ -351,4 +354,3 @@ export const CompanyOnboardingTab = ({
     </div>
   );
 };
-

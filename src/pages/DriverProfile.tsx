@@ -631,7 +631,7 @@ const DriverProfile = () => {
       {/* Header */}
       <Header
         showHomeButton
-        onHomeClick={() => navigate("/")}
+        onHomeClick={() => navigate("/home")}
         showLogoutButton
         onLogoutClick={() => setShowLogoutWarning(true)}
       />
@@ -667,7 +667,11 @@ const DriverProfile = () => {
           </Card>
           */}
 
-          <Button className="w-full" size="lg" onClick={() => navigate("/")}>
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={() => navigate("/home")}
+          >
             {"Continue to Dashboard ->"}
           </Button>
 

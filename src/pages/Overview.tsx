@@ -145,10 +145,11 @@ const Overview = () => {
       const truckId = t.truck_id || "";
       const searchKey = truckId.toLowerCase();
 
-       console.log("Truck:", t);
+      console.log("Truck:", t);
 
       // Extract carrier name from nested carriers object
-      const carrierName = t.carriers?.name || t.carrier_name || t.companies.name || "Unknown";
+      const carrierName =
+        t.carriers?.name || t.carrier_name || t.companies.name || "Unknown";
 
       // Extract driver name from nested active_driver object
       const driverName =
@@ -367,7 +368,7 @@ const Overview = () => {
       {/* Header */}
       <Header
         showHomeButton
-        onHomeClick={() => navigate("/")}
+        onHomeClick={() => navigate("/home")}
         showLogoutButton
         onLogoutClick={() => setShowLogoutWarning(true)}
       />

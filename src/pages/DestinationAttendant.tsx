@@ -38,7 +38,7 @@ const DestinationAttendant = () => {
   // Only allow attendants to access this page
   useEffect(() => {
     if (user?.role !== "attendant") {
-      navigate("/");
+      navigate("/home");
       return;
     }
   }, [user, navigate]);
@@ -131,7 +131,7 @@ const DestinationAttendant = () => {
           <p className="text-muted-foreground">
             The ticket you're looking for doesn't exist.
           </p>
-          <Button onClick={() => navigate("/")} className="w-full">
+          <Button onClick={() => navigate("/home")} className="w-full">
             Go Back
           </Button>
         </Card>
@@ -142,7 +142,7 @@ const DestinationAttendant = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <Header showHomeButton onHomeClick={() => navigate("/")} />
+      <Header showHomeButton onHomeClick={() => navigate("/home")} />
 
       <main className="mx-auto max-w-2xl p-4 flex-1">
         {/* Content */}

@@ -47,7 +47,7 @@ const CompanyDetail = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <Header showHomeButton onHomeClick={() => navigate("/")} />
+        <Header showHomeButton onHomeClick={() => navigate("/home")} />
         <main className="container mx-auto px-4 py-6">
           <div className="text-center py-12">Loading...</div>
         </main>
