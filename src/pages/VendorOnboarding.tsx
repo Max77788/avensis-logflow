@@ -32,6 +32,8 @@ import {
   Download,
   FileText,
   CheckCircle2,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import Papa from "papaparse";
@@ -45,9 +47,12 @@ interface VendorFormData {
   city: string;
   state: string;
   zip: string;
-  certificate_of_insurance_expiry_date: string;
   legal_name_for_invoicing: string;
   mailing_address_optional: string;
+  mc_number: string;
+  dot_number: string;
+  upload_coi: File | null;
+  upload_w9: File | null;
 
   // Contacts
   company_name: string;
@@ -62,30 +67,25 @@ interface VendorFormData {
   truck_id: string;
   carrier_name: string;
   license_plate: string;
+  license_state: string;
   truck_type: string;
   capacity: string;
   gps_device_id: string;
   material_types_handled: string[];
   max_load_capacity: string;
-  truck_state: string;
-  vin_optional: string;
+  vin: string;
+  is_on_insurance_policy: string;
 
   // Driver Details
   driver_name: string;
   phone_number: string;
   email_address: string;
-  license_number: string;
-  employment_type: string;
+  cdl_number: string;
+  driver_type: string;
   operating_hours: string;
   weekend_availability: string;
   driver_comments: string;
-
-  // Compliance & Safety
-  safety_training_completed: string;
-  dot_compliance_date: string;
-  driver_ppe_verification: string;
   emergency_contact: string;
-  upload_insurance_documents: File | null;
 }
 
 const VendorOnboarding = () => {
@@ -107,6 +107,9 @@ const VendorOnboarding = () => {
   // CSV upload state
   const [fleetCsvData, setFleetCsvData] = useState<any[]>([]);
   const [driverCsvData, setDriverCsvData] = useState<any[]>([]);
+
+  // Additional contacts state
+  const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
 
   // Initial contract acceptance state (must accept before accessing form)
   const [initialContractAccepted, setInitialContractAccepted] = useState(false);
@@ -134,9 +137,12 @@ const VendorOnboarding = () => {
     city: "",
     state: "",
     zip: "",
-    certificate_of_insurance_expiry_date: "",
     legal_name_for_invoicing: "",
     mailing_address_optional: "",
+    mc_number: "",
+    dot_number: "",
+    upload_coi: null,
+    upload_w9: null,
     company_name: "",
     primary_contact_name: "",
     contact_phone: "",
@@ -147,26 +153,23 @@ const VendorOnboarding = () => {
     truck_id: "",
     carrier_name: "",
     license_plate: "",
+    license_state: "",
     truck_type: "",
     capacity: "",
     gps_device_id: "",
     material_types_handled: [],
     max_load_capacity: "",
-    truck_state: "",
-    vin_optional: "",
+    vin: "",
+    is_on_insurance_policy: "",
     driver_name: "",
     phone_number: "",
     email_address: "",
-    license_number: "",
-    employment_type: "",
+    cdl_number: "",
+    driver_type: "",
     operating_hours: "",
     weekend_availability: "",
     driver_comments: "",
-    safety_training_completed: "",
-    dot_compliance_date: "",
-    driver_ppe_verification: "",
     emergency_contact: "",
-    upload_insurance_documents: null,
   });
 
   const updateField = (field: keyof VendorFormData, value: any) => {
@@ -178,10 +181,17 @@ const VendorOnboarding = () => {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoiFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      updateField("upload_insurance_documents", file);
+      updateField("upload_coi", file);
+    }
+  };
+
+  const handleW9FileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      updateField("upload_w9", file);
     }
   };
 
@@ -268,14 +278,45 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     window.URL.revokeObjectURL(url);
   };
 
+  // Add additional contact
+  const addAdditionalContact = () => {
+    const newContact = {
+      id: Date.now(),
+      name: "",
+      phone: "",
+      email: "",
+      location: "",
+      role: "",
+      comments: "",
+    };
+    setAdditionalContacts([...additionalContacts, newContact]);
+  };
 
+  // Remove additional contact
+  const removeAdditionalContact = (id: number) => {
+    setAdditionalContacts(
+      additionalContacts.filter((contact) => contact.id !== id)
+    );
+  };
+
+  // Update additional contact
+  const updateAdditionalContact = (
+    id: number,
+    field: string,
+    value: string
+  ) => {
+    setAdditionalContacts(
+      additionalContacts.map((contact) =>
+        contact.id === id ? { ...contact, [field]: value } : contact
+      )
+    );
+  };
 
   const tabOrder = [
     "company_details",
     "contacts",
     "fleet_details",
     "driver_details",
-    "compliance_and_safety",
   ];
 
   const currentTabIndex = tabOrder.indexOf(activeTab);
@@ -333,7 +374,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
         if (
           !formData.driver_name ||
           !formData.phone_number ||
-          !formData.license_number
+          !formData.cdl_number
         ) {
           toast({
             title: "Required Fields Missing",
@@ -371,11 +412,10 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     if (!signerName) {
       toast({
         title: "Signer Name Required",
-        description:
-          "Please provide the signer name on the Compliance & Safety tab",
+        description: "Please provide the signer name on the Company Info tab",
         variant: "destructive",
       });
-      setActiveTab("compliance_and_safety");
+      setActiveTab("company_details");
       return;
     }
 
@@ -384,6 +424,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     try {
       // TODO: Implement actual submission logic
       console.log("Submitting vendor onboarding data:", formData);
+      console.log("Additional contacts:", additionalContacts);
       console.log("Fleet CSV data:", fleetCsvData);
       console.log("Driver CSV data:", driverCsvData);
       console.log("Initial contract accepted:", initialContractAccepted);
@@ -450,124 +491,151 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
             {/* Contract Card */}
             <Card className="shadow-lg">
               <div className="p-8">
-                
                 <div className="bg-muted p-6 rounded-lg max-h-[500px] overflow-y-auto mb-6">
-  <div className="prose prose-sm max-w-none">
-    <h4 className="font-semibold text-lg mb-4">
-      {APP_TITLE} APP USAGE AGREEMENT
-    </h4>
+                  <div className="prose prose-sm max-w-none">
+                    <h4 className="font-semibold text-lg mb-4">
+                      {APP_TITLE} APP USAGE AGREEMENT
+                    </h4>
 
-    <p className="text-sm text-muted-foreground mb-4">
-      This App Usage Agreement ("Agreement") governs the use of the {APP_TITLE} digital platform ("Platform"),
-      powered by FusionIQ Labs LLC, by any trucking or transportation vendor ("Vendor") and its authorized
-      users. By selecting "I Agree", the Vendor acknowledges that it has read, understood, and accepted the
-      terms of this Agreement. Last updated: [Insert Date].
-    </p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      This App Usage Agreement ("Agreement") governs the use of
+                      the {APP_TITLE} digital platform ("Platform"), powered by
+                      FusionIQ Labs LLC, by any trucking or transportation
+                      vendor ("Vendor") and its authorized users. By selecting
+                      "I Agree", the Vendor acknowledges that it has read,
+                      understood, and accepted the terms of this Agreement. Last
+                      updated: [Insert Date].
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      1. PURPOSE
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      {APP_TITLE} provides a secure, paperless environment for creating, verifying, and managing load tickets
-      and delivery documentation. The Platform supports Avensis Energy LLC and its approved vendors in
-      executing digital hauling operations.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      1. PURPOSE
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {APP_TITLE} provides a secure, paperless environment for
+                      creating, verifying, and managing load tickets and
+                      delivery documentation. The Platform supports Avensis
+                      Energy LLC and its approved vendors in executing digital
+                      hauling operations.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      2. PLATFORM ACCESS
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      Vendors may access the Platform solely for legitimate business activities authorized by Avensis Energy.
-      Login credentials are for internal company use only and must not be shared or transferred. {APP_TITLE} may
-      monitor usage to maintain system security and performance.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      2. PLATFORM ACCESS
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Vendors may access the Platform solely for legitimate
+                      business activities authorized by Avensis Energy. Login
+                      credentials are for internal company use only and must not
+                      be shared or transferred. {APP_TITLE} may monitor usage to
+                      maintain system security and performance.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      3. PLATFORM FEES
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      A Platform Fee of USD $1.00 per load processed through {APP_TITLE} applies. The fee will be automatically
-      deducted from Vendor payout settlements processed through Avensis Energy. {APP_TITLE} may adjust this fee
-      with a minimum of 30 days’ notice, provided through the app or in writing.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      3. PLATFORM FEES
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      A Platform Fee of USD $1.00 per load processed through{" "}
+                      {APP_TITLE} applies. The fee will be automatically
+                      deducted from Vendor payout settlements processed through
+                      Avensis Energy. {APP_TITLE} may adjust this fee with a
+                      minimum of 30 days’ notice, provided through the app or in
+                      writing.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      4. DATA OWNERSHIP
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      All operational data related to loads—including pickup and delivery details, ticket images, signatures,
-      weights, and GPS data—are owned by Avensis Energy LLC. FusionIQ Labs LLC retains ownership of the software,
-      code, workflows, and analytics comprising the {APP_TITLE} Platform. The Vendor grants {APP_TITLE} and Avensis
-      Energy permission to use Vendor-submitted data for operational processing, audits, and compliance.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      4. DATA OWNERSHIP
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      All operational data related to loads—including pickup and
+                      delivery details, ticket images, signatures, weights, and
+                      GPS data—are owned by Avensis Energy LLC. FusionIQ Labs
+                      LLC retains ownership of the software, code, workflows,
+                      and analytics comprising the {APP_TITLE} Platform. The
+                      Vendor grants {APP_TITLE} and Avensis Energy permission to
+                      use Vendor-submitted data for operational processing,
+                      audits, and compliance.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      5. CONFIDENTIALITY & DATA PROTECTION
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      {APP_TITLE} implements reasonable technical and administrative safeguards to protect data entered into the
-      Platform. Vendors must not attempt to access, obtain, or disclose data belonging to other parties.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      5. CONFIDENTIALITY & DATA PROTECTION
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {APP_TITLE} implements reasonable technical and
+                      administrative safeguards to protect data entered into the
+                      Platform. Vendors must not attempt to access, obtain, or
+                      disclose data belonging to other parties.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      6. SERVICE NATURE
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      {APP_TITLE} is not a broker, carrier, dispatcher, or employer of the Vendor or its drivers. It functions
-      solely as a digital documentation and workflow system. Vendors remain fully responsible for their own
-      operations, equipment, and personnel.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      6. SERVICE NATURE
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {APP_TITLE} is not a broker, carrier, dispatcher, or
+                      employer of the Vendor or its drivers. It functions solely
+                      as a digital documentation and workflow system. Vendors
+                      remain fully responsible for their own operations,
+                      equipment, and personnel.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      7. LIMITATION OF LIABILITY
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      {APP_TITLE} and FusionIQ Labs LLC are not liable for any indirect, incidental, or consequential damages
-      arising from Platform use. Total liability to any Vendor shall not exceed the Platform Fees charged for
-      that Vendor’s loads during the three (3) months preceding any claim.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      7. LIMITATION OF LIABILITY
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {APP_TITLE} and FusionIQ Labs LLC are not liable for any
+                      indirect, incidental, or consequential damages arising
+                      from Platform use. Total liability to any Vendor shall not
+                      exceed the Platform Fees charged for that Vendor’s loads
+                      during the three (3) months preceding any claim.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      8. SUSPENSION OF ACCESS
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      {APP_TITLE} may suspend or revoke Platform access if a Vendor misuses the system, introduces security risks,
-      or engages in fraudulent activity. Because billing is handled through Avensis Energy, suspension affects
-      access only and does not modify payment obligations between Avensis Energy and FusionIQ Labs.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      8. SUSPENSION OF ACCESS
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {APP_TITLE} may suspend or revoke Platform access if a
+                      Vendor misuses the system, introduces security risks, or
+                      engages in fraudulent activity. Because billing is handled
+                      through Avensis Energy, suspension affects access only and
+                      does not modify payment obligations between Avensis Energy
+                      and FusionIQ Labs.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      9. UPDATES TO TERMS
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      {APP_TITLE} may update this Agreement from time to time. Continued use of the Platform after notice of any
-      update constitutes acceptance of the revised terms.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      9. UPDATES TO TERMS
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {APP_TITLE} may update this Agreement from time to time.
+                      Continued use of the Platform after notice of any update
+                      constitutes acceptance of the revised terms.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      10. GOVERNING LAW & DISPUTE RESOLUTION
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      This Agreement is governed by the laws of the State of Texas. Any dispute will first be addressed through
-      informal discussion, and if unresolved, through arbitration held in Texas.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      10. GOVERNING LAW & DISPUTE RESOLUTION
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      This Agreement is governed by the laws of the State of
+                      Texas. Any dispute will first be addressed through
+                      informal discussion, and if unresolved, through
+                      arbitration held in Texas.
+                    </p>
 
-    <h5 className="font-semibold text-base mt-6 mb-3">
-      11. ACKNOWLEDGMENT
-    </h5>
-    <p className="text-sm text-muted-foreground mb-4">
-      By clicking "I Agree", the Vendor confirms that:
-      <br />• It is authorized to act on behalf of its company;
-      <br />• It understands {APP_TITLE} is a digital documentation service only; and
-      <br />• It agrees to the USD $1.00 per load Platform Fee and all terms listed above.
-    </p>
+                    <h5 className="font-semibold text-base mt-6 mb-3">
+                      11. ACKNOWLEDGMENT
+                    </h5>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      By clicking "I Agree", the Vendor confirms that:
+                      <br />• It is authorized to act on behalf of its company;
+                      <br />• It understands {APP_TITLE} is a digital
+                      documentation service only; and
+                      <br />• It agrees to the USD $1.00 per load Platform Fee
+                      and all terms listed above.
+                    </p>
 
-    <p className="text-sm text-muted-foreground mt-8 italic">
-      © 2025 {APP_TITLE} — Powered by FusionIQ Labs LLC. All Rights Reserved.
-    </p>
-  </div>
-</div>
-
+                    <p className="text-sm text-muted-foreground mt-8 italic">
+                      © 2025 {APP_TITLE} — Powered by FusionIQ Labs LLC. All
+                      Rights Reserved.
+                    </p>
+                  </div>
+                </div>
 
                 <div className="flex items-start space-x-3 mb-6 p-4 bg-primary/5 rounded-lg">
                   <Checkbox
@@ -738,28 +806,6 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   </div>
                   <span className="text-xs font-medium">Drivers</span>
                 </TabsTrigger>
-                <TabsTrigger
-                  value="compliance_and_safety"
-                  disabled={!completedTabs.includes("compliance_and_safety")}
-                  className={`flex flex-col items-center gap-2 py-4 ${
-                    !completedTabs.includes("compliance_and_safety")
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
-                      activeTab === "compliance_and_safety"
-                        ? "bg-primary border-primary text-primary-foreground"
-                        : completedTabs.includes("compliance_and_safety")
-                        ? "bg-green-500 border-green-500 text-white"
-                        : "bg-red-500 border-red-500 text-white"
-                    }`}
-                  >
-                    <Shield className="h-5 w-5" />
-                  </div>
-                  <span className="text-xs font-medium">Compliance</span>
-                </TabsTrigger>
               </TabsList>
 
               {/* Company Details Tab */}
@@ -824,23 +870,6 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="certificate_of_insurance_expiry_date">
-                      Certificate of Insurance Expiry Date
-                    </Label>
-                    <Input
-                      id="certificate_of_insurance_expiry_date"
-                      type="date"
-                      value={formData.certificate_of_insurance_expiry_date}
-                      onChange={(e) =>
-                        updateField(
-                          "certificate_of_insurance_expiry_date",
-                          e.target.value
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="legal_name_for_invoicing">
                       Legal Name Used for Invoicing
                     </Label>
@@ -867,12 +896,94 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                       placeholder="Mailing address if different from business address"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="mc_number">MC Number</Label>
+                    <Input
+                      id="mc_number"
+                      value={formData.mc_number}
+                      onChange={(e) => updateField("mc_number", e.target.value)}
+                      placeholder="Motor Carrier number"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="dot_number">DOT Number</Label>
+                    <Input
+                      id="dot_number"
+                      value={formData.dot_number}
+                      onChange={(e) =>
+                        updateField("dot_number", e.target.value)
+                      }
+                      placeholder="Department of Transportation number"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="upload_coi">
+                      Upload COI (Certificate of Insurance)
+                    </Label>
+                    <Input
+                      id="upload_coi"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={handleCoiFileChange}
+                      className="cursor-pointer"
+                    />
+                    {formData.upload_coi && (
+                      <p className="text-sm text-primary">
+                        Selected: {formData.upload_coi.name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="upload_w9">Upload W9</Label>
+                    <Input
+                      id="upload_w9"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      onChange={handleW9FileChange}
+                      className="cursor-pointer"
+                    />
+                    {formData.upload_w9 && (
+                      <p className="text-sm text-primary">
+                        Selected: {formData.upload_w9.name}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Signer Name Section */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="signer_name">Signer Name *</Label>
+                    <Input
+                      id="signer_name"
+                      value={signerName}
+                      onChange={(e) => setSignerName(e.target.value)}
+                      placeholder="Name of person signing this agreement"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      By providing your name, you agree to the terms and
+                      conditions
+                    </p>
+                  </div>
                 </div>
               </TabsContent>
 
               {/* Contacts Tab */}
               <TabsContent value="contacts" className="space-y-4 p-6">
-                <h2 className="text-xl font-semibold mb-4">Contacts</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Primary Contact</h2>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addAdditionalContact}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Contact
+                  </Button>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -962,6 +1073,119 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                     />
                   </div>
                 </div>
+
+                {/* Additional Contacts */}
+                {additionalContacts.length > 0 && (
+                  <div className="space-y-4 mt-6">
+                    <h3 className="text-lg font-semibold">
+                      Additional Contacts
+                    </h3>
+                    {additionalContacts.map((contact, index) => (
+                      <Card key={contact.id} className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-medium">Contact {index + 2}</h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAdditionalContact(contact.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Contact Name</Label>
+                            <Input
+                              value={contact.name}
+                              onChange={(e) =>
+                                updateAdditionalContact(
+                                  contact.id,
+                                  "name",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Contact person name"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Phone</Label>
+                            <Input
+                              type="tel"
+                              value={contact.phone}
+                              onChange={(e) =>
+                                updateAdditionalContact(
+                                  contact.id,
+                                  "phone",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Phone number"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Email</Label>
+                            <Input
+                              type="email"
+                              value={contact.email}
+                              onChange={(e) =>
+                                updateAdditionalContact(
+                                  contact.id,
+                                  "email",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Email address"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Location</Label>
+                            <Input
+                              value={contact.location}
+                              onChange={(e) =>
+                                updateAdditionalContact(
+                                  contact.id,
+                                  "location",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Operating location"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Role</Label>
+                            <Input
+                              value={contact.role}
+                              onChange={(e) =>
+                                updateAdditionalContact(
+                                  contact.id,
+                                  "role",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g., Manager, Supervisor"
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>Comments</Label>
+                            <Textarea
+                              value={contact.comments}
+                              onChange={(e) =>
+                                updateAdditionalContact(
+                                  contact.id,
+                                  "comments",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Any notes about this contact"
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
 
               {/* Fleet Details Tab */}
@@ -1047,6 +1271,72 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="license_state">License State *</Label>
+                    <Select
+                      value={formData.license_state}
+                      onValueChange={(value) =>
+                        updateField("license_state", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AL">Alabama</SelectItem>
+                        <SelectItem value="AK">Alaska</SelectItem>
+                        <SelectItem value="AZ">Arizona</SelectItem>
+                        <SelectItem value="AR">Arkansas</SelectItem>
+                        <SelectItem value="CA">California</SelectItem>
+                        <SelectItem value="CO">Colorado</SelectItem>
+                        <SelectItem value="CT">Connecticut</SelectItem>
+                        <SelectItem value="DE">Delaware</SelectItem>
+                        <SelectItem value="FL">Florida</SelectItem>
+                        <SelectItem value="GA">Georgia</SelectItem>
+                        <SelectItem value="HI">Hawaii</SelectItem>
+                        <SelectItem value="ID">Idaho</SelectItem>
+                        <SelectItem value="IL">Illinois</SelectItem>
+                        <SelectItem value="IN">Indiana</SelectItem>
+                        <SelectItem value="IA">Iowa</SelectItem>
+                        <SelectItem value="KS">Kansas</SelectItem>
+                        <SelectItem value="KY">Kentucky</SelectItem>
+                        <SelectItem value="LA">Louisiana</SelectItem>
+                        <SelectItem value="ME">Maine</SelectItem>
+                        <SelectItem value="MD">Maryland</SelectItem>
+                        <SelectItem value="MA">Massachusetts</SelectItem>
+                        <SelectItem value="MI">Michigan</SelectItem>
+                        <SelectItem value="MN">Minnesota</SelectItem>
+                        <SelectItem value="MS">Mississippi</SelectItem>
+                        <SelectItem value="MO">Missouri</SelectItem>
+                        <SelectItem value="MT">Montana</SelectItem>
+                        <SelectItem value="NE">Nebraska</SelectItem>
+                        <SelectItem value="NV">Nevada</SelectItem>
+                        <SelectItem value="NH">New Hampshire</SelectItem>
+                        <SelectItem value="NJ">New Jersey</SelectItem>
+                        <SelectItem value="NM">New Mexico</SelectItem>
+                        <SelectItem value="NY">New York</SelectItem>
+                        <SelectItem value="NC">North Carolina</SelectItem>
+                        <SelectItem value="ND">North Dakota</SelectItem>
+                        <SelectItem value="OH">Ohio</SelectItem>
+                        <SelectItem value="OK">Oklahoma</SelectItem>
+                        <SelectItem value="OR">Oregon</SelectItem>
+                        <SelectItem value="PA">Pennsylvania</SelectItem>
+                        <SelectItem value="RI">Rhode Island</SelectItem>
+                        <SelectItem value="SC">South Carolina</SelectItem>
+                        <SelectItem value="SD">South Dakota</SelectItem>
+                        <SelectItem value="TN">Tennessee</SelectItem>
+                        <SelectItem value="TX">Texas</SelectItem>
+                        <SelectItem value="UT">Utah</SelectItem>
+                        <SelectItem value="VT">Vermont</SelectItem>
+                        <SelectItem value="VA">Virginia</SelectItem>
+                        <SelectItem value="WA">Washington</SelectItem>
+                        <SelectItem value="WV">West Virginia</SelectItem>
+                        <SelectItem value="WI">Wisconsin</SelectItem>
+                        <SelectItem value="WY">Wyoming</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="truck_type">Truck Type *</Label>
                     <Select
                       value={formData.truck_type}
@@ -1124,33 +1414,33 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="truck_state">Truck State *</Label>
-                    <Select
-                      value={formData.truck_state}
-                      onValueChange={(value) =>
-                        updateField("truck_state", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select ownership status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Owned">Owned</SelectItem>
-                        <SelectItem value="Leased">Leased</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="vin">VIN *</Label>
+                    <Input
+                      id="vin"
+                      value={formData.vin}
+                      onChange={(e) => updateField("vin", e.target.value)}
+                      placeholder="Vehicle Identification Number"
+                    />
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="vin_optional">VIN (optional)</Label>
-                    <Input
-                      id="vin_optional"
-                      value={formData.vin_optional}
-                      onChange={(e) =>
-                        updateField("vin_optional", e.target.value)
+                    <Label htmlFor="is_on_insurance_policy">
+                      Is this truck listed on your insurance policy? *
+                    </Label>
+                    <Select
+                      value={formData.is_on_insurance_policy}
+                      onValueChange={(value) =>
+                        updateField("is_on_insurance_policy", value)
                       }
-                      placeholder="Vehicle Identification Number for audits"
-                    />
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Yes or No" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Yes">Yes</SelectItem>
+                        <SelectItem value="No">No</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </TabsContent>
@@ -1242,33 +1532,34 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="license_number">License Number</Label>
+                    <Label htmlFor="cdl_number">CDL Number *</Label>
                     <Input
-                      id="license_number"
-                      value={formData.license_number}
+                      id="cdl_number"
+                      value={formData.cdl_number}
                       onChange={(e) =>
-                        updateField("license_number", e.target.value)
+                        updateField("cdl_number", e.target.value)
                       }
-                      placeholder="Driver license number (optional)"
+                      placeholder="Commercial Driver's License number"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="employment_type">Employment Type *</Label>
+                    <Label htmlFor="driver_type">Driver Type *</Label>
                     <Select
-                      value={formData.employment_type}
+                      value={formData.driver_type}
                       onValueChange={(value) =>
-                        updateField("employment_type", value)
+                        updateField("driver_type", value)
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select employment type" />
+                        <SelectValue placeholder="Select driver type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Direct">Direct</SelectItem>
-                        <SelectItem value="Contractor">Contractor</SelectItem>
-                        <SelectItem value="Lease Operator">
-                          Lease Operator
+                        <SelectItem value="Company Driver">
+                          Company Driver
+                        </SelectItem>
+                        <SelectItem value="Owner Operator">
+                          Owner Operator
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1317,149 +1608,6 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                       placeholder="Notes (e.g., shared between trucks, preferred shifts)"
                       rows={3}
                     />
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* Compliance & Safety Tab */}
-              <TabsContent
-                value="compliance_and_safety"
-                className="space-y-4 p-6"
-              >
-                <h2 className="text-xl font-semibold mb-4">
-                  Compliance & Safety
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="safety_training_completed">
-                      Safety Training Completed *
-                    </Label>
-                    <Select
-                      value={formData.safety_training_completed}
-                      onValueChange={(value) =>
-                        updateField("safety_training_completed", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Yes">Yes</SelectItem>
-                        <SelectItem value="No">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="dot_compliance_date">
-                      DOT Compliance Date
-                    </Label>
-                    <Input
-                      id="dot_compliance_date"
-                      type="date"
-                      value={formData.dot_compliance_date}
-                      onChange={(e) =>
-                        updateField("dot_compliance_date", e.target.value)
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="driver_ppe_verification">
-                      Driver PPE Verification *
-                    </Label>
-                    <Select
-                      value={formData.driver_ppe_verification}
-                      onValueChange={(value) =>
-                        updateField("driver_ppe_verification", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Yes">Yes</SelectItem>
-                        <SelectItem value="No">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="emergency_contact">Emergency Contact</Label>
-                    <Input
-                      id="emergency_contact"
-                      value={formData.emergency_contact}
-                      onChange={(e) =>
-                        updateField("emergency_contact", e.target.value)
-                      }
-                      placeholder="Emergency contact name and phone number"
-                    />
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="upload_insurance_documents">
-                      Upload Insurance / W-9 / COI
-                    </Label>
-                    <Input
-                      ref={fileInputRef}
-                      id="upload_insurance_documents"
-                      type="file"
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                      onChange={handleFileChange}
-                      className="cursor-pointer"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Upload insurance documents, W-9, and certificate of
-                      insurance
-                    </p>
-                    {formData.upload_insurance_documents && (
-                      <p className="text-sm text-primary">
-                        Selected: {formData.upload_insurance_documents.name}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Signer Name Section */}
-                  <div className="space-y-2 md:col-span-2 mt-6">
-                    <div className="border-t pt-6">
-                      <h3 className="text-lg font-semibold mb-4">
-                        Authorized Signer *
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Please provide the name of the authorized person signing
-                        this onboarding form. This name will serve as your
-                        digital signature.
-                      </p>
-                      <div className="space-y-2">
-                        <Label htmlFor="signer_name">Signer Name *</Label>
-                        <Input
-                          id="signer_name"
-                          value={signerName}
-                          onChange={(e) => setSignerName(e.target.value)}
-                          placeholder="Enter full name of authorized signer"
-                          className="max-w-md"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          By providing your name, you confirm that all
-                          information provided is accurate and complete, and you
-                          are authorized to sign on behalf of the company.
-                        </p>
-                      </div>
-                      {signerName && (
-                        <div className="mt-4 p-4 bg-muted rounded-lg max-w-md">
-                          <p className="text-sm font-medium mb-2">
-                            Digital Signature:
-                          </p>
-                          <p className="text-lg font-serif italic">
-                            {signerName}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Signed on {new Date().toLocaleDateString()}
-                          </p>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               </TabsContent>

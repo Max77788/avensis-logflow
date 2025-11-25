@@ -177,6 +177,11 @@ export const ticketService = {
   async getAllTickets({ sourceTableName = "tickets" }: {
     sourceTableName?: string;
   }): Promise<Ticket[]> {
+    
+    console.log("getAllTickets called with sourceTableName:", sourceTableName);
+    
+    
+
     try {
       // Join with trucks, carriers, and drivers to get related data
       const { data, error } = await supabase
@@ -184,7 +189,7 @@ export const ticketService = {
         .select(
           `
           *,
-          truck:trucks!${sourceTableName}_truck_id_fkey (
+          truck:trucks (
             id,
             truck_id,
             carrier:companies (
@@ -208,6 +213,8 @@ export const ticketService = {
         const ticket = this.mapDbTicketToTicket(item);
         return ticket;
       });
+
+      console.log("getAllTickets - fetched data:", tickets.length, "tickets");
 
       return tickets;
     } catch (error) {

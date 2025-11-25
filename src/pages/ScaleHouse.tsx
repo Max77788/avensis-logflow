@@ -3,10 +3,19 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Header } from "@/components/Header";
 import { QRCodeSVG } from "qrcode.react";
-import { Download, CheckCircle2, Loader2 } from "lucide-react";
+import { Download, CheckCircle2, Loader2, Lock, LogIn } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import type { Ticket } from "@/lib/types";
+
+// Hardcoded credentials for scale house operators
+const SCALE_HOUSE_CREDENTIALS = {
+  username: "scaleoperator",
+  password: "scale2024",
+};
 
 const ScaleHouse = () => {
   const navigate = useNavigate();
@@ -14,14 +23,135 @@ const ScaleHouse = () => {
   const ticket = location.state?.ticket as Ticket | undefined;
   const [isDownloading, setIsDownloading] = useState(false);
 
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   useEffect(() => {
     if (!ticket) {
       navigate("/driver/dashboard");
     }
   }, [ticket, navigate]);
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+
+    // Simulate a brief loading state for better UX
+    setTimeout(() => {
+      if (
+        username.trim() === SCALE_HOUSE_CREDENTIALS.username &&
+        password === SCALE_HOUSE_CREDENTIALS.password
+      ) {
+        setIsAuthenticated(true);
+        toast({
+          title: "Login Successful",
+          description: "Welcome to Scale House",
+        });
+      } else {
+        toast({
+          title: "Login Failed",
+          description: "Invalid username or password",
+          variant: "destructive",
+        });
+      }
+      setIsLoggingIn(false);
+    }, 500);
+  };
+
   if (!ticket) {
     return null;
+  }
+
+  // Show login wall if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-4 bg-primary/10 rounded-full">
+                <Lock className="h-12 w-12 text-primary" />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Scale House Access
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Please enter your credentials to continue
+            </p>
+          </div>
+
+          {/* Login Form */}
+          <Card className="p-6">
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Enter username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  autoComplete="username"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={isLoggingIn}
+              >
+                {isLoggingIn ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Logging in...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Login
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-4 pt-4 border-t border-border">
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/driver/dashboard")}
+                className="w-full"
+              >
+                Back to Dashboard
+              </Button>
+            </div>
+          </Card>
+
+          {/* Info */}
+          <p className="text-center text-xs text-muted-foreground mt-6">
+            Scale house operators only. Contact your administrator for access.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const handleDownloadQR = () => {

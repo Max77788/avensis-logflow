@@ -167,7 +167,9 @@ const DestinationAttendant = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Truck:</span>
-              <span className="font-semibold">{ticket.truck_id || "N/A"}</span>
+              <span className="font-semibold">
+                {ticket.truck_name || ticket.truck_id || "N/A"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Destination:</span>

@@ -52,8 +52,8 @@ export const translations = {
       createTicketDesc: "Manually create new ticket",
       createNewTicket: "Create New Ticket +",
       shiftStatus: "Shift Status",
-      startShift: "Start Shift",
-      endShift: "End Shift",
+      startShift: "Start my shift",
+      endShift: "End my shift",
       recentActivity: "Recent Activity",
       noRecentActivity: "No recent activity",
       createTicketOrScan:
@@ -71,7 +71,7 @@ export const translations = {
       endShiftWarning:
         "You have active tickets. Complete them before ending your shift.",
       completeActiveTickets: "Complete Active Tickets",
-      endShiftConfirm: "End Shift",
+      endShiftConfirm: "End my shift",
       cancel: "Cancel",
     },
     // Driver Profile
@@ -287,8 +287,8 @@ export const translations = {
       noActiveTickets: "No active tickets",
       recentTickets: "Recent Tickets",
       noRecentTickets: "No recent tickets",
-      startShift: "Start Shift",
-      endShift: "End Shift",
+      startShift: "Start my shift",
+      endShift: "End my shift",
       shiftStatus: "Shift Status",
       active: "Active",
       inactive: "Inactive",
@@ -371,8 +371,8 @@ export const translations = {
       manuallyCreateNewTicket: "Manually create new ticket",
       createNewTicket: "Create New Ticket +",
       shiftStatus: "Shift Status",
-      startShift: "Start Shift",
-      endShift: "End Shift",
+      startShift: "Start my shift",
+      endShift: "End my shift",
       recentActivity: "Recent Activity",
       noRecentActivity: "No recent activity",
       createTicketOrScan:

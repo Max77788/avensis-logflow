@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Search,
   Truck as TruckIcon,
@@ -14,12 +15,16 @@ import {
   Calendar,
   Clock,
   MapPin,
+  Lock,
+  LogIn,
+  Loader2,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ticketService } from "@/lib/ticketService";
 import { truckService } from "@/lib/truckService";
+import { toast } from "@/hooks/use-toast";
 import type { Ticket } from "@/lib/types";
 import type { Truck } from "@/lib/truckService";
 import {
@@ -39,6 +44,12 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 
+// Hardcoded credentials for overview page access
+const OVERVIEW_CREDENTIALS = {
+  username: "scalehouse",
+  password: "scale2025",
+};
+
 type UITicket = Ticket & {
   _search: string;
   _isToday: boolean;
@@ -57,6 +68,12 @@ const Overview = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { logout } = useAuth();
+
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Tickets state
   const [allTickets, setAllTickets] = useState<UITicket[]>([]);
@@ -86,6 +103,33 @@ const Overview = () => {
   const [dateFilter, setDateFilter] = useState<string>("today");
   const [showTruckFilters, setShowTruckFilters] = useState(false);
   const [showLogoutWarning, setShowLogoutWarning] = useState(false);
+
+  // Handle login
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+
+    // Simulate a brief loading state for better UX
+    setTimeout(() => {
+      if (
+        username.trim() === OVERVIEW_CREDENTIALS.username &&
+        password === OVERVIEW_CREDENTIALS.password
+      ) {
+        setIsAuthenticated(true);
+        toast({
+          title: "Login Successful",
+          description: "Welcome to Overview Dashboard",
+        });
+      } else {
+        toast({
+          title: "Login Failed",
+          description: "Invalid username or password",
+          variant: "destructive",
+        });
+      }
+      setIsLoggingIn(false);
+    }, 500);
+  };
 
   // Debounce ticket search
   useEffect(() => {
@@ -362,6 +406,95 @@ const Overview = () => {
     ticketsTotal > 0 ? ticketsTotal : filteredTickets.length;
   const trucksCountLabel =
     trucksTotal > 0 ? trucksTotal : filteredTrucks.length;
+
+  // Show login wall if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-4 bg-primary/10 rounded-full">
+                <Lock className="h-12 w-12 text-primary" />
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Overview Dashboard Access
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Please enter your credentials to continue
+            </p>
+          </div>
+
+          {/* Login Form */}
+          <Card className="p-6">
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Enter username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  autoComplete="username"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={isLoggingIn}
+              >
+                {isLoggingIn ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Logging in...
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Login
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-4 pt-4 border-t border-border">
+              <Button
+                variant="ghost"
+                onClick={() => navigate("/home")}
+                className="w-full"
+              >
+                Back to Home
+              </Button>
+            </div>
+          </Card>
+
+          {/* Info */}
+          <p className="text-center text-xs text-muted-foreground mt-6">
+            Authorized personnel only. Contact your administrator for access.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

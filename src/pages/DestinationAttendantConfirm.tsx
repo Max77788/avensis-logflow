@@ -482,7 +482,7 @@ const DestinationAttendantConfirm = () => {
                   <div>
                     <p className="text-xs mb-1 text-muted-foreground">Truck</p>
                     <p className="font-semibold text-foreground">
-                      {ticket.truck_id}
+                      {ticket.truck_name}
                     </p>
                   </div>
                   <div>
