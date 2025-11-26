@@ -29,9 +29,36 @@ const VendorLogin = () => {
       );
 
       if (result.success && result.data) {
+        // Check if vendor has already completed onboarding
+        const company = result.data as any;
+
+        // Check if all onboarding sections are complete
+        const allSectionsComplete =
+          company.company_details_status === "Complete" &&
+          company.contacts_status === "Complete" &&
+          company.fleet_status === "Complete" &&
+          company.drivers_status === "Complete";
+
+        // Check if vendor has already submitted onboarding
+        const isOnboarded =
+          company.status === "Pending Review" ||
+          company.status === "Active" ||
+          company.status === "Approved" ||
+          allSectionsComplete;
+
+        if (isOnboarded) {
+          // Vendor already onboarded - navigate to "already onboarded" page
+          login("carrier", result.data.id);
+          navigate("/vendor/already-onboarded", {
+            state: { companyName: result.data.name },
+          });
+          setIsLoading(false);
+          return;
+        }
+
         // Authentication successful, log them in as vendor
         login("carrier", result.data.id);
-        
+
         toast({
           title: "Login Successful",
           description: `Welcome, ${result.data.name}!`,
@@ -147,4 +174,3 @@ const VendorLogin = () => {
 };
 
 export default VendorLogin;
-

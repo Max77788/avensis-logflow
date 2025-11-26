@@ -11,6 +11,7 @@ import { LanguageSelector } from "./components/LanguageSelector";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import DriverLogin from "./pages/DriverLogin";
 import DriverSignUp from "./pages/DriverSignUp";
 import DriverProfile from "./pages/DriverProfile";
 import CreateTicket from "./pages/CreateTicket";
@@ -28,6 +29,7 @@ import CarrierPortal from "./pages/CarrierPortal";
 import SetCarrierPassword from "./pages/SetCarrierPassword";
 import VendorLogin from "./pages/VendorLogin";
 import VendorOnboarding from "./pages/VendorOnboarding";
+import VendorAlreadyOnboarded from "./pages/VendorAlreadyOnboarded";
 import NotFound from "./pages/NotFound";
 import { initDatabase } from "./lib/initDatabase";
 
@@ -52,6 +54,7 @@ const App = () => {
                     {/* Public routes */}
                     <Route path="/" element={<Login />} />
                     <Route path="/login" element={<Login />} />
+                    <Route path="/driver/login" element={<DriverLogin />} />
                     <Route path="/driver/signup" element={<DriverSignUp />} />
                     <Route path="/carrier/login" element={<CarrierLogin />} />
                     <Route
@@ -59,6 +62,10 @@ const App = () => {
                       element={<SetCarrierPassword />}
                     />
                     <Route path="/vendor/login" element={<VendorLogin />} />
+                    <Route
+                      path="/vendor/already-onboarded"
+                      element={<VendorAlreadyOnboarded />}
+                    />
                     <Route path="/overview" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />
                     <Route path="/tickets/create" element={<CreateTicket />} />

@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignaturePad } from "@/components/SignaturePad";
 import { Header } from "@/components/Header";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AddressInput } from "@/components/AddressInput";
 import {
   Building2,
   Users,
@@ -39,6 +40,7 @@ import { toast } from "@/hooks/use-toast";
 import Papa from "papaparse";
 import { useAuth } from "@/contexts/AuthContext";
 import { APP_TITLE } from "@/lib/config";
+import { supabase } from "@/lib/supabase";
 
 interface VendorFormData {
   // Company Details
@@ -72,7 +74,6 @@ interface VendorFormData {
   capacity: string;
   gps_device_id: string;
   material_types_handled: string[];
-  max_load_capacity: string;
   vin: string;
   is_on_insurance_policy: string;
 
@@ -81,6 +82,7 @@ interface VendorFormData {
   phone_number: string;
   email_address: string;
   cdl_number: string;
+  cdl_state: string;
   driver_type: string;
   operating_hours: string;
   weekend_availability: string;
@@ -111,6 +113,12 @@ const VendorOnboarding = () => {
   // Additional contacts state
   const [additionalContacts, setAdditionalContacts] = useState<any[]>([]);
 
+  // Additional trucks state
+  const [additionalTrucks, setAdditionalTrucks] = useState<any[]>([]);
+
+  // Additional drivers state
+  const [additionalDrivers, setAdditionalDrivers] = useState<any[]>([]);
+
   // Initial contract acceptance state (must accept before accessing form)
   const [initialContractAccepted, setInitialContractAccepted] = useState(false);
   const [hasAgreedToInitialContract, setHasAgreedToInitialContract] =
@@ -119,16 +127,56 @@ const VendorOnboarding = () => {
   // Final contract acceptance state (on compliance tab)
   const [finalContractAccepted, setFinalContractAccepted] = useState(false);
 
-  // Check authentication
+  // Mailing address toggle state
+  const [showMailingAddress, setShowMailingAddress] = useState(false);
+
+  // Success state
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Check authentication and onboarding status
   useEffect(() => {
-    if (!authLoading && !user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to access the vendor onboarding portal",
-        variant: "destructive",
-      });
-      navigate("/vendor/login");
-    }
+    const checkOnboardingStatus = async () => {
+      if (!authLoading && !user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to access the vendor onboarding portal",
+          variant: "destructive",
+        });
+        navigate("/vendor/login");
+        return;
+      }
+
+      // Check if vendor has already completed onboarding
+      if (user?.id) {
+        const { data: company } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (company) {
+          const allSectionsComplete =
+            company.company_details_status === "Complete" &&
+            company.contacts_status === "Complete" &&
+            company.fleet_status === "Complete" &&
+            company.drivers_status === "Complete";
+
+          const isOnboarded =
+            company.status === "Pending Review" ||
+            company.status === "Active" ||
+            company.status === "Approved" ||
+            allSectionsComplete;
+
+          if (isOnboarded) {
+            navigate("/vendor/already-onboarded", {
+              state: { companyName: company.name },
+            });
+          }
+        }
+      }
+    };
+
+    checkOnboardingStatus();
   }, [user, authLoading, navigate]);
 
   const [formData, setFormData] = useState<VendorFormData>({
@@ -158,13 +206,13 @@ const VendorOnboarding = () => {
     capacity: "",
     gps_device_id: "",
     material_types_handled: [],
-    max_load_capacity: "",
     vin: "",
     is_on_insurance_policy: "",
     driver_name: "",
     phone_number: "",
     email_address: "",
     cdl_number: "",
+    cdl_state: "",
     driver_type: "",
     operating_hours: "",
     weekend_availability: "",
@@ -251,9 +299,9 @@ const VendorOnboarding = () => {
 
   // Download CSV Template
   const downloadFleetTemplate = () => {
-    const template = `truck_id,carrier_name,license_plate,truck_type,capacity,gps_device_id,material_types_handled,max_load_capacity,truck_state,vin_optional
-TRUCK001,ABC Trucking,ABC123,End Dump,25,GPS001,"Sand,Rock",25,Owned,1HGBH41JXMN109186
-TRUCK002,XYZ Transport,XYZ456,Tanker,30,GPS002,"Oil,Waste",30,Leased,2HGBH41JXMN109187`;
+    const template = `truck_id,carrier_name,license_plate,truck_type,capacity,gps_device_id,material_types_handled,truck_state,vin_optional
+TRUCK001,ABC Trucking,ABC123,End Dump,25,GPS001,"Sand,Rock",Owned,1HGBH41JXMN109186
+TRUCK002,XYZ Transport,XYZ456,Tanker,30,GPS002,"Oil,Waste",Leased,2HGBH41JXMN109187`;
 
     const blob = new Blob([template], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -312,6 +360,71 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     );
   };
 
+  // Add additional truck
+  const addAdditionalTruck = () => {
+    const newTruck = {
+      id: Date.now(),
+      truck_id: "",
+      license_plate: "",
+      license_state: "",
+      truck_type: "",
+      capacity: "",
+      gps_device_id: "",
+      material_types_handled: [],
+      vin: "",
+      is_on_insurance_policy: "",
+    };
+    setAdditionalTrucks([...additionalTrucks, newTruck]);
+  };
+
+  // Remove additional truck
+  const removeAdditionalTruck = (id: number) => {
+    setAdditionalTrucks(additionalTrucks.filter((truck) => truck.id !== id));
+  };
+
+  // Update additional truck
+  const updateAdditionalTruck = (id: number, field: string, value: any) => {
+    setAdditionalTrucks(
+      additionalTrucks.map((truck) =>
+        truck.id === id ? { ...truck, [field]: value } : truck
+      )
+    );
+  };
+
+  // Add additional driver
+  const addAdditionalDriver = () => {
+    const newDriver = {
+      id: Date.now(),
+      driver_name: "",
+      phone_number: "",
+      email_address: "",
+      cdl_number: "",
+      cdl_state: "",
+      driver_type: "",
+      operating_hours: "",
+      weekend_availability: "",
+      driver_comments: "",
+      emergency_contact: "",
+    };
+    setAdditionalDrivers([...additionalDrivers, newDriver]);
+  };
+
+  // Remove additional driver
+  const removeAdditionalDriver = (id: number) => {
+    setAdditionalDrivers(
+      additionalDrivers.filter((driver) => driver.id !== id)
+    );
+  };
+
+  // Update additional driver
+  const updateAdditionalDriver = (id: number, field: string, value: string) => {
+    setAdditionalDrivers(
+      additionalDrivers.map((driver) =>
+        driver.id === id ? { ...driver, [field]: value } : driver
+      )
+    );
+  };
+
   const tabOrder = [
     "company_details",
     "contacts",
@@ -357,31 +470,68 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
         }
         return true;
       case "fleet_details":
-        if (
-          !formData.truck_id ||
-          !formData.license_plate ||
-          !formData.truck_type
-        ) {
+        // Check if at least one truck has been added
+        if (additionalTrucks.length === 0) {
           toast({
-            title: "Required Fields Missing",
-            description: "Please fill in all required fields in Fleet Details",
+            title: "No Trucks Added",
+            description:
+              "Please add at least one truck using the 'Add Truck' button",
             variant: "destructive",
           });
           return false;
         }
+        // Validate each truck has required fields
+        for (let i = 0; i < additionalTrucks.length; i++) {
+          const truck = additionalTrucks[i];
+          if (
+            !truck.truck_id ||
+            !truck.license_plate ||
+            !truck.license_state ||
+            !truck.truck_type ||
+            !truck.vin ||
+            !truck.is_on_insurance_policy
+          ) {
+            toast({
+              title: "Required Fields Missing",
+              description: `Please fill in all required fields for Truck ${
+                i + 1
+              }`,
+              variant: "destructive",
+            });
+            return false;
+          }
+        }
         return true;
       case "driver_details":
-        if (
-          !formData.driver_name ||
-          !formData.phone_number ||
-          !formData.cdl_number
-        ) {
+        // Check if at least one driver has been added
+        if (additionalDrivers.length === 0) {
           toast({
-            title: "Required Fields Missing",
-            description: "Please fill in all required fields in Driver Details",
+            title: "No Drivers Added",
+            description:
+              "Please add at least one driver using the 'Add Driver' button",
             variant: "destructive",
           });
           return false;
+        }
+        // Validate each driver has required fields
+        for (let i = 0; i < additionalDrivers.length; i++) {
+          const driver = additionalDrivers[i];
+          if (
+            !driver.driver_name ||
+            !driver.phone_number ||
+            !driver.cdl_number ||
+            !driver.cdl_state ||
+            !driver.driver_type
+          ) {
+            toast({
+              title: "Required Fields Missing",
+              description: `Please fill in all required fields for Driver ${
+                i + 1
+              }`,
+              variant: "destructive",
+            });
+            return false;
+          }
         }
         return true;
       default:
@@ -408,6 +558,37 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     }
   };
 
+  // Helper function to upload files to Supabase storage
+  const uploadFile = async (
+    file: File,
+    bucket: string,
+    path: string
+  ): Promise<string | null> => {
+    try {
+      const timestamp = Date.now();
+      const filename = `${timestamp}-${file.name}`;
+      const filepath = `${path}/${filename}`;
+
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filepath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (error) throw error;
+
+      const { data: publicData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filepath);
+
+      return publicData.publicUrl;
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      return null;
+    }
+  };
+
   const handleSubmit = async () => {
     if (!signerName) {
       toast({
@@ -419,32 +600,175 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
       return;
     }
 
+    if (!user?.id) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to submit the onboarding form",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // TODO: Implement actual submission logic
-      console.log("Submitting vendor onboarding data:", formData);
-      console.log("Additional contacts:", additionalContacts);
-      console.log("Fleet CSV data:", fleetCsvData);
-      console.log("Driver CSV data:", driverCsvData);
-      console.log("Initial contract accepted:", initialContractAccepted);
-      console.log("Signer Name:", signerName);
+      // 1. Upload COI and W9 files if provided
+      let coiUrl: string | null = null;
+      let w9Url: string | null = null;
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (formData.upload_coi) {
+        coiUrl = await uploadFile(
+          formData.upload_coi,
+          "vendor-documents",
+          "coi"
+        );
+        if (!coiUrl) {
+          throw new Error("Failed to upload Certificate of Insurance");
+        }
+      }
+
+      if (formData.upload_w9) {
+        w9Url = await uploadFile(formData.upload_w9, "vendor-documents", "w9");
+        if (!w9Url) {
+          throw new Error("Failed to upload W9 form");
+        }
+      }
+
+      // 2. Create/Update company record
+      const companyData = {
+        name: formData.vendor_company_name,
+        business_address: formData.business_address,
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zip,
+        legal_name_for_invoicing: formData.legal_name_for_invoicing,
+        mailing_address: showMailingAddress
+          ? formData.mailing_address_optional
+          : null,
+        mc_number: formData.mc_number,
+        dot_number: formData.dot_number,
+        coi_file_url: coiUrl,
+        w9_file_url: w9Url,
+        status: "Pending Review",
+        agreement_status: initialContractAccepted ? "Accepted" : "Not Shown",
+        company_details_status: "Complete",
+        contacts_status:
+          additionalContacts.length > 0 ? "Complete" : "Not Started",
+        fleet_status: additionalTrucks.length > 0 ? "Complete" : "Not Started",
+        drivers_status:
+          additionalDrivers.length > 0 ? "Complete" : "Not Started",
+        portal_access_enabled: false,
+        type: "carrier",
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: company, error: companyError } = await supabase
+        .from("companies")
+        .upsert(companyData)
+        .select()
+        .single();
+
+      if (companyError) throw companyError;
+      if (!company) throw new Error("Failed to create company record");
+
+      console.log("Company created:", company);
+
+      // 3. Create contact records
+      if (additionalContacts.length > 0) {
+        const contactsData = additionalContacts.map((contact, index) => ({
+          company_id: company.id,
+          name: contact.name,
+          phone: contact.phone,
+          email: contact.email,
+          location: contact.location,
+          role: contact.role,
+          comments: contact.comments,
+          is_primary: index === 0, // First contact is primary
+        }));
+
+        const { error: contactsError } = await supabase
+          .from("Contact_Info")
+          .insert(contactsData);
+
+        if (contactsError) {
+          console.error("Error creating contacts:", contactsError);
+          // Don't fail the whole submission if contacts fail
+        } else {
+          console.log("Contacts created:", contactsData.length);
+        }
+      }
+
+      // 4. Create truck records
+      if (additionalTrucks.length > 0) {
+        const trucksData = additionalTrucks.map((truck) => ({
+          truck_id: truck.truck_id,
+          carrier_id: company.id,
+          license_plate: truck.license_plate,
+          license_state: truck.license_state,
+          truck_type: truck.truck_type,
+          capacity: truck.capacity,
+          gps_device_id: truck.gps_device_id,
+          material_types_handled: truck.material_types_handled,
+          vin: truck.vin,
+          is_on_insurance_policy: truck.is_on_insurance_policy === "Yes",
+          status: "active",
+        }));
+
+        const { error: trucksError } = await supabase
+          .from("trucks")
+          .insert(trucksData);
+
+        if (trucksError) {
+          console.error("Error creating trucks:", trucksError);
+          // Don't fail the whole submission if trucks fail
+        } else {
+          console.log("Trucks created:", trucksData.length);
+        }
+      }
+
+      // 5. Create driver records
+      if (additionalDrivers.length > 0) {
+        const driversData = additionalDrivers.map((driver) => ({
+          name: driver.driver_name,
+          carrier_id: company.id,
+          email: driver.email_address,
+          phone: driver.phone_number,
+          cdl_number: driver.cdl_number,
+          cdl_state: driver.cdl_state,
+          driver_type: driver.driver_type,
+          operating_hours: driver.operating_hours,
+          weekend_availability: driver.weekend_availability,
+          comments: driver.driver_comments,
+          emergency_contact: driver.emergency_contact,
+          status: "active",
+        }));
+
+        const { error: driversError } = await supabase
+          .from("drivers")
+          .insert(driversData);
+
+        if (driversError) {
+          console.error("Error creating drivers:", driversError);
+          // Don't fail the whole submission if drivers fail
+        } else {
+          console.log("Drivers created:", driversData.length);
+        }
+      }
+
+      // Set success state to show success page
+      setIsSubmitted(true);
 
       toast({
         title: "Success!",
-        description: "Vendor onboarding completed successfully",
+        description: "Your vendor onboarding has been submitted successfully",
       });
-
-      // Navigate to success page or dashboard
-      navigate("/");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting vendor onboarding:", error);
       toast({
         title: "Error",
-        description: "Failed to submit vendor onboarding. Please try again.",
+        description:
+          error.message ||
+          "Failed to submit vendor onboarding. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -460,6 +784,110 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
           <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-muted-foreground">Loading...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Show success page after submission
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-background to-green-50 dark:from-green-950/20 dark:via-background dark:to-green-950/20">
+        <Header showHomeButton onHomeClick={() => navigate("/")} />
+
+        <main className="container mx-auto px-4 py-16 max-w-2xl">
+          <div className="text-center space-y-6">
+            {/* Success Icon */}
+            <div className="flex justify-center">
+              <div className="p-6 bg-green-100 dark:bg-green-900/30 rounded-full">
+                <CheckCircle2 className="h-24 w-24 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+
+            {/* Success Message */}
+            <div className="space-y-3">
+              <h1 className="text-4xl font-bold text-foreground">
+                Congratulations!
+              </h1>
+              <p className="text-xl text-muted-foreground">
+                Your onboarding has been submitted successfully
+              </p>
+            </div>
+
+            {/* Info Card */}
+            <Card className="p-8 text-left">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-1">
+                      What's Next?
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      You will receive an email with the next steps for
+                      completing your vendor setup.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-1">
+                      Review Process
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Our team will review your submission and contact you
+                      within 1-2 business days.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-1">
+                      Portal Access
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Once approved, you'll receive login credentials to access
+                      the vendor portal.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+              <Button
+                onClick={() => navigate("/")}
+                size="lg"
+                className="min-w-[200px]"
+              >
+                Return to Home
+              </Button>
+              <Button
+                onClick={() => navigate("/vendor/login")}
+                variant="outline"
+                size="lg"
+                className="min-w-[200px]"
+              >
+                Back to Login
+              </Button>
+            </div>
+
+            {/* Contact Info */}
+            <p className="text-sm text-muted-foreground pt-6">
+              Questions? Contact us at{" "}
+              <a
+                href="mailto:support@avensis.com"
+                className="text-primary hover:underline"
+              >
+                support@avensis.com
+              </a>
+            </p>
+          </div>
+        </main>
       </div>
     );
   }
@@ -504,7 +932,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                       vendor ("Vendor") and its authorized users. By selecting
                       "I Agree", the Vendor acknowledges that it has read,
                       understood, and accepted the terms of this Agreement. Last
-                      updated: [Insert Date].
+                      updated: 26.11.2025.
                     </p>
 
                     <h5 className="font-semibold text-base mt-6 mb-3">
@@ -829,11 +1257,10 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
 
                   <div className="space-y-2">
                     <Label htmlFor="business_address">Business Address *</Label>
-                    <Input
-                      id="business_address"
+                    <AddressInput
                       value={formData.business_address}
-                      onChange={(e) =>
-                        updateField("business_address", e.target.value)
+                      onChange={(value) =>
+                        updateField("business_address", value)
                       }
                       placeholder="Street address of the business"
                     />
@@ -883,18 +1310,39 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                     />
                   </div>
 
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="mailing_address_optional">
-                      Mailing Address (if different)
-                    </Label>
-                    <Input
-                      id="mailing_address_optional"
-                      value={formData.mailing_address_optional}
-                      onChange={(e) =>
-                        updateField("mailing_address_optional", e.target.value)
-                      }
-                      placeholder="Mailing address if different from business address"
-                    />
+                  {/* Mailing Address Toggle */}
+                  <div className="space-y-3 md:col-span-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="different-mailing-address"
+                        checked={showMailingAddress}
+                        onCheckedChange={(checked) =>
+                          setShowMailingAddress(checked as boolean)
+                        }
+                      />
+                      <Label
+                        htmlFor="different-mailing-address"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Mailing address is different from company address
+                      </Label>
+                    </div>
+
+                    {/* Mailing Address Field - Only shown when toggle is checked */}
+                    {showMailingAddress && (
+                      <div className="space-y-2">
+                        <Label htmlFor="mailing_address_optional">
+                          Mailing Address
+                        </Label>
+                        <AddressInput
+                          value={formData.mailing_address_optional}
+                          onChange={(value) =>
+                            updateField("mailing_address_optional", value)
+                          }
+                          placeholder="Enter mailing address"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -981,26 +1429,12 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                     onClick={addAdditionalContact}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Contact
+                    Add Another Contact
                   </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="company_name">Company Name</Label>
-                    <Input
-                      id="company_name"
-                      value={formData.company_name}
-                      onChange={(e) =>
-                        updateField("company_name", e.target.value)
-                      }
-                      placeholder="Vendor company name"
-                      disabled
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Pre-populated from Company Details
-                    </p>
-                  </div>
+                  {/* Company Name field hidden as requested */}
 
                   <div className="space-y-2">
                     <Label htmlFor="primary_contact_name">
@@ -1140,13 +1574,13 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                           </div>
                           <div className="space-y-2">
                             <Label>Location</Label>
-                            <Input
+                            <AddressInput
                               value={contact.location}
-                              onChange={(e) =>
+                              onChange={(value) =>
                                 updateAdditionalContact(
                                   contact.id,
                                   "location",
-                                  e.target.value
+                                  value
                                 )
                               }
                               placeholder="Operating location"
@@ -1195,254 +1629,266 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="default"
                       size="sm"
-                      onClick={downloadFleetTemplate}
+                      onClick={addAdditionalTruck}
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Template
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Truck
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fleetCsvInputRef.current?.click()}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload CSV
-                    </Button>
-                    <input
-                      ref={fleetCsvInputRef}
-                      type="file"
-                      accept=".csv"
-                      onChange={handleFleetCsvUpload}
-                      className="hidden"
-                    />
                   </div>
                 </div>
 
-                {fleetCsvData.length > 0 && (
-                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-green-800">
-                      <FileSpreadsheet className="h-5 w-5" />
-                      <span className="font-medium">
-                        {fleetCsvData.length} fleet records loaded from CSV
-                      </span>
-                    </div>
-                    <p className="text-sm text-green-700 mt-1">
-                      These records will be submitted along with the form data.
-                    </p>
+                {/* Additional Trucks */}
+                {additionalTrucks.length > 0 && (
+                  <div className="space-y-4">
+                    {additionalTrucks.map((truck, index) => (
+                      <Card key={truck.id} className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-medium">Truck {index + 1}</h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAdditionalTruck(truck.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Truck ID *</Label>
+                            <Input
+                              value={truck.truck_id}
+                              onChange={(e) =>
+                                updateAdditionalTruck(
+                                  truck.id,
+                                  "truck_id",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Unique truck number"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>License Plate *</Label>
+                            <Input
+                              value={truck.license_plate}
+                              onChange={(e) =>
+                                updateAdditionalTruck(
+                                  truck.id,
+                                  "license_plate",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="License plate number"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>License State *</Label>
+                            <Select
+                              value={truck.license_state}
+                              onValueChange={(value) =>
+                                updateAdditionalTruck(
+                                  truck.id,
+                                  "license_state",
+                                  value
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select state" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="AL">Alabama</SelectItem>
+                                <SelectItem value="AK">Alaska</SelectItem>
+                                <SelectItem value="AZ">Arizona</SelectItem>
+                                <SelectItem value="AR">Arkansas</SelectItem>
+                                <SelectItem value="CA">California</SelectItem>
+                                <SelectItem value="CO">Colorado</SelectItem>
+                                <SelectItem value="CT">Connecticut</SelectItem>
+                                <SelectItem value="DE">Delaware</SelectItem>
+                                <SelectItem value="FL">Florida</SelectItem>
+                                <SelectItem value="GA">Georgia</SelectItem>
+                                <SelectItem value="HI">Hawaii</SelectItem>
+                                <SelectItem value="ID">Idaho</SelectItem>
+                                <SelectItem value="IL">Illinois</SelectItem>
+                                <SelectItem value="IN">Indiana</SelectItem>
+                                <SelectItem value="IA">Iowa</SelectItem>
+                                <SelectItem value="KS">Kansas</SelectItem>
+                                <SelectItem value="KY">Kentucky</SelectItem>
+                                <SelectItem value="LA">Louisiana</SelectItem>
+                                <SelectItem value="ME">Maine</SelectItem>
+                                <SelectItem value="MD">Maryland</SelectItem>
+                                <SelectItem value="MA">
+                                  Massachusetts
+                                </SelectItem>
+                                <SelectItem value="MI">Michigan</SelectItem>
+                                <SelectItem value="MN">Minnesota</SelectItem>
+                                <SelectItem value="MS">Mississippi</SelectItem>
+                                <SelectItem value="MO">Missouri</SelectItem>
+                                <SelectItem value="MT">Montana</SelectItem>
+                                <SelectItem value="NE">Nebraska</SelectItem>
+                                <SelectItem value="NV">Nevada</SelectItem>
+                                <SelectItem value="NH">
+                                  New Hampshire
+                                </SelectItem>
+                                <SelectItem value="NJ">New Jersey</SelectItem>
+                                <SelectItem value="NM">New Mexico</SelectItem>
+                                <SelectItem value="NY">New York</SelectItem>
+                                <SelectItem value="NC">
+                                  North Carolina
+                                </SelectItem>
+                                <SelectItem value="ND">North Dakota</SelectItem>
+                                <SelectItem value="OH">Ohio</SelectItem>
+                                <SelectItem value="OK">Oklahoma</SelectItem>
+                                <SelectItem value="OR">Oregon</SelectItem>
+                                <SelectItem value="PA">Pennsylvania</SelectItem>
+                                <SelectItem value="RI">Rhode Island</SelectItem>
+                                <SelectItem value="SC">
+                                  South Carolina
+                                </SelectItem>
+                                <SelectItem value="SD">South Dakota</SelectItem>
+                                <SelectItem value="TN">Tennessee</SelectItem>
+                                <SelectItem value="TX">Texas</SelectItem>
+                                <SelectItem value="UT">Utah</SelectItem>
+                                <SelectItem value="VT">Vermont</SelectItem>
+                                <SelectItem value="VA">Virginia</SelectItem>
+                                <SelectItem value="WA">Washington</SelectItem>
+                                <SelectItem value="WV">
+                                  West Virginia
+                                </SelectItem>
+                                <SelectItem value="WI">Wisconsin</SelectItem>
+                                <SelectItem value="WY">Wyoming</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Truck Type *</Label>
+                            <Select
+                              value={truck.truck_type}
+                              onValueChange={(value) =>
+                                updateAdditionalTruck(
+                                  truck.id,
+                                  "truck_type",
+                                  value
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select truck type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="End Dump">
+                                  End Dump
+                                </SelectItem>
+                                <SelectItem value="Tanker">Tanker</SelectItem>
+                                <SelectItem value="Flatbed">Flatbed</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Capacity (tons or barrels)</Label>
+                            <Input
+                              type="number"
+                              value={truck.capacity}
+                              onChange={(e) =>
+                                updateAdditionalTruck(
+                                  truck.id,
+                                  "capacity",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Truck capacity"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>GPS Device ID</Label>
+                            <Input
+                              value={truck.gps_device_id}
+                              onChange={(e) =>
+                                updateAdditionalTruck(
+                                  truck.id,
+                                  "gps_device_id",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="GPS device identifier"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>VIN *</Label>
+                            <Input
+                              value={truck.vin}
+                              onChange={(e) =>
+                                updateAdditionalTruck(
+                                  truck.id,
+                                  "vin",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Vehicle Identification Number"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Material Types Handled</Label>
+                            <MultiSelect
+                              value={truck.material_types_handled}
+                              onValueChange={(value) =>
+                                updateAdditionalTruck(
+                                  truck.id,
+                                  "material_types_handled",
+                                  value
+                                )
+                              }
+                              options={[
+                                "Sand",
+                                "Rock",
+                                "Aggregate",
+                                "Oil",
+                                "Waste",
+                                "Other",
+                              ]}
+                              placeholder="Select materials"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>
+                              Is this truck listed on your insurance policy? *
+                            </Label>
+                            <Select
+                              value={truck.is_on_insurance_policy}
+                              onValueChange={(value) =>
+                                updateAdditionalTruck(
+                                  truck.id,
+                                  "is_on_insurance_policy",
+                                  value
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Yes or No" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Yes">Yes</SelectItem>
+                                <SelectItem value="No">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
                 )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="truck_id">Truck ID *</Label>
-                    <Input
-                      id="truck_id"
-                      value={formData.truck_id}
-                      onChange={(e) => updateField("truck_id", e.target.value)}
-                      placeholder="Unique truck number or internal code"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="carrier_name">Carrier Name *</Label>
-                    <Input
-                      id="carrier_name"
-                      value={formData.carrier_name}
-                      onChange={(e) =>
-                        updateField("carrier_name", e.target.value)
-                      }
-                      placeholder="Name of the company that operates the truck"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="license_plate">License Plate *</Label>
-                    <Input
-                      id="license_plate"
-                      value={formData.license_plate}
-                      onChange={(e) =>
-                        updateField("license_plate", e.target.value)
-                      }
-                      placeholder="Truck license plate number"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="license_state">License State *</Label>
-                    <Select
-                      value={formData.license_state}
-                      onValueChange={(value) =>
-                        updateField("license_state", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select state" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="AL">Alabama</SelectItem>
-                        <SelectItem value="AK">Alaska</SelectItem>
-                        <SelectItem value="AZ">Arizona</SelectItem>
-                        <SelectItem value="AR">Arkansas</SelectItem>
-                        <SelectItem value="CA">California</SelectItem>
-                        <SelectItem value="CO">Colorado</SelectItem>
-                        <SelectItem value="CT">Connecticut</SelectItem>
-                        <SelectItem value="DE">Delaware</SelectItem>
-                        <SelectItem value="FL">Florida</SelectItem>
-                        <SelectItem value="GA">Georgia</SelectItem>
-                        <SelectItem value="HI">Hawaii</SelectItem>
-                        <SelectItem value="ID">Idaho</SelectItem>
-                        <SelectItem value="IL">Illinois</SelectItem>
-                        <SelectItem value="IN">Indiana</SelectItem>
-                        <SelectItem value="IA">Iowa</SelectItem>
-                        <SelectItem value="KS">Kansas</SelectItem>
-                        <SelectItem value="KY">Kentucky</SelectItem>
-                        <SelectItem value="LA">Louisiana</SelectItem>
-                        <SelectItem value="ME">Maine</SelectItem>
-                        <SelectItem value="MD">Maryland</SelectItem>
-                        <SelectItem value="MA">Massachusetts</SelectItem>
-                        <SelectItem value="MI">Michigan</SelectItem>
-                        <SelectItem value="MN">Minnesota</SelectItem>
-                        <SelectItem value="MS">Mississippi</SelectItem>
-                        <SelectItem value="MO">Missouri</SelectItem>
-                        <SelectItem value="MT">Montana</SelectItem>
-                        <SelectItem value="NE">Nebraska</SelectItem>
-                        <SelectItem value="NV">Nevada</SelectItem>
-                        <SelectItem value="NH">New Hampshire</SelectItem>
-                        <SelectItem value="NJ">New Jersey</SelectItem>
-                        <SelectItem value="NM">New Mexico</SelectItem>
-                        <SelectItem value="NY">New York</SelectItem>
-                        <SelectItem value="NC">North Carolina</SelectItem>
-                        <SelectItem value="ND">North Dakota</SelectItem>
-                        <SelectItem value="OH">Ohio</SelectItem>
-                        <SelectItem value="OK">Oklahoma</SelectItem>
-                        <SelectItem value="OR">Oregon</SelectItem>
-                        <SelectItem value="PA">Pennsylvania</SelectItem>
-                        <SelectItem value="RI">Rhode Island</SelectItem>
-                        <SelectItem value="SC">South Carolina</SelectItem>
-                        <SelectItem value="SD">South Dakota</SelectItem>
-                        <SelectItem value="TN">Tennessee</SelectItem>
-                        <SelectItem value="TX">Texas</SelectItem>
-                        <SelectItem value="UT">Utah</SelectItem>
-                        <SelectItem value="VT">Vermont</SelectItem>
-                        <SelectItem value="VA">Virginia</SelectItem>
-                        <SelectItem value="WA">Washington</SelectItem>
-                        <SelectItem value="WV">West Virginia</SelectItem>
-                        <SelectItem value="WI">Wisconsin</SelectItem>
-                        <SelectItem value="WY">Wyoming</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="truck_type">Truck Type *</Label>
-                    <Select
-                      value={formData.truck_type}
-                      onValueChange={(value) =>
-                        updateField("truck_type", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select truck type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="End Dump">End Dump</SelectItem>
-                        <SelectItem value="Tanker">Tanker</SelectItem>
-                        <SelectItem value="Flatbed">Flatbed</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="capacity">Capacity (tons or barrels)</Label>
-                    <Input
-                      id="capacity"
-                      type="number"
-                      value={formData.capacity}
-                      onChange={(e) => updateField("capacity", e.target.value)}
-                      placeholder="Truck capacity"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="gps_device_id">GPS Device ID</Label>
-                    <Input
-                      id="gps_device_id"
-                      value={formData.gps_device_id}
-                      onChange={(e) =>
-                        updateField("gps_device_id", e.target.value)
-                      }
-                      placeholder="GPS device identifier"
-                    />
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="material_types_handled">
-                      Material Types Handled
-                    </Label>
-                    <MultiSelect
-                      value={formData.material_types_handled}
-                      onValueChange={(value) =>
-                        updateField("material_types_handled", value)
-                      }
-                      options={[
-                        "Sand",
-                        "Rock",
-                        "Aggregate",
-                        "Oil",
-                        "Waste",
-                        "Other",
-                      ]}
-                      placeholder="Select materials this truck can carry"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="max_load_capacity">Max Load Capacity</Label>
-                    <Input
-                      id="max_load_capacity"
-                      type="number"
-                      value={formData.max_load_capacity}
-                      onChange={(e) =>
-                        updateField("max_load_capacity", e.target.value)
-                      }
-                      placeholder="Maximum allowed load"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="vin">VIN *</Label>
-                    <Input
-                      id="vin"
-                      value={formData.vin}
-                      onChange={(e) => updateField("vin", e.target.value)}
-                      placeholder="Vehicle Identification Number"
-                    />
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="is_on_insurance_policy">
-                      Is this truck listed on your insurance policy? *
-                    </Label>
-                    <Select
-                      value={formData.is_on_insurance_policy}
-                      onValueChange={(value) =>
-                        updateField("is_on_insurance_policy", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Yes or No" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Yes">Yes</SelectItem>
-                        <SelectItem value="No">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
               </TabsContent>
 
               {/* Driver Details Tab */}
@@ -1452,164 +1898,273 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="default"
                       size="sm"
-                      onClick={downloadDriverTemplate}
+                      onClick={addAdditionalDriver}
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Template
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Driver
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => driverCsvInputRef.current?.click()}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload CSV
-                    </Button>
-                    <input
-                      ref={driverCsvInputRef}
-                      type="file"
-                      accept=".csv"
-                      onChange={handleDriverCsvUpload}
-                      className="hidden"
-                    />
                   </div>
                 </div>
 
-                {driverCsvData.length > 0 && (
-                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-green-800">
-                      <FileSpreadsheet className="h-5 w-5" />
-                      <span className="font-medium">
-                        {driverCsvData.length} driver records loaded from CSV
-                      </span>
-                    </div>
-                    <p className="text-sm text-green-700 mt-1">
-                      These records will be submitted along with the form data.
-                    </p>
+                {/* Additional Drivers */}
+                {additionalDrivers.length > 0 && (
+                  <div className="space-y-4">
+                    {additionalDrivers.map((driver, index) => (
+                      <Card key={driver.id} className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-medium">Driver {index + 1}</h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAdditionalDriver(driver.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Driver Name *</Label>
+                            <Input
+                              value={driver.driver_name}
+                              onChange={(e) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "driver_name",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Full name as per license"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Phone Number *</Label>
+                            <Input
+                              type="tel"
+                              value={driver.phone_number}
+                              onChange={(e) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "phone_number",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Mobile phone"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Email Address</Label>
+                            <Input
+                              type="email"
+                              value={driver.email_address}
+                              onChange={(e) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "email_address",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Email (optional)"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>CDL Number *</Label>
+                            <Input
+                              value={driver.cdl_number}
+                              onChange={(e) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "cdl_number",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="CDL number"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>CDL State *</Label>
+                            <Select
+                              value={driver.cdl_state}
+                              onValueChange={(value) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "cdl_state",
+                                  value
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select state" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="AL">Alabama</SelectItem>
+                                <SelectItem value="AK">Alaska</SelectItem>
+                                <SelectItem value="AZ">Arizona</SelectItem>
+                                <SelectItem value="AR">Arkansas</SelectItem>
+                                <SelectItem value="CA">California</SelectItem>
+                                <SelectItem value="CO">Colorado</SelectItem>
+                                <SelectItem value="CT">Connecticut</SelectItem>
+                                <SelectItem value="DE">Delaware</SelectItem>
+                                <SelectItem value="FL">Florida</SelectItem>
+                                <SelectItem value="GA">Georgia</SelectItem>
+                                <SelectItem value="HI">Hawaii</SelectItem>
+                                <SelectItem value="ID">Idaho</SelectItem>
+                                <SelectItem value="IL">Illinois</SelectItem>
+                                <SelectItem value="IN">Indiana</SelectItem>
+                                <SelectItem value="IA">Iowa</SelectItem>
+                                <SelectItem value="KS">Kansas</SelectItem>
+                                <SelectItem value="KY">Kentucky</SelectItem>
+                                <SelectItem value="LA">Louisiana</SelectItem>
+                                <SelectItem value="ME">Maine</SelectItem>
+                                <SelectItem value="MD">Maryland</SelectItem>
+                                <SelectItem value="MA">
+                                  Massachusetts
+                                </SelectItem>
+                                <SelectItem value="MI">Michigan</SelectItem>
+                                <SelectItem value="MN">Minnesota</SelectItem>
+                                <SelectItem value="MS">Mississippi</SelectItem>
+                                <SelectItem value="MO">Missouri</SelectItem>
+                                <SelectItem value="MT">Montana</SelectItem>
+                                <SelectItem value="NE">Nebraska</SelectItem>
+                                <SelectItem value="NV">Nevada</SelectItem>
+                                <SelectItem value="NH">
+                                  New Hampshire
+                                </SelectItem>
+                                <SelectItem value="NJ">New Jersey</SelectItem>
+                                <SelectItem value="NM">New Mexico</SelectItem>
+                                <SelectItem value="NY">New York</SelectItem>
+                                <SelectItem value="NC">
+                                  North Carolina
+                                </SelectItem>
+                                <SelectItem value="ND">North Dakota</SelectItem>
+                                <SelectItem value="OH">Ohio</SelectItem>
+                                <SelectItem value="OK">Oklahoma</SelectItem>
+                                <SelectItem value="OR">Oregon</SelectItem>
+                                <SelectItem value="PA">Pennsylvania</SelectItem>
+                                <SelectItem value="RI">Rhode Island</SelectItem>
+                                <SelectItem value="SC">
+                                  South Carolina
+                                </SelectItem>
+                                <SelectItem value="SD">South Dakota</SelectItem>
+                                <SelectItem value="TN">Tennessee</SelectItem>
+                                <SelectItem value="TX">Texas</SelectItem>
+                                <SelectItem value="UT">Utah</SelectItem>
+                                <SelectItem value="VT">Vermont</SelectItem>
+                                <SelectItem value="VA">Virginia</SelectItem>
+                                <SelectItem value="WA">Washington</SelectItem>
+                                <SelectItem value="WV">
+                                  West Virginia
+                                </SelectItem>
+                                <SelectItem value="WI">Wisconsin</SelectItem>
+                                <SelectItem value="WY">Wyoming</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Driver Type *</Label>
+                            <Select
+                              value={driver.driver_type}
+                              onValueChange={(value) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "driver_type",
+                                  value
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select driver type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Company Driver">
+                                  Company Driver
+                                </SelectItem>
+                                <SelectItem value="Owner Operator">
+                                  Owner Operator
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Operating Hours</Label>
+                            <Input
+                              value={driver.operating_hours}
+                              onChange={(e) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "operating_hours",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g., 7:00 AM - 5:00 PM"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Weekend Availability</Label>
+                            <Select
+                              value={driver.weekend_availability}
+                              onValueChange={(value) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "weekend_availability",
+                                  value
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select availability" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Yes">Yes</SelectItem>
+                                <SelectItem value="No">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Emergency Contact</Label>
+                            <Input
+                              value={driver.emergency_contact}
+                              onChange={(e) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "emergency_contact",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Emergency contact info"
+                            />
+                          </div>
+
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>Comments</Label>
+                            <Textarea
+                              value={driver.driver_comments}
+                              onChange={(e) =>
+                                updateAdditionalDriver(
+                                  driver.id,
+                                  "driver_comments",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Notes"
+                              rows={3}
+                            />
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
                 )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="driver_name">Driver Name *</Label>
-                    <Input
-                      id="driver_name"
-                      value={formData.driver_name}
-                      onChange={(e) =>
-                        updateField("driver_name", e.target.value)
-                      }
-                      placeholder="Full name as per license"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone_number">Phone Number *</Label>
-                    <Input
-                      id="phone_number"
-                      type="tel"
-                      value={formData.phone_number}
-                      onChange={(e) =>
-                        updateField("phone_number", e.target.value)
-                      }
-                      placeholder="Mobile phone for app login & alerts"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email_address">Email Address</Label>
-                    <Input
-                      id="email_address"
-                      type="email"
-                      value={formData.email_address}
-                      onChange={(e) =>
-                        updateField("email_address", e.target.value)
-                      }
-                      placeholder="Email for notifications (optional)"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cdl_number">CDL Number *</Label>
-                    <Input
-                      id="cdl_number"
-                      value={formData.cdl_number}
-                      onChange={(e) =>
-                        updateField("cdl_number", e.target.value)
-                      }
-                      placeholder="Commercial Driver's License number"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="driver_type">Driver Type *</Label>
-                    <Select
-                      value={formData.driver_type}
-                      onValueChange={(value) =>
-                        updateField("driver_type", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select driver type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Company Driver">
-                          Company Driver
-                        </SelectItem>
-                        <SelectItem value="Owner Operator">
-                          Owner Operator
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="operating_hours">Operating Hours</Label>
-                    <Input
-                      id="operating_hours"
-                      value={formData.operating_hours}
-                      onChange={(e) =>
-                        updateField("operating_hours", e.target.value)
-                      }
-                      placeholder="e.g., 7:00 AM - 5:00 PM"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="weekend_availability">
-                      Weekend Availability
-                    </Label>
-                    <Select
-                      value={formData.weekend_availability}
-                      onValueChange={(value) =>
-                        updateField("weekend_availability", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select availability" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Yes">Yes</SelectItem>
-                        <SelectItem value="No">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="driver_comments">Comments</Label>
-                    <Textarea
-                      id="driver_comments"
-                      value={formData.driver_comments}
-                      onChange={(e) =>
-                        updateField("driver_comments", e.target.value)
-                      }
-                      placeholder="Notes (e.g., shared between trucks, preferred shifts)"
-                      rows={3}
-                    />
-                  </div>
-                </div>
               </TabsContent>
             </Tabs>
           </Card>
