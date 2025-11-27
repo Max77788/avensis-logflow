@@ -77,21 +77,26 @@ export const CreateCompanyDialog = ({
   });
 
   const sendOnboardingEmail = async (
+    companyId: string,
     email: string,
     companyName: string,
     password: string
   ) => {
-    // TODO: Implement actual email sending via your email service
-    // For now, we'll just log it and show a toast
-    console.log("Sending onboarding email to:", email);
-    console.log("Company:", companyName);
-    console.log("Password:", password);
-    console.log("Onboarding URL:", `${window.location.origin}/vendor/login`);
+    try {
+      const result = await adminService.sendOnboardingEmail({
+        company_id: companyId,
+        company_name: companyName,
+        sent_to: email,
+        sent_by: "Admin",
+        username: companyName,
+        temp_password: password,
+      });
 
-    // In production, you would call your email API here
-    // Example: await emailService.sendOnboardingEmail({ email, companyName, password });
-
-    return true;
+      return result.success;
+    } catch (error) {
+      console.error("Error sending onboarding email:", error);
+      return false;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,21 +114,31 @@ export const CreateCompanyDialog = ({
         contact_email: formData.primary_email,
       });
 
-      if (result.success) {
+      if (result.success && result.data) {
         // Send onboarding email if status is "Onboarding Invited"
         if (
           formData.status === "Onboarding Invited" &&
           formData.primary_email
         ) {
-          await sendOnboardingEmail(
+          const emailSent = await sendOnboardingEmail(
+            result.data.id,
             formData.primary_email,
             formData.name,
             formData.password
           );
-          toast({
-            title: "Success",
-            description: `Company created and onboarding email sent to ${formData.primary_email}`,
-          });
+
+          if (emailSent) {
+            toast({
+              title: "Success",
+              description: `Company created and onboarding email sent to ${formData.primary_email}`,
+            });
+          } else {
+            toast({
+              title: "Warning",
+              description: `Company created but failed to send onboarding email to ${formData.primary_email}`,
+              variant: "destructive",
+            });
+          }
         } else {
           toast({
             title: "Success",
