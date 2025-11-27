@@ -44,6 +44,10 @@ export const CompanyFleetTab = ({ companyId }: CompanyFleetTabProps) => {
             <TableHeader>
               <TableRow>
                 <TableHead>Truck ID</TableHead>
+                <TableHead>License Plate</TableHead>
+                <TableHead>State</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>VIN</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
               </TableRow>
@@ -51,24 +55,34 @@ export const CompanyFleetTab = ({ companyId }: CompanyFleetTabProps) => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : trucks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     No trucks found
                   </TableCell>
                 </TableRow>
               ) : (
                 trucks.map((truck) => (
                   <TableRow key={truck.id}>
-                    <TableCell className="font-medium">{truck.truck_id}</TableCell>
+                    <TableCell className="font-medium">
+                      {truck.truck_id}
+                    </TableCell>
+                    <TableCell>{(truck as any).license_plate || "-"}</TableCell>
+                    <TableCell>{(truck as any).license_state || "-"}</TableCell>
+                    <TableCell>{(truck as any).truck_type || "-"}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {(truck as any).vin || "-"}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         className={
-                          truck.status === "active" ? "bg-green-500" : "bg-gray-500"
+                          truck.status === "active"
+                            ? "bg-green-500"
+                            : "bg-gray-500"
                         }
                       >
                         {truck.status}
@@ -87,13 +101,19 @@ export const CompanyFleetTab = ({ companyId }: CompanyFleetTabProps) => {
 
       {/* Drivers */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">Drivers ({drivers.length})</h3>
+        <h3 className="text-lg font-semibold mb-4">
+          Drivers ({drivers.length})
+        </h3>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>CDL Number</TableHead>
+                <TableHead>CDL State</TableHead>
+                <TableHead>Driver Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
               </TableRow>
@@ -101,13 +121,13 @@ export const CompanyFleetTab = ({ companyId }: CompanyFleetTabProps) => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : drivers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     No drivers found
                   </TableCell>
                 </TableRow>
@@ -115,11 +135,17 @@ export const CompanyFleetTab = ({ companyId }: CompanyFleetTabProps) => {
                 drivers.map((driver) => (
                   <TableRow key={driver.id}>
                     <TableCell className="font-medium">{driver.name}</TableCell>
-                    <TableCell>{driver.email}</TableCell>
+                    <TableCell>{driver.email || "-"}</TableCell>
+                    <TableCell>{(driver as any).phone || "-"}</TableCell>
+                    <TableCell>{(driver as any).cdl_number || "-"}</TableCell>
+                    <TableCell>{(driver as any).cdl_state || "-"}</TableCell>
+                    <TableCell>{(driver as any).driver_type || "-"}</TableCell>
                     <TableCell>
                       <Badge
                         className={
-                          driver.status === "active" ? "bg-green-500" : "bg-gray-500"
+                          driver.status === "active"
+                            ? "bg-green-500"
+                            : "bg-gray-500"
                         }
                       >
                         {driver.status}
@@ -138,4 +164,3 @@ export const CompanyFleetTab = ({ companyId }: CompanyFleetTabProps) => {
     </div>
   );
 };
-

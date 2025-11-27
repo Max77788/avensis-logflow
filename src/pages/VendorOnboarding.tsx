@@ -155,22 +155,24 @@ const VendorOnboarding = () => {
           .single();
 
         if (company) {
-          const allSectionsComplete =
-            company.company_details_status === "Complete" &&
-            company.contacts_status === "Complete" &&
-            company.fleet_status === "Complete" &&
-            company.drivers_status === "Complete";
+          // Check if vendor has filled in basic company info (has onboarded)
+          const hasOnboarded =
+            company.business_address && company.mc_number && company.dot_number;
 
-          const isOnboarded =
-            company.status === "Pending Review" ||
-            company.status === "Active" ||
-            company.status === "Approved" ||
-            allSectionsComplete;
-
-          if (isOnboarded) {
-            navigate("/vendor/already-onboarded", {
-              state: { companyName: company.name },
-            });
+          if (hasOnboarded) {
+            // Redirect to profile page instead of onboarding
+            navigate("/vendor/profile");
+          } else {
+            // Update status to "Onboarding In Progress" if not already set
+            if (
+              company.status === "Onboarding Invited" ||
+              company.status === "Draft"
+            ) {
+              await supabase
+                .from("companies")
+                .update({ status: "Onboarding In Progress" } as any)
+                .eq("id", user.id);
+            }
           }
         }
       }
@@ -178,6 +180,53 @@ const VendorOnboarding = () => {
 
     checkOnboardingStatus();
   }, [user, authLoading, navigate]);
+
+  // Prefill form data from existing company record
+  useEffect(() => {
+    const prefillFormData = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data: company, error } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching company data:", error);
+          return;
+        }
+
+        if (company) {
+          // Prefill company details
+          setFormData((prev) => ({
+            ...prev,
+            vendor_company_name: company.name || "",
+            business_address: company.business_address || "",
+            city: company.city || "",
+            state: company.state || "",
+            zip: company.zip || "",
+            legal_name_for_invoicing: company.legal_name_for_invoicing || "",
+            mailing_address_optional: company.mailing_address || "",
+            mc_number: company.mc_number || "",
+            dot_number: company.dot_number || "",
+          }));
+
+          // Check if mailing address exists to show the field
+          if (company.mailing_address) {
+            setShowMailingAddress(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error prefilling form data:", error);
+      }
+    };
+
+    if (!authLoading && user) {
+      prefillFormData();
+    }
+  }, [user, authLoading]);
 
   const [formData, setFormData] = useState<VendorFormData>({
     vendor_company_name: "",
@@ -539,9 +588,191 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     }
   };
 
-  const handleNext = () => {
+  // Auto-save current tab data to Supabase
+  const autoSaveTabData = async (tabName: string) => {
+    if (!user?.id) return;
+
+    try {
+      let updateData: any = {};
+      let statusField: string | null = null;
+
+      switch (tabName) {
+        case "company_details":
+          // Upload files if they exist
+          let coiUrl = null;
+          let w9Url = null;
+
+          if (formData.upload_coi) {
+            coiUrl = await uploadFile(
+              formData.upload_coi,
+              "vendor-documents",
+              `coi/${user.id}`
+            );
+          }
+
+          if (formData.upload_w9) {
+            w9Url = await uploadFile(
+              formData.upload_w9,
+              "vendor-documents",
+              `w9/${user.id}`
+            );
+          }
+
+          updateData = {
+            name: formData.vendor_company_name,
+            business_address: formData.business_address,
+            city: formData.city,
+            state: formData.state,
+            zip: formData.zip,
+            legal_name_for_invoicing: formData.legal_name_for_invoicing,
+            mailing_address: formData.mailing_address_optional || null,
+            mc_number: formData.mc_number,
+            dot_number: formData.dot_number,
+            company_details_status: "Complete",
+            status: "Onboarding In Progress",
+          };
+
+          if (coiUrl) updateData.coi_file_url = coiUrl;
+          if (w9Url) updateData.w9_file_url = w9Url;
+
+          statusField = "company_details_status";
+          break;
+
+        case "contacts":
+          // Save contacts to Contact_Info table
+          if (additionalContacts.length > 0) {
+            // Delete existing contacts for this company first
+            await supabase
+              .from("Contact_Info")
+              .delete()
+              .eq("company_id", user.id);
+
+            // Insert new contacts
+            const contactsData = additionalContacts.map((contact) => ({
+              company_id: user.id,
+              Contact_Name: contact.name,
+              Contact_Phone: contact.phone,
+              Contact_Email: contact.email,
+              Location: contact.location,
+              Role: contact.role,
+              Notes: contact.comments,
+            }));
+
+            const { error: contactsError } = await supabase
+              .from("Contact_Info")
+              .insert(contactsData);
+
+            if (contactsError) {
+              console.error("Error saving contacts:", contactsError);
+            }
+          }
+
+          updateData = {
+            contacts_status: "Complete",
+          };
+          statusField = "contacts_status";
+          break;
+
+        case "fleet":
+        case "fleet_details":
+          // Save trucks to trucks table
+          if (additionalTrucks.length > 0) {
+            // Delete existing trucks for this company first
+            await supabase.from("trucks").delete().eq("carrier_id", user.id);
+
+            // Insert new trucks
+            const trucksData = additionalTrucks.map((truck) => ({
+              truck_id: truck.truck_id,
+              carrier_id: user.id,
+              license_plate: truck.license_plate,
+              license_state: truck.license_state,
+              truck_type: truck.truck_type,
+              capacity: truck.capacity,
+              gps_device_id: truck.gps_device_id,
+              material_types_handled: truck.material_types_handled,
+              vin: truck.vin,
+              is_on_insurance_policy: truck.is_on_insurance_policy === "yes",
+              status: "active",
+            }));
+
+            const { error: trucksError } = await supabase
+              .from("trucks")
+              .insert(trucksData);
+
+            if (trucksError) {
+              console.error("Error saving trucks:", trucksError);
+            }
+          }
+
+          updateData = {
+            fleet_status: "Complete",
+          };
+          statusField = "fleet_status";
+          break;
+
+        case "drivers":
+        case "driver_details":
+          // Save drivers to drivers table
+          if (additionalDrivers.length > 0) {
+            // Delete existing drivers for this company first
+            await supabase.from("drivers").delete().eq("carrier_id", user.id);
+
+            // Insert new drivers
+            const driversData = additionalDrivers.map((driver) => ({
+              name: driver.driver_name,
+              carrier_id: user.id,
+              phone: driver.phone_number,
+              email: driver.email_address,
+              cdl_number: driver.cdl_number,
+              cdl_state: driver.cdl_state,
+              driver_type: driver.driver_type,
+              operating_hours: driver.operating_hours,
+              weekend_availability: driver.weekend_availability === "yes",
+              comments: driver.driver_comments,
+              emergency_contact: driver.emergency_contact,
+            }));
+
+            const { error: driversError } = await supabase
+              .from("drivers")
+              .insert(driversData);
+
+            if (driversError) {
+              console.error("Error saving drivers:", driversError);
+            }
+          }
+
+          updateData = {
+            drivers_status: "Complete",
+          };
+          statusField = "drivers_status";
+          break;
+
+        default:
+          return;
+      }
+
+      // Update company record
+      const { error } = await supabase
+        .from("companies")
+        .update(updateData)
+        .eq("id", user.id);
+
+      if (error) {
+        console.error("Error auto-saving tab data:", error);
+      } else {
+        console.log(`Auto-saved ${tabName} tab data`);
+      }
+    } catch (error) {
+      console.error("Error in autoSaveTabData:", error);
+    }
+  };
+
+  const handleNext = async () => {
     if (!isLastTab) {
       if (validateCurrentTab()) {
+        // Auto-save current tab data before moving to next
+        await autoSaveTabData(activeTab);
+
         const nextTab = tabOrder[currentTabIndex + 1];
         setActiveTab(nextTab);
         // Mark next tab as available
@@ -634,8 +865,8 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
         }
       }
 
-      // 2. Create/Update company record
-      const companyData = {
+      // 2. Update company record (company already exists from login/admin creation)
+      const companyData: any = {
         name: formData.vendor_company_name,
         business_address: formData.business_address,
         city: formData.city,
@@ -647,8 +878,6 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
           : null,
         mc_number: formData.mc_number,
         dot_number: formData.dot_number,
-        coi_file_url: coiUrl,
-        w9_file_url: w9Url,
         status: "Pending Review",
         agreement_status: initialContractAccepted ? "Accepted" : "Not Shown",
         company_details_status: "Complete",
@@ -658,18 +887,22 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
         drivers_status:
           additionalDrivers.length > 0 ? "Complete" : "Not Started",
         portal_access_enabled: false,
-        type: "carrier",
         updated_at: new Date().toISOString(),
       };
 
+      // Only update file URLs if new files were uploaded
+      if (coiUrl) companyData.coi_file_url = coiUrl;
+      if (w9Url) companyData.w9_file_url = w9Url;
+
       const { data: company, error: companyError } = await supabase
         .from("companies")
-        .upsert(companyData)
+        .update(companyData)
+        .eq("id", user.id)
         .select()
         .single();
 
       if (companyError) throw companyError;
-      if (!company) throw new Error("Failed to create company record");
+      if (!company) throw new Error("Failed to update company record");
 
       console.log("Company created:", company);
 
@@ -677,13 +910,12 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
       if (additionalContacts.length > 0) {
         const contactsData = additionalContacts.map((contact, index) => ({
           company_id: company.id,
-          name: contact.name,
-          phone: contact.phone,
-          email: contact.email,
-          location: contact.location,
-          role: contact.role,
-          comments: contact.comments,
-          is_primary: index === 0, // First contact is primary
+          Contact_Name: contact.name,
+          Contact_Phone: contact.phone,
+          Contact_Email: contact.email,
+          Location: contact.location,
+          Role: contact.role,
+          Notes: contact.comments,
         }));
 
         const { error: contactsError } = await supabase
@@ -692,7 +924,9 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
 
         if (contactsError) {
           console.error("Error creating contacts:", contactsError);
-          // Don't fail the whole submission if contacts fail
+          throw new Error(
+            `Failed to create contacts: ${contactsError.message}`
+          );
         } else {
           console.log("Contacts created:", contactsData.length);
         }
@@ -1094,8 +1328,14 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   size="lg"
                   className="w-full"
                   disabled={!initialContractAccepted}
-                  onClick={() => {
-                    if (initialContractAccepted) {
+                  onClick={async () => {
+                    if (initialContractAccepted && user?.id) {
+                      // Update agreement_status in database
+                      await supabase
+                        .from("companies")
+                        .update({ agreement_status: "Accepted" })
+                        .eq("id", user.id);
+
                       setHasAgreedToInitialContract(true);
                       toast({
                         title: "Terms Accepted",

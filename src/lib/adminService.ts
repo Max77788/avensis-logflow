@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import CryptoJS from "crypto-js";
+import { sendEmail, generateOnboardingEmailHTML } from "./emailService";
 
 // ============================================================================
 // TYPES
@@ -27,15 +28,21 @@ export interface Company {
   password_hash?: string;
   contact_info_id_fk?: number;
   // Extended fields (may not exist in actual DB yet)
-  company_type?: CompanyType;
+  type?: CompanyType;
   status?: CompanyStatus;
   primary_contact_name?: string;
   contact_email?: string;
   contact_phone?: string;
-  address?: string;
+  business_address?: string;
   city?: string;
   state?: string;
   zip?: string;
+  legal_name_for_invoicing?: string;
+  mailing_address?: string;
+  mc_number?: string;
+  dot_number?: string;
+  coi_file_url?: string;
+  w9_file_url?: string;
   agreement_status?: AgreementStatus;
   agreement_accepted_at?: string;
   company_details_status?: DataCompletionStatus;
@@ -49,13 +56,14 @@ export interface Company {
 export interface ContactInfo {
   id: number;
   created_at: string;
-  Company_id: string; // Foreign key to companies.id (REQUIRED)
+  company_id: string; // Foreign key to companies.id (REQUIRED)
   Contact_Name?: string;
   Contact_Email?: string;
   Contact_Phone?: string;
   Role?: string;
   Notes?: string;
   Location?: string;
+  is_primary?: boolean;
 }
 
 export interface CompanyContact {
@@ -65,21 +73,9 @@ export interface CompanyContact {
   email?: string;
   phone?: string;
   role?: string;
+  location?: string;
   notes?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PortalUser {
-  id: string;
-  company_id: string;
-  email: string;
-  password_hash: string;
-  temp_password?: string;
-  role: string;
-  is_enabled: boolean;
-  is_locked: boolean;
-  last_login_at?: string;
+  is_primary?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -132,11 +128,10 @@ export const adminService = {
 
   async getAllCompanies(tableName: string = "companies"): Promise<Company[]> {
     try {
-      // Use the specific foreign key relationship to avoid ambiguity
-      // companies.contact_info_id_fk -> Contact_Info.id (many-to-one)
+      // Fetch companies
       const { data, error } = await supabase
         .from(tableName)
-        .select("*, Contact_Info!companies_contact_info_id_fk_fkey(*)")
+        .select("*")
         .order("name", { ascending: true });
 
       if (error) {
@@ -145,6 +140,37 @@ export const adminService = {
       }
 
       console.log("getAllCompanies - fetched data:", data?.length, "companies");
+
+      // Fetch contact info for each company and populate contact_email field
+      if (data && data.length > 0) {
+        const companiesWithContacts = await Promise.all(
+          data.map(async (company: any) => {
+            try {
+              const contacts = await this.getContactInfoByCompanyId(company.id);
+              if (contacts && contacts.length > 0) {
+                // Find primary contact, or use first contact if no primary is set
+                const primaryContact =
+                  contacts.find((c) => c.is_primary) || contacts[0];
+                return {
+                  ...company,
+                  contact_email: primaryContact.Contact_Email,
+                  primary_contact_name: primaryContact.Contact_Name,
+                  contact_phone: primaryContact.Contact_Phone,
+                };
+              }
+              return company;
+            } catch (err) {
+              console.error(
+                `Error fetching contacts for company ${company.id}:`,
+                err
+              );
+              return company;
+            }
+          })
+        );
+        return companiesWithContacts;
+      }
+
       return (data as any) || [];
     } catch (error) {
       console.error("Error fetching companies:", error);
@@ -159,11 +185,32 @@ export const adminService = {
     try {
       const { data, error } = await supabase
         .from(tableName)
-        .select("*, Contact_Info!companies_contact_info_id_fk_fkey(*)")
+        .select("*")
         .eq("id", id)
         .single();
 
       if (error && error.code !== "PGRST116") throw error;
+
+      // Fetch contact info and populate contact fields
+      if (data) {
+        try {
+          const contacts = await this.getContactInfoByCompanyId(data.id);
+          if (contacts && contacts.length > 0) {
+            // Find primary contact, or use first contact if no primary is set
+            const primaryContact =
+              contacts.find((c) => c.is_primary) || contacts[0];
+            return {
+              ...data,
+              contact_email: primaryContact.Contact_Email,
+              primary_contact_name: primaryContact.Contact_Name,
+              contact_phone: primaryContact.Contact_Phone,
+            };
+          }
+        } catch (err) {
+          console.error(`Error fetching contacts for company ${data.id}:`, err);
+        }
+      }
+
       return data || null;
     } catch (error) {
       console.error("Error fetching company:", error);
@@ -210,7 +257,7 @@ export const adminService = {
       if (companyError) throw companyError;
 
       // Step 2: Create Contact_Info if contact details are provided
-      // Note: Contact_Info requires Company_id, so we create it after the company
+      // Note: Contact_Info requires company_id, so we create it after the company
       let contactInfoId: number | undefined;
 
       if (
@@ -219,7 +266,7 @@ export const adminService = {
         company.contact_phone
       ) {
         const contactInfoData: any = {
-          Company_id: newCompany.id, // Required field
+          company_id: newCompany.id, // Required field
         };
 
         if (company.primary_contact_name) {
@@ -251,10 +298,10 @@ export const adminService = {
         }
       }
 
-      // Step 4: Fetch the complete company with Contact_Info joined
+      // Step 4: Fetch the complete company
       const { data, error } = await supabase
         .from(tableName)
-        .select("*, Contact_Info!companies_contact_info_id_fk_fkey(*)")
+        .select("*")
         .eq("id", newCompany.id)
         .single();
 
@@ -287,18 +334,73 @@ export const adminService = {
         updated_at: new Date().toISOString(),
       };
 
-      // Only include fields that exist in the companies table
+      // Basic company fields
       if (updates.name !== undefined) companyUpdates.name = updates.name;
       if (updates.password_hash !== undefined)
         companyUpdates.password_hash = updates.password_hash;
       if (updates.contact_info_id_fk !== undefined)
         companyUpdates.contact_info_id_fk = updates.contact_info_id_fk;
 
+      // Company type and status
+      if (updates.type !== undefined) companyUpdates.type = updates.type;
+      if (updates.status !== undefined) companyUpdates.status = updates.status;
+
+      // Contact information
+      if (updates.primary_contact_name !== undefined)
+        companyUpdates.primary_contact_name = updates.primary_contact_name;
+      if (updates.contact_email !== undefined)
+        companyUpdates.contact_email = updates.contact_email;
+      if (updates.contact_phone !== undefined)
+        companyUpdates.contact_phone = updates.contact_phone;
+
+      // Address fields
+      if (updates.city !== undefined) companyUpdates.city = updates.city;
+      if (updates.state !== undefined) companyUpdates.state = updates.state;
+      if (updates.zip !== undefined) companyUpdates.zip = updates.zip;
+
+      // Vendor onboarding fields
+      if ((updates as any).business_address !== undefined)
+        companyUpdates.business_address = (updates as any).business_address;
+      if ((updates as any).legal_name_for_invoicing !== undefined)
+        companyUpdates.legal_name_for_invoicing = (
+          updates as any
+        ).legal_name_for_invoicing;
+      if ((updates as any).mailing_address !== undefined)
+        companyUpdates.mailing_address = (updates as any).mailing_address;
+      if ((updates as any).mc_number !== undefined)
+        companyUpdates.mc_number = (updates as any).mc_number;
+      if ((updates as any).dot_number !== undefined)
+        companyUpdates.dot_number = (updates as any).dot_number;
+      if ((updates as any).coi_file_url !== undefined)
+        companyUpdates.coi_file_url = (updates as any).coi_file_url;
+      if ((updates as any).w9_file_url !== undefined)
+        companyUpdates.w9_file_url = (updates as any).w9_file_url;
+
+      // Onboarding status fields
+      if (updates.agreement_status !== undefined)
+        companyUpdates.agreement_status = updates.agreement_status;
+      if (updates.agreement_accepted_at !== undefined)
+        companyUpdates.agreement_accepted_at = updates.agreement_accepted_at;
+      if (updates.company_details_status !== undefined)
+        companyUpdates.company_details_status = updates.company_details_status;
+      if (updates.contacts_status !== undefined)
+        companyUpdates.contacts_status = updates.contacts_status;
+      if (updates.fleet_status !== undefined)
+        companyUpdates.fleet_status = updates.fleet_status;
+      if (updates.drivers_status !== undefined)
+        companyUpdates.drivers_status = updates.drivers_status;
+
+      // Portal access fields
+      if (updates.portal_access_enabled !== undefined)
+        companyUpdates.portal_access_enabled = updates.portal_access_enabled;
+      if (updates.portal_activated_at !== undefined)
+        companyUpdates.portal_activated_at = updates.portal_activated_at;
+
       const { data, error } = await supabase
         .from(tableName)
         .update(companyUpdates)
         .eq("id", id)
-        .select("*, Contact_Info!companies_contact_info_id_fk_fkey(*)")
+        .select("*")
         .single();
 
       if (error) throw error;
@@ -342,11 +444,11 @@ export const adminService = {
   // ============================================================================
 
   async createContactInfo(
-    contactInfo: Partial<ContactInfo> & { Company_id: string }
+    contactInfo: Partial<ContactInfo> & { company_id: string }
   ): Promise<{ success: boolean; data?: ContactInfo; error?: string }> {
     try {
       const contactData: any = {
-        Company_id: contactInfo.Company_id, // Required field
+        company_id: contactInfo.company_id, // Required field
       };
 
       if (contactInfo.Contact_Name) {
@@ -403,7 +505,7 @@ export const adminService = {
       const { data, error } = await supabase
         .from("Contact_Info")
         .select("*")
-        .eq("Company_id", companyId)
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -481,13 +583,29 @@ export const adminService = {
   async getCompanyContacts(companyId: string): Promise<CompanyContact[]> {
     try {
       const { data, error } = await supabase
-        .from("company_contacts")
+        .from("Contact_Info")
         .select("*")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data || [];
+
+      // Map Contact_Info columns to CompanyContact interface
+      const mappedData = (data || []).map((contact: any) => ({
+        id: contact.id,
+        company_id: contact.company_id,
+        name: contact.Contact_Name,
+        email: contact.Contact_Email,
+        phone: contact.Contact_Phone,
+        role: contact.Role,
+        location: contact.Location,
+        notes: contact.Notes,
+        is_primary: contact.is_primary,
+        created_at: contact.created_at,
+        updated_at: contact.updated_at,
+      }));
+
+      return mappedData;
     } catch (error) {
       console.error("Error fetching company contacts:", error);
       return [];
@@ -498,14 +616,42 @@ export const adminService = {
     contact: Partial<CompanyContact>
   ): Promise<{ success: boolean; data?: CompanyContact; error?: string }> {
     try {
+      // Map CompanyContact interface to Contact_Info table columns
+      const contactData: any = {
+        company_id: contact.company_id,
+        Contact_Name: contact.name,
+        Contact_Email: contact.email,
+        Contact_Phone: contact.phone,
+        Role: contact.role,
+        Location: contact.location,
+        Notes: contact.notes,
+        is_primary: contact.is_primary || false,
+      };
+
       const { data, error } = await supabase
-        .from("company_contacts")
-        .insert(contact)
+        .from("Contact_Info")
+        .insert(contactData)
         .select()
         .single();
 
       if (error) throw error;
-      return { success: true, data };
+
+      // Map back to CompanyContact interface
+      const mappedData: CompanyContact = {
+        id: data.id,
+        company_id: data.company_id,
+        name: data.Contact_Name,
+        email: data.Contact_Email,
+        phone: data.Contact_Phone,
+        role: data.Role,
+        location: data.Location,
+        notes: data.Notes,
+        is_primary: data.is_primary,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      return { success: true, data: mappedData };
     } catch (error: any) {
       console.error("Error creating company contact:", error);
       return { success: false, error: error.message };
@@ -517,18 +663,46 @@ export const adminService = {
     updates: Partial<CompanyContact>
   ): Promise<{ success: boolean; data?: CompanyContact; error?: string }> {
     try {
+      // Map CompanyContact interface to Contact_Info table columns
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (updates.name !== undefined) updateData.Contact_Name = updates.name;
+      if (updates.email !== undefined) updateData.Contact_Email = updates.email;
+      if (updates.phone !== undefined) updateData.Contact_Phone = updates.phone;
+      if (updates.role !== undefined) updateData.Role = updates.role;
+      if ((updates as any).location !== undefined)
+        updateData.Location = (updates as any).location;
+      if (updates.notes !== undefined) updateData.Notes = updates.notes;
+      if (updates.is_primary !== undefined)
+        updateData.is_primary = updates.is_primary;
+
       const { data, error } = await supabase
-        .from("company_contacts")
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
+        .from("Contact_Info")
+        .update(updateData)
         .eq("id", id)
         .select()
         .single();
 
       if (error) throw error;
-      return { success: true, data };
+
+      // Map back to CompanyContact interface
+      const mappedData: CompanyContact = {
+        id: data.id,
+        company_id: data.company_id,
+        name: data.Contact_Name,
+        email: data.Contact_Email,
+        phone: data.Contact_Phone,
+        role: data.Role,
+        location: data.Location,
+        notes: data.Notes,
+        is_primary: data.is_primary,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+
+      return { success: true, data: mappedData };
     } catch (error: any) {
       console.error("Error updating company contact:", error);
       return { success: false, error: error.message };
@@ -540,7 +714,7 @@ export const adminService = {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const { error } = await supabase
-        .from("company_contacts")
+        .from("Contact_Info")
         .delete()
         .eq("id", id);
 
@@ -552,130 +726,62 @@ export const adminService = {
     }
   },
 
-  // ============================================================================
-  // PORTAL USERS
-  // ============================================================================
-
-  async getPortalUsers(companyId: string): Promise<PortalUser[]> {
-    try {
-      const { data, error } = await supabase
-        .from("portal_users")
-        .select("*")
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error("Error fetching portal users:", error);
-      return [];
-    }
-  },
-
-  async createPortalUser(user: {
-    company_id: string;
-    email: string;
-    role?: string;
-  }): Promise<{
-    success: boolean;
-    data?: PortalUser & { temp_password: string };
-    error?: string;
-  }> {
-    try {
-      // Generate temporary password
-      const tempPassword =
-        Math.random().toString(36).slice(-10) +
-        Math.random().toString(36).slice(-10).toUpperCase();
-      const passwordHash = CryptoJS.SHA256(tempPassword).toString();
-
-      const { data, error } = await supabase
-        .from("portal_users")
-        .insert({
-          company_id: user.company_id,
-          email: user.email,
-          password_hash: passwordHash,
-          temp_password: tempPassword,
-          role: user.role || "Company Admin",
-          is_enabled: true,
-          is_locked: false,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { success: true, data: { ...data, temp_password: tempPassword } };
-    } catch (error: any) {
-      console.error("Error creating portal user:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  async updatePortalUser(
-    id: string,
-    updates: Partial<PortalUser>
-  ): Promise<{ success: boolean; data?: PortalUser; error?: string }> {
-    try {
-      const { data, error } = await supabase
-        .from("portal_users")
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error: any) {
-      console.error("Error updating portal user:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  async resetPortalUserPassword(
-    id: string
-  ): Promise<{ success: boolean; temp_password?: string; error?: string }> {
-    try {
-      const tempPassword =
-        Math.random().toString(36).slice(-10) +
-        Math.random().toString(36).slice(-10).toUpperCase();
-      const passwordHash = CryptoJS.SHA256(tempPassword).toString();
-
-      const { error } = await supabase
-        .from("portal_users")
-        .update({
-          password_hash: passwordHash,
-          temp_password: tempPassword,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
-      if (error) throw error;
-      return { success: true, temp_password: tempPassword };
-    } catch (error: any) {
-      console.error("Error resetting portal user password:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  async togglePortalUserLock(
-    id: string,
-    isLocked: boolean
+  async setContactAsPrimary(
+    contactId: string,
+    companyId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // First, unset all other contacts as primary for this company
+      const { error: unsetError } = await supabase
+        .from("Contact_Info")
+        .update({ is_primary: false })
+        .eq("company_id", companyId);
+
+      if (unsetError) throw unsetError;
+
+      // Then set this contact as primary
+      const { error: setPrimaryError } = await supabase
+        .from("Contact_Info")
+        .update({ is_primary: true })
+        .eq("id", contactId);
+
+      if (setPrimaryError) throw setPrimaryError;
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error setting contact as primary:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // ============================================================================
+  // PORTAL ACCESS (Company-level)
+  // ============================================================================
+
+  async enablePortalAccess(
+    companyId: string,
+    enabled: boolean
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const updateData: any = {
+        portal_access_enabled: enabled,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Set portal_activated_at timestamp when enabling for the first time
+      if (enabled) {
+        updateData.portal_activated_at = new Date().toISOString();
+      }
+
       const { error } = await supabase
-        .from("portal_users")
-        .update({
-          is_locked: isLocked,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
+        .from("companies")
+        .update(updateData)
+        .eq("id", companyId);
 
       if (error) throw error;
       return { success: true };
     } catch (error: any) {
-      console.error("Error toggling portal user lock:", error);
+      console.error("Error updating portal access:", error);
       return { success: false, error: error.message };
     }
   },
@@ -712,36 +818,42 @@ export const adminService = {
     tableName: string = "companies"
   ): Promise<{ success: boolean; data?: OnboardingEmail; error?: string }> {
     try {
-      // In a real implementation, this would send an actual email
-      // For now, we'll just log the email and store the record
-      const emailTemplate = `
-Dear ${params.company_name},
+      const loginUrl = `${window.location.origin}/vendor/login`;
+      const onboardingUrl = `${window.location.origin}/vendor/onboarding`;
 
-Welcome to Avensis LogFlow! Your portal account has been created.
+      // Generate HTML email template
+      const emailHTML = generateOnboardingEmailHTML({
+        companyName: params.company_name,
+        username: params.username,
+        tempPassword: params.temp_password,
+        loginUrl,
+        onboardingUrl,
+      });
 
-Portal Login URL: ${window.location.origin}/login
-Username: ${params.username}
-Temporary Password: ${params.temp_password}
+      // Send the actual email
+      const emailResult = await sendEmail({
+        to: params.sent_to,
+        subject: `Welcome to Avensis LogFlow - Your Account is Ready`,
+        html: emailHTML,
+      });
 
-Please complete your onboarding by visiting: ${window.location.origin}/vendor/onboarding
+      // Determine email status based on send result
+      const emailStatus = emailResult.success ? "Sent" : "Failed";
 
-Best regards,
-Avensis LogFlow Team
-      `;
-
-      console.log("Onboarding Email:", emailTemplate);
-
+      // Store the email record in database
       const { data, error } = await supabase
         .from("onboarding_emails")
         .insert({
           company_id: params.company_id,
           sent_to: params.sent_to,
           sent_by: params.sent_by,
-          email_status: "Sent",
+          email_status: emailStatus,
           template_used: "onboarding_v1",
           metadata: {
             username: params.username,
             company_name: params.company_name,
+            message_id: emailResult.messageId,
+            error: emailResult.error,
           },
         })
         .select()
@@ -749,11 +861,22 @@ Avensis LogFlow Team
 
       if (error) throw error;
 
-      // Update company status
-      await supabase
-        .from(tableName)
-        .update({ status: "Onboarding Invited" })
-        .eq("id", params.company_id);
+      // Only update company status if email was sent successfully
+      if (emailResult.success) {
+        await supabase
+          .from(tableName)
+          .update({ status: "Onboarding Invited" })
+          .eq("id", params.company_id);
+      }
+
+      // Return error if email failed to send
+      if (!emailResult.success) {
+        return {
+          success: false,
+          error: emailResult.error || "Failed to send email",
+          data,
+        };
+      }
 
       return { success: true, data };
     } catch (error: any) {
@@ -980,7 +1103,7 @@ Avensis LogFlow Team
             .select("id", { count: "exact" })
             .eq("carrier_id", companyId),
           supabase
-            .from("company_contacts")
+            .from("Contact_Info")
             .select("id", { count: "exact" })
             .eq("company_id", companyId),
           supabase

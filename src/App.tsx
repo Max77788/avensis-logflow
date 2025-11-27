@@ -30,6 +30,7 @@ import SetCarrierPassword from "./pages/SetCarrierPassword";
 import VendorLogin from "./pages/VendorLogin";
 import VendorOnboarding from "./pages/VendorOnboarding";
 import VendorAlreadyOnboarded from "./pages/VendorAlreadyOnboarded";
+import VendorProfile from "./pages/VendorProfile";
 import NotFound from "./pages/NotFound";
 import { initDatabase } from "./lib/initDatabase";
 
@@ -65,6 +66,14 @@ const App = () => {
                     <Route
                       path="/vendor/already-onboarded"
                       element={<VendorAlreadyOnboarded />}
+                    />
+                    <Route
+                      path="/vendor/profile"
+                      element={
+                        <ProtectedRoute requiredRole="carrier">
+                          <VendorProfile />
+                        </ProtectedRoute>
+                      }
                     />
                     <Route path="/overview" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />

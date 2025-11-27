@@ -19,25 +19,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Edit, Loader2 } from "lucide-react";
+import { Plus, Trash2, Edit, Loader2, Star } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { adminService, CompanyContact } from "@/lib/adminService";
 import { toast } from "@/hooks/use-toast";
 
 interface CompanyContactsTabProps {
   companyId: string;
+  onUpdate?: () => void;
 }
 
-export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
+export const CompanyContactsTab = ({
+  companyId,
+  onUpdate,
+}: CompanyContactsTabProps) => {
   const [contacts, setContacts] = useState<CompanyContact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
-  const [editingContact, setEditingContact] = useState<CompanyContact | null>(null);
+  const [editingContact, setEditingContact] = useState<CompanyContact | null>(
+    null
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     role: "",
+    location: "",
     notes: "",
   });
 
@@ -59,6 +67,7 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
       email: "",
       phone: "",
       role: "",
+      location: "",
       notes: "",
     });
     setShowDialog(true);
@@ -71,6 +80,7 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
       email: contact.email || "",
       phone: contact.phone || "",
       role: contact.role || "",
+      location: (contact as any).location || "",
       notes: contact.notes || "",
     });
     setShowDialog(true);
@@ -81,21 +91,30 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
     try {
       let result;
       if (editingContact) {
-        result = await adminService.updateCompanyContact(editingContact.id, formData);
+        result = await adminService.updateCompanyContact(
+          editingContact.id,
+          formData
+        );
       } else {
+        // Auto-set first contact as primary
+        const isFirstContact = contacts.length === 0;
         result = await adminService.createCompanyContact({
           company_id: companyId,
           ...formData,
+          is_primary: isFirstContact,
         });
       }
 
       if (result.success) {
         toast({
           title: "Success",
-          description: `Contact ${editingContact ? "updated" : "created"} successfully`,
+          description: `Contact ${
+            editingContact ? "updated" : "created"
+          } successfully`,
         });
         setShowDialog(false);
         loadContacts();
+        onUpdate?.(); // Notify parent to refresh
       } else {
         toast({
           title: "Error",
@@ -124,6 +143,7 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
         description: "Contact deleted successfully",
       });
       loadContacts();
+      onUpdate?.(); // Notify parent to refresh
     } else {
       toast({
         title: "Error",
@@ -133,73 +153,121 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
     }
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Company Contacts</h3>
-        <Button onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Contact
-        </Button>
-      </div>
+  const handleSetPrimary = async (contactId: string) => {
+    const result = await adminService.setContactAsPrimary(contactId, companyId);
+    if (result.success) {
+      toast({
+        title: "Success",
+        description: "Primary contact updated successfully",
+      });
+      loadContacts();
+      onUpdate?.(); // Notify parent to refresh
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to set primary contact",
+        variant: "destructive",
+      });
+    }
+  };
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
+  return (
+    <div className="space-y-6">
+      {/* Contacts Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Company Contacts</h3>
+            <p className="text-sm text-muted-foreground">
+              Manage contact information for this company
+            </p>
+          </div>
+          <Button onClick={handleAdd}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Contact
+          </Button>
+        </div>
+
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  Loading...
-                </TableCell>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ) : contacts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  No contacts found
-                </TableCell>
-              </TableRow>
-            ) : (
-              contacts.map((contact) => (
-                <TableRow key={contact.id}>
-                  <TableCell className="font-medium">{contact.name}</TableCell>
-                  <TableCell>{contact.email || "-"}</TableCell>
-                  <TableCell>{contact.phone || "-"}</TableCell>
-                  <TableCell>{contact.role || "-"}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(contact)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(contact.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    Loading...
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : contacts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">
+                    No contacts found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                contacts.map((contact) => (
+                  <TableRow key={contact.id}>
+                    <TableCell className="font-medium">
+                      {contact.name}
+                    </TableCell>
+                    <TableCell>{contact.email || "-"}</TableCell>
+                    <TableCell>{contact.phone || "-"}</TableCell>
+                    <TableCell>{contact.role || "-"}</TableCell>
+                    <TableCell>{(contact as any).location || "-"}</TableCell>
+                    <TableCell>
+                      {contact.is_primary && (
+                        <Badge className="bg-yellow-500 hover:bg-yellow-600">
+                          <Star className="h-3 w-3 mr-1" />
+                          Primary
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {contacts.length > 1 && !contact.is_primary && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSetPrimary(contact.id)}
+                          >
+                            <Star className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(contact)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(contact.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Contact Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
@@ -219,7 +287,9 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
               />
             </div>
 
@@ -229,7 +299,9 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
               />
             </div>
 
@@ -239,7 +311,9 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
                 id="phone"
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
               />
             </div>
 
@@ -248,8 +322,22 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
               <Input
                 id="role"
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, role: e.target.value })
+                }
                 placeholder="e.g., Owner, Operations, Finance"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
+                placeholder="e.g., Main Office, Warehouse"
               />
             </div>
 
@@ -258,7 +346,9 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
               <Textarea
                 id="notes"
                 value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, notes: e.target.value })
+                }
               />
             </div>
           </div>
@@ -281,4 +371,3 @@ export const CompanyContactsTab = ({ companyId }: CompanyContactsTabProps) => {
     </div>
   );
 };
-

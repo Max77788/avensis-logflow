@@ -65,21 +65,21 @@ export const OnboardingRibbon = ({ company }: OnboardingRibbonProps) => {
       id: "contacts",
       label: "Contacts",
       status: company.contacts_status,
-      isComplete: company.contacts_status === "Complete",
+      isComplete: stats.contacts_count > 0, // Green if count > 0
       subtitle: `${stats.contacts_count} contact(s)`,
     },
     {
       id: "fleet",
       label: "Fleet",
       status: company.fleet_status,
-      isComplete: company.fleet_status === "Complete",
+      isComplete: stats.trucks_count > 0, // Green if count > 0
       subtitle: `${stats.trucks_count} truck(s)`,
     },
     {
       id: "drivers",
       label: "Drivers",
       status: company.drivers_status,
-      isComplete: company.drivers_status === "Complete",
+      isComplete: stats.drivers_count > 0, // Green if count > 0
       subtitle: `${stats.drivers_count} driver(s)`,
     },
     {
@@ -159,4 +159,3 @@ export const OnboardingRibbon = ({ company }: OnboardingRibbonProps) => {
     </Card>
   );
 };
-

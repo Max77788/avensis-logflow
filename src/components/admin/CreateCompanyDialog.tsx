@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { adminService, CompanyType, CompanyStatus } from "@/lib/adminService";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw, Check, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface CreateCompanyDialogProps {
@@ -26,6 +26,37 @@ interface CreateCompanyDialogProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
+
+// Generate a random password
+const generatePassword = () => {
+  const length = 12;
+  const charset =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return password;
+};
+
+// Check password strength
+const getPasswordStrength = (password: string) => {
+  if (password.length < 8)
+    return { strength: "weak", label: "Too Short", color: "text-red-500" };
+
+  let score = 0;
+  if (password.length >= 12) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^a-zA-Z0-9]/.test(password)) score++;
+
+  if (score >= 4)
+    return { strength: "strong", label: "Strong", color: "text-green-500" };
+  if (score >= 3)
+    return { strength: "medium", label: "Medium", color: "text-yellow-500" };
+  return { strength: "weak", label: "Weak", color: "text-orange-500" };
+};
 
 export const CreateCompanyDialog = ({
   open,
@@ -41,20 +72,65 @@ export const CreateCompanyDialog = ({
     city: "",
     state: "",
     zip: "",
+    primary_email: "",
+    password: generatePassword(),
   });
+
+  const sendOnboardingEmail = async (
+    email: string,
+    companyName: string,
+    password: string
+  ) => {
+    // TODO: Implement actual email sending via your email service
+    // For now, we'll just log it and show a toast
+    console.log("Sending onboarding email to:", email);
+    console.log("Company:", companyName);
+    console.log("Password:", password);
+    console.log("Onboarding URL:", `${window.location.origin}/vendor/login`);
+
+    // In production, you would call your email API here
+    // Example: await emailService.sendOnboardingEmail({ email, companyName, password });
+
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const result = await adminService.createCompany(formData);
+      // Hash the password using SHA256 (same as authentication)
+      const CryptoJS = await import("crypto-js");
+      const hashedPassword = CryptoJS.SHA256(formData.password).toString();
+
+      const result = await adminService.createCompany({
+        ...formData,
+        password_hash: hashedPassword,
+        contact_email: formData.primary_email,
+      });
 
       if (result.success) {
-        toast({
-          title: "Success",
-          description: "Company created successfully",
-        });
+        // Send onboarding email if status is "Onboarding Invited"
+        if (
+          formData.status === "Onboarding Invited" &&
+          formData.primary_email
+        ) {
+          await sendOnboardingEmail(
+            formData.primary_email,
+            formData.name,
+            formData.password
+          );
+          toast({
+            title: "Success",
+            description: `Company created and onboarding email sent to ${formData.primary_email}`,
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: "Company created successfully",
+          });
+        }
+
         onSuccess();
         // Reset form
         setFormData({
@@ -65,6 +141,8 @@ export const CreateCompanyDialog = ({
           city: "",
           state: "",
           zip: "",
+          primary_email: "",
+          password: generatePassword(),
         });
       } else {
         toast({
@@ -159,6 +237,72 @@ export const CreateCompanyDialog = ({
                   <SelectItem value="Suspended">Suspended</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Primary Email */}
+            <div className="grid gap-2">
+              <Label htmlFor="primary_email">Primary Email *</Label>
+              <Input
+                id="primary_email"
+                type="email"
+                value={formData.primary_email}
+                onChange={(e) =>
+                  setFormData({ ...formData, primary_email: e.target.value })
+                }
+                placeholder="contact@company.com"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                This email will receive the onboarding invitation if status is
+                set to "Onboarding Invited"
+              </p>
+            </div>
+
+            {/* Auto-generated Password */}
+            <div className="grid gap-2">
+              <Label htmlFor="password">Auto-Generated Password</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="password"
+                  type="text"
+                  value={formData.password}
+                  readOnly
+                  className="font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setFormData({ ...formData, password: generatePassword() })
+                  }
+                  title="Regenerate Password"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    {getPasswordStrength(formData.password).strength ===
+                      "strong" && <Check className="h-4 w-4 text-green-500" />}
+                    {getPasswordStrength(formData.password).strength ===
+                      "medium" && <Check className="h-4 w-4 text-yellow-500" />}
+                    {getPasswordStrength(formData.password).strength ===
+                      "weak" && <X className="h-4 w-4 text-red-500" />}
+                    <span
+                      className={`text-xs font-medium ${
+                        getPasswordStrength(formData.password).color
+                      }`}
+                    >
+                      {getPasswordStrength(formData.password).label}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Will be sent via email
+                </p>
+              </div>
             </div>
 
             {/* Address */}

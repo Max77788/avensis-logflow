@@ -107,10 +107,10 @@ const CarrierPortal = () => {
 
         // Get all tickets
         const allTickets = await ticketService.getAllTickets({
-          sourceTableName: "tickets",
+          sourceTableName: "tickets_duplicate_for_reports",
         });
 
-        console.log(`All tickets: ${allTickets.length}`);
+        // console.log(`All tickets: ${allTickets.length}`);
 
         // Filter tickets for this carrier
         const carrierTickets = allTickets.filter(

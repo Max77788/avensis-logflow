@@ -21,12 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Mail, CheckCircle2, Circle, Loader2, Send } from "lucide-react";
-import {
-  adminService,
-  Company,
-  OnboardingEmail,
-  PortalUser,
-} from "@/lib/adminService";
+import { adminService, Company, OnboardingEmail } from "@/lib/adminService";
 import { toast } from "@/hooks/use-toast";
 
 interface CompanyOnboardingTabProps {
@@ -39,7 +34,6 @@ export const CompanyOnboardingTab = ({
   onUpdate,
 }: CompanyOnboardingTabProps) => {
   const [emails, setEmails] = useState<OnboardingEmail[]>([]);
-  const [portalUsers, setPortalUsers] = useState<PortalUser[]>([]);
   const [stats, setStats] = useState({
     trucks_count: 0,
     drivers_count: 0,
@@ -58,14 +52,22 @@ export const CompanyOnboardingTab = ({
 
   const loadData = async () => {
     setIsLoading(true);
-    const [emailsData, usersData, statsData] = await Promise.all([
+    const [emailsData, statsData, contacts] = await Promise.all([
       adminService.getOnboardingEmails(company.id),
-      adminService.getPortalUsers(company.id),
       adminService.getCompanyStats(company.id),
+      adminService.getContactInfoByCompanyId(company.id),
     ]);
     setEmails(emailsData);
-    setPortalUsers(usersData);
     setStats(statsData);
+
+    // Pre-fill email with primary contact or first contact
+    if (contacts && contacts.length > 0) {
+      const primaryContact = contacts.find((c) => c.is_primary) || contacts[0];
+      if (primaryContact.Contact_Email) {
+        setEmailTo(primaryContact.Contact_Email);
+      }
+    }
+
     setIsLoading(false);
   };
 
@@ -79,10 +81,10 @@ export const CompanyOnboardingTab = ({
       return;
     }
 
-    if (portalUsers.length === 0) {
+    if (!company.password_hash) {
       toast({
         title: "Error",
-        description: "Please create a portal user first",
+        description: "Please set a password for this company first",
         variant: "destructive",
       });
       return;
@@ -90,14 +92,13 @@ export const CompanyOnboardingTab = ({
 
     setIsSending(true);
     try {
-      const user = portalUsers[0];
       const result = await adminService.sendOnboardingEmail({
         company_id: company.id,
         company_name: company.name,
         sent_to: emailTo,
         sent_by: "Admin",
-        username: user.email,
-        temp_password: user.temp_password || "********",
+        username: company.name,
+        temp_password: "Use your company password",
       });
 
       if (result.success) {

@@ -206,6 +206,8 @@ export const ticketService = {
         )
         .order("created_at", { ascending: false });
 
+      console.log("getAllTickets - fetched data:", data?.length, "tickets");
+      
       if (error) throw error;
 
       // Map tickets with joined data

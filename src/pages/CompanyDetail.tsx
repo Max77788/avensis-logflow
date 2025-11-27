@@ -11,7 +11,7 @@ import {
   Users,
   Truck,
   // UserCircle, // Not needed - Portal Users tab hidden
-  Mail,
+  // Mail, // Not needed - Onboarding tab hidden
   MapPin,
   Shield,
 } from "lucide-react";
@@ -19,7 +19,7 @@ import { adminService, Company } from "@/lib/adminService";
 import { CompanyInfoTab } from "@/components/admin/CompanyInfoTab";
 import { CompanyContactsTab } from "@/components/admin/CompanyContactsTab";
 // import { CompanyPortalUsersTab } from "@/components/admin/CompanyPortalUsersTab"; // Hidden
-import { CompanyOnboardingTab } from "@/components/admin/CompanyOnboardingTab";
+// import { CompanyOnboardingTab } from "@/components/admin/CompanyOnboardingTab"; // Hidden
 import { CompanyFleetTab } from "@/components/admin/CompanyFleetTab";
 import { CompanySitesTab } from "@/components/admin/CompanySitesTab";
 
@@ -134,7 +134,7 @@ const CompanyDetail = () => {
           {/* Tabs */}
           <Card className="shadow-md">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5">
+              <TabsList className="grid w-full grid-cols-3 lg:grid-cols-4">
                 <TabsTrigger value="info" className="gap-2">
                   <Building2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Info</span>
@@ -148,10 +148,11 @@ const CompanyDetail = () => {
                   <UserCircle className="h-4 w-4" />
                   <span className="hidden sm:inline">Portal Users</span>
                 </TabsTrigger> */}
-                <TabsTrigger value="onboarding" className="gap-2">
+                {/* Onboarding tab hidden */}
+                {/* <TabsTrigger value="onboarding" className="gap-2">
                   <Mail className="h-4 w-4" />
                   <span className="hidden sm:inline">Onboarding</span>
-                </TabsTrigger>
+                </TabsTrigger> */}
                 <TabsTrigger value="fleet" className="gap-2">
                   <Truck className="h-4 w-4" />
                   <span className="hidden sm:inline">Fleet</span>
@@ -179,12 +180,13 @@ const CompanyDetail = () => {
                   />
                 </TabsContent> */}
 
-                <TabsContent value="onboarding" className="mt-0">
+                {/* Onboarding tab content hidden */}
+                {/* <TabsContent value="onboarding" className="mt-0">
                   <CompanyOnboardingTab
                     company={company}
                     onUpdate={loadCompany}
                   />
-                </TabsContent>
+                </TabsContent> */}
 
                 <TabsContent value="fleet" className="mt-0">
                   <CompanyFleetTab companyId={company.id} />

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, LogIn, Loader2 } from "lucide-react";
+import { Building2, LogIn, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 import { carrierService } from "@/lib/carrierService";
@@ -15,6 +15,7 @@ const VendorLogin = () => {
   const { login } = useAuth();
   const [companyName, setCompanyName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleVendorLogin = async (e: React.FormEvent) => {
@@ -32,44 +33,46 @@ const VendorLogin = () => {
         // Check if vendor has already completed onboarding
         const company = result.data as any;
 
-        // Check if all onboarding sections are complete
-        const allSectionsComplete =
-          company.company_details_status === "Complete" &&
-          company.contacts_status === "Complete" &&
-          company.fleet_status === "Complete" &&
-          company.drivers_status === "Complete";
-
-        // Check if vendor has already submitted onboarding
-        const isOnboarded =
-          company.status === "Pending Review" ||
-          company.status === "Active" ||
-          company.status === "Approved" ||
-          allSectionsComplete;
-
-        if (isOnboarded) {
-          // Vendor already onboarded - navigate to "already onboarded" page
-          login("carrier", result.data.id);
-          navigate("/vendor/already-onboarded", {
-            state: { companyName: result.data.name },
-          });
-          setIsLoading(false);
-          return;
-        }
+        // Check if vendor has filled in basic company info (has onboarded)
+        const hasOnboarded =
+          company.business_address && company.mc_number && company.dot_number;
 
         // Authentication successful, log them in as vendor
         login("carrier", result.data.id);
 
-        toast({
-          title: "Login Successful",
-          description: `Welcome, ${result.data.name}!`,
-        });
-
-        // Navigate to vendor onboarding portal
-        navigate("/vendor/onboarding");
+        if (hasOnboarded) {
+          // Vendor already onboarded - navigate to profile page
+          toast({
+            title: "Welcome Back",
+            description: `Welcome back, ${result.data.name}!`,
+          });
+          navigate("/vendor/profile");
+        } else {
+          // First time onboarding - navigate to onboarding form
+          toast({
+            title: "Login Successful",
+            description: `Welcome, ${result.data.name}!`,
+          });
+          navigate("/vendor/onboarding");
+        }
       } else {
+        // Provide more helpful error messages
+        let errorMessage = result.error || "Invalid company name or password";
+
+        if (errorMessage.includes("not found")) {
+          errorMessage =
+            "Company not found. Please check your company name and try again.";
+        } else if (errorMessage.includes("Password not set")) {
+          errorMessage =
+            "Your account password has not been set yet. Please contact your administrator.";
+        } else if (errorMessage.includes("Invalid password")) {
+          errorMessage =
+            "Incorrect password. Please try again or contact your administrator.";
+        }
+
         toast({
           title: "Login Failed",
-          description: result.error || "Invalid company name or password",
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -77,7 +80,8 @@ const VendorLogin = () => {
       console.error("Login error:", error);
       toast({
         title: "Error",
-        description: "An error occurred during login. Please try again.",
+        description:
+          "An error occurred during login. Please try again or contact support.",
         variant: "destructive",
       });
     } finally {
@@ -118,15 +122,30 @@ const VendorLogin = () => {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <Button

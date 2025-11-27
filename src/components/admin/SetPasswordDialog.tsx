@@ -33,6 +33,25 @@ export const SetPasswordDialog = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const getPasswordStrength = (password: string) => {
+    if (password.length < 8)
+      return { strength: "weak", label: "Too Short", color: "text-red-500" };
+    let score = 0;
+    if (password.length >= 12) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^a-zA-Z0-9]/.test(password)) score++;
+
+    if (score >= 4)
+      return { strength: "strong", label: "Strong", color: "text-green-500" };
+    if (score >= 3)
+      return { strength: "medium", label: "Medium", color: "text-yellow-500" };
+    return { strength: "weak", label: "Weak", color: "text-orange-500" };
+  };
+
+  const passwordStrength = getPasswordStrength(password);
+
   const handleClose = () => {
     setPassword("");
     setConfirmPassword("");
@@ -72,7 +91,9 @@ export const SetPasswordDialog = ({
       if (result.success) {
         toast({
           title: "Success",
-          description: `Password ${company.password_hash ? "updated" : "set"} successfully for ${company.name}`,
+          description: `Password ${
+            company.password_hash ? "updated" : "set"
+          } successfully for ${company.name}`,
         });
         handleClose();
         if (onSuccess) onSuccess();
@@ -134,6 +155,11 @@ export const SetPasswordDialog = ({
                 )}
               </button>
             </div>
+            {password && (
+              <p className={`text-sm font-medium ${passwordStrength.color}`}>
+                Password Strength: {passwordStrength.label}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -167,4 +193,3 @@ export const SetPasswordDialog = ({
     </Dialog>
   );
 };
-
