@@ -154,6 +154,18 @@ export const CompanyOnboardingTab = ({
   // Define onboarding stages
   const stages = [
     {
+      id: "email_sent",
+      label: "Email Sent",
+      status: company.first_onboarding_email_sent_at
+        ? "Complete"
+        : "Not Started",
+      isComplete: !!company.first_onboarding_email_sent_at,
+      subtitle: company.first_onboarding_email_sent_at
+        ? new Date(company.first_onboarding_email_sent_at).toLocaleDateString()
+        : "Not sent",
+      icon: "mail",
+    },
+    {
       id: "agreement",
       label: "Agreement",
       status: company.agreement_status,
@@ -253,9 +265,15 @@ export const CompanyOnboardingTab = ({
                     }`}
                   >
                     {stage.isComplete ? (
-                      <CheckCircle2 className="h-6 w-6 text-white" />
+                      (stage as any).icon === "mail" ? (
+                        <Mail className="h-6 w-6 text-white" />
+                      ) : (
+                        <CheckCircle2 className="h-6 w-6 text-white" />
+                      )
                     ) : stage.status === "In Progress" ? (
                       <Circle className="h-6 w-6 text-white fill-white" />
+                    ) : (stage as any).icon === "mail" ? (
+                      <Mail className="h-6 w-6 text-muted-foreground" />
                     ) : (
                       <Circle className="h-6 w-6 text-muted-foreground" />
                     )}

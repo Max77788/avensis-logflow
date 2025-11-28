@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle, Mail } from "lucide-react";
 import { adminService, Company } from "@/lib/adminService";
 
 interface OnboardingRibbonProps {
@@ -50,6 +50,18 @@ export const OnboardingRibbon = ({ company }: OnboardingRibbonProps) => {
 
   // Define onboarding stages
   const stages = [
+    {
+      id: "email_sent",
+      label: "Email Sent",
+      status: company.first_onboarding_email_sent_at
+        ? "Complete"
+        : "Not Started",
+      isComplete: !!company.first_onboarding_email_sent_at,
+      subtitle: company.first_onboarding_email_sent_at
+        ? new Date(company.first_onboarding_email_sent_at).toLocaleDateString()
+        : "Not sent",
+      icon: "mail",
+    },
     {
       id: "agreement",
       label: "Agreement",
@@ -146,9 +158,15 @@ export const OnboardingRibbon = ({ company }: OnboardingRibbonProps) => {
                   }`}
                 >
                   {stage.isComplete ? (
-                    <CheckCircle2 className="h-6 w-6 text-white" />
+                    (stage as any).icon === "mail" ? (
+                      <Mail className="h-6 w-6 text-white" />
+                    ) : (
+                      <CheckCircle2 className="h-6 w-6 text-white" />
+                    )
                   ) : stage.status === "In Progress" ? (
                     <Circle className="h-6 w-6 text-white fill-white" />
+                  ) : (stage as any).icon === "mail" ? (
+                    <Mail className="h-6 w-6 text-muted-foreground" />
                   ) : (
                     <Circle className="h-6 w-6 text-muted-foreground" />
                   )}

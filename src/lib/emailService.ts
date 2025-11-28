@@ -152,70 +152,96 @@ export function generateOnboardingEmailHTML(params: {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Avensis LogFlow</title>
+  <title>Welcome to the e-Ticketing - Vendor Onboarding Required</title>
 </head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-    <h1 style="color: #2563eb; margin-bottom: 20px;">Welcome to Avensis LogFlow!</h1>
-    
-    <p style="font-size: 16px; margin-bottom: 15px;">Dear ${
+<body style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; max-width: 650px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 35px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #1f2937; margin-bottom: 25px; font-size: 24px;">Welcome to the e-Ticketing - Vendor Onboarding Required</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Hi <strong>${
       params.companyName
-    },</p>
-    
+    }</strong>,</p>
+
     <p style="font-size: 16px; margin-bottom: 15px;">
-      Your portal account has been created successfully. You can now access the Avensis LogFlow platform to manage your logistics operations.
+      Primal Material and Avensis Energy has partnered with AI FusionIQ Labs to launch the <strong>e-Ticketing App</strong>,
+      a new digital platform that replaces paper tickets and manual reporting with a simple, mobile-first app. You're receiving
+      this email because your company is an approved transportation partner for Avensis Energy and will now manage load activity
+      through FleetGate.
     </p>
-    
-    <div style="background-color: #fff; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #2563eb;">
-      <h2 style="color: #2563eb; margin-top: 0; font-size: 18px;">Your Login Credentials</h2>
-      <p style="margin: 10px 0;"><strong>Vendor Portal Login URL:</strong><br>
+
+    <h2 style="color: #2563eb; font-size: 20px; margin-top: 30px; margin-bottom: 15px;">Why This Matters</h2>
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      Beginning <strong>Dec 1 2025</strong>, all Avensis Energy loads will be tracked and verified using the e-Ticketing App. The system will:
+    </p>
+    <ul style="font-size: 16px; line-height: 1.8; margin-bottom: 20px;">
+      <li>Eliminate paper tickets and phone-based updates.</li>
+      <li>Provide instant proof of pickup & delivery with e-signatures and GPS validation.</li>
+      <li>Give you real-time visibility into your loads and payout summaries.</li>
+      <li>Get paid on time and reduce delays, and ticket reconciliation issues.</li>
+    </ul>
+
+    <h2 style="color: #2563eb; font-size: 20px; margin-top: 30px; margin-bottom: 15px;">What You Need to Do</h2>
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      To activate your company in the e-Ticketing App, please complete the vendor onboarding form linked below.
+      It should take about <strong>15 minutes</strong> to fill out.
+    </p>
+
+    <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #2563eb;">
+      <p style="margin: 10px 0; font-size: 16px;"><strong>Onboarding Portal:</strong><br>
         <a href="${
-          params.loginUrl
-        }" style="color: #2563eb; text-decoration: none; font-size: 15px;">${
-    params.loginUrl
+          params.onboardingUrl
+        }" style="color: #2563eb; text-decoration: none; font-size: 15px; word-break: break-all;">${
+    params.onboardingUrl
   }</a>
       </p>
-      <p style="margin: 10px 0;"><strong>Company Name (Username):</strong> ${
-        params.companyName
+      <p style="margin: 10px 0; font-size: 16px;"><strong>User name:</strong> ${
+        params.username
       }</p>
-      <p style="margin: 10px 0;"><strong>Password:</strong> <code style="background-color: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 14px;">${
+      <p style="margin: 10px 0; font-size: 16px;"><strong>Password:</strong> <code style="background-color: #e5e7eb; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 14px;">${
         params.tempPassword
       }</code></p>
     </div>
-    
+
     <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #f59e0b;">
-      <p style="margin: 0; font-size: 14px;">
-        <strong>⚠️ Important:</strong> Use your company name as the username when logging in. If you need to change your password, please contact your administrator.
+      <p style="margin: 0; font-size: 15px;">
+        <strong>💡 Recommendation:</strong> We recommend changing the password after the onboarding process is complete through the portal.
+        Link to the portal will be sent after the onboarding.
       </p>
     </div>
-    
-    <h3 style="color: #2563eb; font-size: 16px; margin-top: 25px;">Next Steps:</h3>
-    <ol style="font-size: 15px; line-height: 1.8;">
-      <li>Log in to your account using the credentials above</li>
-      <li>Complete your company profile and onboarding process</li>
-      <li>Add your fleet information (trucks and drivers)</li>
-      <li>Start managing your logistics operations</li>
+
+    <h2 style="color: #2563eb; font-size: 20px; margin-top: 30px; margin-bottom: 15px;">What to Expect</h2>
+    <ol style="font-size: 16px; line-height: 1.8; margin-bottom: 20px;">
+      <li><strong>Terms of Agreement:</strong> Open the link, review and accept the terms of use before moving forward.</li>
+      <li><strong>Complete Onboarding:</strong> Fill out required details – company info, Fleet and Drivers.</li>
+      <li><strong>Submit & Confirmation:</strong> You'll receive an acknowledgment email once your information has been verified.</li>
     </ol>
-    
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${params.onboardingUrl}" 
-         style="display: inline-block; background-color: #2563eb; color: #fff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
-        Complete Onboarding
+
+    <div style="text-align: center; margin: 35px 0;">
+      <a href="${params.onboardingUrl}"
+         style="display: inline-block; background-color: #2563eb; color: #fff; padding: 14px 35px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
+        Complete Onboarding Now
       </a>
     </div>
-    
-    <p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
-      If you have any questions or need assistance, please don't hesitate to contact our support team.
+
+    <h2 style="color: #2563eb; font-size: 20px; margin-top: 30px; margin-bottom: 15px;">Need Help?</h2>
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      If you have any questions or need support during onboarding, please contact our implementation team at
+      <a href="mailto:support@avensisenergy.com" style="color: #2563eb; text-decoration: none;">support@avensisenergy.com</a>
     </p>
-    
+
+    <p style="font-size: 16px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+      We appreciate your partnership and look forward to working together through the e-Ticketing app.
+    </p>
+
     <p style="font-size: 16px; margin-top: 25px;">
       Best regards,<br>
-      <strong>Avensis LogFlow Team</strong>
+      <strong>Support Team</strong><br>
+      <strong>AI FusionIQ LABS</strong>
     </p>
   </div>
-  
+
   <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
-    <p>© ${new Date().getFullYear()} Avensis LogFlow. All rights reserved.</p>
+    <p>© ${new Date().getFullYear()} AI FusionIQ LABS. All rights reserved.</p>
   </div>
 </body>
 </html>

@@ -58,6 +58,7 @@ export interface Company {
   portal_access_enabled?: boolean;
   portal_activated_at?: string;
   trailers_status?: DataCompletionStatus;
+  first_onboarding_email_sent_at?: string;
 }
 
 export interface ContactInfo {
@@ -278,6 +279,7 @@ export const adminService = {
       ) {
         const contactInfoData: any = {
           company_id: newCompany.id, // Required field
+          is_primary: true, // Mark as primary contact since it's the first contact
         };
 
         if (company.primary_contact_name) {
@@ -749,6 +751,9 @@ export const adminService = {
       if (contactInfo.Location) {
         contactData.Location = contactInfo.Location;
       }
+      if (contactInfo.is_primary !== undefined) {
+        contactData.is_primary = contactInfo.is_primary;
+      }
 
       const { data, error } = await supabase
         .from("Contact_Info")
@@ -1111,13 +1116,13 @@ export const adminService = {
         username: params.username,
         tempPassword: params.temp_password,
         loginUrl,
-        onboardingUrl,
+        onboardingUrl: loginUrl,
       });
 
       // Send the actual email
       const emailResult = await sendEmail({
         to: params.sent_to,
-        subject: `Welcome to Avensis LogFlow - Your Account is Ready`,
+        subject: `Welcome to the e-Ticketing - Vendor Onboarding Required`,
         html: emailHTML,
       });
 
@@ -1147,9 +1152,23 @@ export const adminService = {
 
       // Only update company status if email was sent successfully
       if (emailResult.success) {
+        // Check if this is the first onboarding email sent
+        const { data: company } = await supabase
+          .from(tableName)
+          .select("first_onboarding_email_sent_at")
+          .eq("id", params.company_id)
+          .single();
+
+        const updateData: any = { status: "Onboarding Invited" };
+
+        // Set first_onboarding_email_sent_at if this is the first email
+        if (!company?.first_onboarding_email_sent_at) {
+          updateData.first_onboarding_email_sent_at = new Date().toISOString();
+        }
+
         await supabase
           .from(tableName)
-          .update({ status: "Onboarding Invited" })
+          .update(updateData)
           .eq("id", params.company_id);
       }
 

@@ -322,8 +322,44 @@ const VendorOnboarding = () => {
             // Set flag to show info banner
             setHasPreloadedContacts(true);
 
-            // Find primary contact
-            const primaryContact = contacts.find((c) => c.is_primary);
+            console.log("Loaded contacts:", contacts);
+            console.log(
+              "Contacts with is_primary flag:",
+              contacts.map((c) => ({
+                id: c.id,
+                name: c.Contact_Name,
+                is_primary: c.is_primary,
+              }))
+            );
+
+            // Find primary contact, or use first contact if none marked as primary
+            let primaryContact = contacts.find((c) => c.is_primary);
+
+            // If no contact is marked as primary, use the first contact and mark it as primary
+            if (!primaryContact && contacts.length > 0) {
+              console.log(
+                "No primary contact found, using first contact as primary"
+              );
+              primaryContact = contacts[0];
+
+              // Update the database to mark this contact as primary
+              const { error: updateError } = await supabase
+                .from("Contact_Info")
+                .update({ is_primary: true })
+                .eq("id", primaryContact.id);
+
+              if (updateError) {
+                console.error("Error marking contact as primary:", updateError);
+              } else {
+                console.log(
+                  "Successfully marked contact as primary:",
+                  primaryContact.id
+                );
+              }
+            } else {
+              console.log("Found primary contact:", primaryContact);
+            }
+
             if (primaryContact) {
               setFormData((prev) => ({
                 ...prev,
@@ -336,9 +372,9 @@ const VendorOnboarding = () => {
               }));
             }
 
-            // Load additional contacts (non-primary)
+            // Load additional contacts (non-primary) - exclude the primary contact by ID
             const additionalContactsData = contacts
-              .filter((c) => !c.is_primary)
+              .filter((c) => c.id !== primaryContact?.id)
               .map((c) => ({
                 id: c.id,
                 name: c.Contact_Name || "",
@@ -349,6 +385,13 @@ const VendorOnboarding = () => {
                 comments: c.Notes || "",
               }));
             setAdditionalContacts(additionalContactsData);
+
+            console.log("Primary contact loaded into form:", {
+              name: primaryContact?.Contact_Name,
+              email: primaryContact?.Contact_Email,
+              phone: primaryContact?.Contact_Phone,
+            });
+            console.log("Additional contacts:", additionalContactsData.length);
           }
 
           // Load existing trucks
