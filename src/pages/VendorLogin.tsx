@@ -224,10 +224,10 @@ const VendorLogin = () => {
 
         <div className="mt-6 text-center">
           <Button
-            variant="ghost"
-            onClick={() => navigate("/login")}
-            className="text-sm"
-          >
+              variant="ghost"
+              onClick={() => window.location.href = "https://avensis-logistics-pl-tjsx.bolt.host/"}
+              className="text-sm"
+            >
             ← Back to Main Login
           </Button>
         </div>
