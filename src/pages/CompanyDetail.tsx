@@ -114,7 +114,7 @@ const CompanyDetail = () => {
                     {company.name}
                   </h1>
                   <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="outline">{company.company_type}</Badge>
+                    <Badge variant="outline">{company.type}</Badge>
                     <Badge className={getStatusColor(company.status)}>
                       {company.status}
                     </Badge>

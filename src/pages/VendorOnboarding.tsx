@@ -148,6 +148,9 @@ const VendorOnboarding = () => {
   // Data loading state to prevent agreement screen flash
   const [isDataLoading, setIsDataLoading] = useState(true);
 
+  // Track if contacts were pre-loaded from database
+  const [hasPreloadedContacts, setHasPreloadedContacts] = useState(false);
+
   // Check authentication and onboarding status
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -316,6 +319,9 @@ const VendorOnboarding = () => {
             .eq("company_id", user.id);
 
           if (contacts && contacts.length > 0) {
+            // Set flag to show info banner
+            setHasPreloadedContacts(true);
+
             // Find primary contact
             const primaryContact = contacts.find((c) => c.is_primary);
             if (primaryContact) {
@@ -1929,7 +1935,10 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
               <Button
-                onClick={() => navigate("/")}
+                onClick={() =>
+                  (window.location.href =
+                    "https://avensis-logistics-pl-tjsx.bolt.host/")
+                }
                 size="lg"
                 className="min-w-[200px]"
               >
@@ -2528,6 +2537,40 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
 
               {/* Contacts Tab */}
               <TabsContent value="contacts" className="space-y-4 p-6">
+                {/* Show info banner if contacts were pre-loaded from database */}
+                {hasPreloadedContacts && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <svg
+                          className="h-5 w-5 text-blue-600"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-blue-900 mb-1">
+                          Existing Contact Information Found
+                        </h3>
+                        <p className="text-sm text-blue-700">
+                          We've pre-filled the contact information that was
+                          previously provided for your company. You can review
+                          and update these details below, or add additional
+                          contacts as needed.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold">Primary Contact</h2>
                   <Button
