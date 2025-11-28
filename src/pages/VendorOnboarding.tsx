@@ -2172,6 +2172,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
                         .eq("id", user.id);
 
                       setHasAgreedToInitialContract(true);
+                      setFinalContractAccepted(true); // ✅ Also set final contract as accepted
                       toast({
                         title: "Terms Accepted",
                         description:
