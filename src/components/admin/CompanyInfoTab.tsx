@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,20 +23,15 @@ import {
   KeyRound,
   CheckCircle2,
   XCircle,
+  Eye,
+  EyeOff,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SetPasswordDialog } from "./SetPasswordDialog";
 import { OnboardingRibbon } from "./OnboardingRibbon";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DeleteCompanyDialog } from "./DeleteCompanyDialog";
 
 interface CompanyInfoTabProps {
   company: Company;
@@ -43,11 +39,12 @@ interface CompanyInfoTabProps {
 }
 
 export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [showPortalAccessDialog, setShowPortalAccessDialog] = useState(false);
-  const [isTogglingPortalAccess, setIsTogglingPortalAccess] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     name: company.name,
     type: company.type,
@@ -65,9 +62,18 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const previousStatus = company.status;
+      const newStatus = formData.status;
+
+      // Update company information
       const result = await adminService.updateCompany(company.id, formData);
 
       if (result.success) {
+        // Handle status-based triggers
+        if (previousStatus !== newStatus) {
+          await handleStatusChange(newStatus);
+        }
+
         toast({
           title: "Success",
           description: "Company updated successfully",
@@ -92,6 +98,151 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
     }
   };
 
+  const handleStatusChange = async (newStatus: CompanyStatus) => {
+    try {
+      switch (newStatus) {
+        case "Onboarding Invited":
+          // Send onboarding email
+          await sendOnboardingEmailForStatus();
+          break;
+
+        case "Suspended":
+          // Disable portal access
+          await adminService.enablePortalAccess(company.id, false);
+          toast({
+            title: "Portal Access Disabled",
+            description:
+              "Portal access has been disabled due to suspended status",
+          });
+          break;
+
+        case "Active":
+          // Enable portal access and send activation email
+          await adminService.enablePortalAccess(company.id, true);
+          await sendAccessEnabledEmail();
+          break;
+      }
+    } catch (error) {
+      console.error("Error handling status change:", error);
+    }
+  };
+
+  const sendOnboardingEmailForStatus = async () => {
+    try {
+      // Get primary contact email
+      const contacts = await adminService.getContactInfoByCompanyId(company.id);
+      const primaryContact = contacts.find((c) => c.is_primary) || contacts[0];
+
+      if (!primaryContact?.Contact_Email) {
+        toast({
+          title: "Warning",
+          description:
+            "No contact email found. Please add a contact email to send onboarding invitation.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!company.password_hash || !company.plain_password) {
+        toast({
+          title: "Warning",
+          description:
+            "Please set a password for this company first before sending onboarding email.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Send onboarding email with actual password
+      const result = await adminService.sendOnboardingEmail({
+        company_id: company.id,
+        company_name: company.name,
+        sent_to: primaryContact.Contact_Email,
+        sent_by: "Admin",
+        username: company.name,
+        temp_password: company.plain_password,
+      });
+
+      if (result.success) {
+        toast({
+          title: "Onboarding Email Sent",
+          description: `Onboarding email sent to ${primaryContact.Contact_Email}`,
+        });
+      } else {
+        toast({
+          title: "Email Failed",
+          description: result.error || "Failed to send onboarding email",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error sending onboarding email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send onboarding email",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const sendAccessEnabledEmail = async () => {
+    try {
+      // Get primary contact email
+      const contacts = await adminService.getContactInfoByCompanyId(company.id);
+      const primaryContact = contacts.find((c) => c.is_primary) || contacts[0];
+
+      if (!primaryContact?.Contact_Email) {
+        toast({
+          title: "Warning",
+          description:
+            "No contact email found. Please add a contact email to send activation notification.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if password is available
+      if (!company.plain_password) {
+        toast({
+          title: "Warning",
+          description:
+            "No password found for this company. Please set a password first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Send access enabled email with credentials
+      const result = await adminService.sendAccessEnabledEmail({
+        company_id: company.id,
+        company_name: company.name,
+        sent_to: primaryContact.Contact_Email,
+        username: company.name,
+        password: company.plain_password,
+      });
+
+      if (result.success) {
+        toast({
+          title: "Portal Access Enabled",
+          description: `Access enabled email sent to ${primaryContact.Contact_Email}`,
+        });
+      } else {
+        toast({
+          title: "Email Failed",
+          description: result.error || "Failed to send access enabled email",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error sending access enabled email:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send access enabled email",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleCancel = () => {
     setFormData({
       name: company.name,
@@ -109,40 +260,9 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
     setIsEditing(false);
   };
 
-  const handleTogglePortalAccess = async () => {
-    setIsTogglingPortalAccess(true);
-    try {
-      const newStatus = !company.portal_access_enabled;
-      const result = await adminService.enablePortalAccess(
-        company.id,
-        newStatus
-      );
-
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: `Portal access ${
-            newStatus ? "enabled" : "disabled"
-          } successfully`,
-        });
-        setShowPortalAccessDialog(false);
-        onUpdate();
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to update portal access",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsTogglingPortalAccess(false);
-    }
+  const handleDeleteSuccess = () => {
+    // Navigate back to admin dashboard after successful deletion
+    navigate("/admin/dashboard");
   };
 
   return (
@@ -150,47 +270,32 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
       {/* Onboarding Progress Ribbon */}
       <OnboardingRibbon company={company} />
 
-      {/* Portal Access Control */}
+      {/* Portal Access Status - Read Only */}
       <div className="bg-muted/50 border border-border rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {company.portal_access_enabled ? (
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-            ) : (
-              <XCircle className="h-5 w-5 text-muted-foreground" />
-            )}
-            <div>
-              <h4 className="font-semibold">Portal Access</h4>
-              <p className="text-sm text-muted-foreground">
-                {company.portal_access_enabled
-                  ? `Enabled on ${
-                      company.portal_activated_at
-                        ? new Date(
-                            company.portal_activated_at
-                          ).toLocaleDateString()
-                        : "N/A"
-                    }`
-                  : "Portal access is currently disabled"}
-              </p>
-            </div>
+        <div className="flex items-center gap-3">
+          {company.portal_access_enabled ? (
+            <CheckCircle2 className="h-5 w-5 text-green-500" />
+          ) : (
+            <XCircle className="h-5 w-5 text-muted-foreground" />
+          )}
+          <div>
+            <h4 className="font-semibold">Portal Access</h4>
+            <p className="text-sm text-muted-foreground">
+              {company.portal_access_enabled
+                ? `Enabled on ${
+                    company.portal_activated_at
+                      ? new Date(
+                          company.portal_activated_at
+                        ).toLocaleDateString()
+                      : "N/A"
+                  }`
+                : "Portal access is currently disabled"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Portal access is controlled by the company status. Set status to
+              "Active" to enable access or "Suspended" to disable.
+            </p>
           </div>
-          <Button
-            variant={company.portal_access_enabled ? "destructive" : "default"}
-            onClick={() => setShowPortalAccessDialog(true)}
-            className="gap-2"
-          >
-            {company.portal_access_enabled ? (
-              <>
-                <XCircle className="h-4 w-4" />
-                Disable Access
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="h-4 w-4" />
-                Enable Access
-              </>
-            )}
-          </Button>
         </div>
       </div>
 
@@ -295,13 +400,48 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
               <SelectItem value="Onboarding In Progress">
                 Onboarding In Progress
               </SelectItem>
+              <SelectItem value="Onboarding Submitted">
+                Onboarding Submitted
+              </SelectItem>
               <SelectItem value="Active">Active</SelectItem>
               <SelectItem value="Suspended">Suspended</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Address 
+        {/* Password (Read-only with visibility toggle) */}
+        <div className="grid gap-2">
+          <Label htmlFor="password">Password Hash</Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={company.password_hash || "Not set"}
+              disabled
+              className="pr-10"
+            />
+            {company.password_hash && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Use the "Change Password" button above to update the password
+          </p>
+        </div>
+
+        {/* Address
         <div className="grid gap-2">
           <Label htmlFor="address">Address</Label>
           <Input
@@ -460,6 +600,33 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
         )}
       </div>
 
+      {/* Danger Zone - Delete Company */}
+      <div className="mt-8 pt-8 border-t border-border">
+        <div className="rounded-lg border-2 border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20 p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-red-900 dark:text-red-200 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Danger Zone
+              </h3>
+              <p className="text-sm text-red-800 dark:text-red-300 mt-2">
+                Once you delete a company, there is no going back. This will
+                permanently delete all company data, including contacts, trucks,
+                trailers, drivers, and all associated records.
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteDialog(true)}
+              className="ml-4 gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Company
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Password Management Dialog */}
       <SetPasswordDialog
         open={showPasswordDialog}
@@ -468,55 +635,13 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
         onSuccess={onUpdate}
       />
 
-      {/* Portal Access Confirmation Dialog */}
-      <AlertDialog
-        open={showPortalAccessDialog}
-        onOpenChange={setShowPortalAccessDialog}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {company.portal_access_enabled
-                ? "Disable Portal Access"
-                : "Enable Portal Access"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {company.portal_access_enabled ? (
-                <>
-                  Are you sure you want to disable portal access for{" "}
-                  <strong>{company.name}</strong>? Users will no longer be able
-                  to log in to the carrier portal.
-                </>
-              ) : (
-                <>
-                  Are you sure you want to enable portal access for{" "}
-                  <strong>{company.name}</strong>? This will allow authorized
-                  users to log in to the carrier portal.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isTogglingPortalAccess}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleTogglePortalAccess}
-              disabled={isTogglingPortalAccess}
-              className={
-                company.portal_access_enabled
-                  ? "bg-destructive hover:bg-destructive/90"
-                  : ""
-              }
-            >
-              {isTogglingPortalAccess && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {company.portal_access_enabled ? "Disable" : "Enable"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete Company Dialog */}
+      <DeleteCompanyDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        company={company}
+        onDelete={handleDeleteSuccess}
+      />
     </div>
   );
 };

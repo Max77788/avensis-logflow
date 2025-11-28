@@ -1,6 +1,10 @@
 import { supabase } from "./supabase";
 import CryptoJS from "crypto-js";
-import { sendEmail, generateOnboardingEmailHTML } from "./emailService";
+import {
+  sendEmail,
+  generateOnboardingEmailHTML,
+  generateAccessEnabledEmailHTML,
+} from "./emailService";
 
 // ============================================================================
 // TYPES
@@ -15,6 +19,7 @@ export type CompanyStatus =
   | "Draft"
   | "Onboarding Invited"
   | "Onboarding In Progress"
+  | "Onboarding Submitted"
   | "Active"
   | "Suspended";
 export type AgreementStatus = "Not Shown" | "Shown" | "Accepted" | "Declined";
@@ -26,6 +31,7 @@ export interface Company {
   created_at: string;
   updated_at: string;
   password_hash?: string;
+  plain_password?: string; // Plain text password for admin reference
   contact_info_id_fk?: number;
   // Extended fields (may not exist in actual DB yet)
   type?: CompanyType;
@@ -51,6 +57,7 @@ export interface Company {
   drivers_status?: DataCompletionStatus;
   portal_access_enabled?: boolean;
   portal_activated_at?: string;
+  trailers_status?: DataCompletionStatus;
 }
 
 export interface ContactInfo {
@@ -248,6 +255,10 @@ export const adminService = {
         companyData.password_hash = company.password_hash;
       }
 
+      if (company.plain_password) {
+        companyData.plain_password = company.plain_password;
+      }
+
       const { data: newCompany, error: companyError } = await supabase
         .from(tableName)
         .insert(companyData)
@@ -416,20 +427,289 @@ export const adminService = {
     tableName: string = "companies"
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      console.log(`Starting deletion of company ${id}...`);
+
       // First get the company to find contact_info_id_fk
       const company = await this.getCompanyById(id, tableName);
 
-      // Delete the company
-      const { error } = await supabase.from(tableName).delete().eq("id", id);
+      if (!company) {
+        return { success: false, error: "Company not found" };
+      }
 
-      if (error) throw error;
+      // Delete related records manually (in case CASCADE doesn't work due to RLS)
+      // IMPORTANT: We now STOP on first error instead of continuing
 
-      // Delete associated Contact_Info if it exists
-      if (company && company.contact_info_id_fk) {
+      // 1. Delete Contact_Info records
+      console.log("Deleting Contact_Info records...");
+      const { data: contactsData, error: contactsError } = await supabase
+        .from("Contact_Info")
+        .delete()
+        .eq("company_id", id)
+        .select();
+
+      if (contactsError) {
+        console.error("Error deleting Contact_Info:", contactsError);
+        return {
+          success: false,
+          error: `Failed to delete Contact_Info: ${contactsError.message}`,
+        };
+      }
+      console.log(`Deleted ${contactsData?.length || 0} Contact_Info records`);
+
+      // 2. Delete company_contacts
+      console.log("Deleting company_contacts...");
+      const { data: companyContactsData, error: companyContactsError } =
         await supabase
-          .from("Contact_Info")
+          .from("company_contacts")
           .delete()
-          .eq("id", company.contact_info_id_fk);
+          .eq("company_id", id)
+          .select();
+
+      if (companyContactsError) {
+        console.error("Error deleting company_contacts:", companyContactsError);
+        return {
+          success: false,
+          error: `Failed to delete company_contacts: ${companyContactsError.message}`,
+        };
+      }
+      console.log(
+        `Deleted ${companyContactsData?.length || 0} company_contacts records`
+      );
+
+      // 3. Delete trailers
+      console.log("Deleting trailers...");
+      const { data: trailersData, error: trailersError } = await supabase
+        .from("trailers")
+        .delete()
+        .eq("company_id", id)
+        .select();
+
+      if (trailersError) {
+        console.error("Error deleting trailers:", trailersError);
+        return {
+          success: false,
+          error: `Failed to delete trailers: ${trailersError.message}`,
+        };
+      }
+      console.log(`Deleted ${trailersData?.length || 0} trailers records`);
+
+      // 4. Delete trucks
+      console.log("Deleting trucks...");
+
+      // First, check how many trucks exist for this company
+      const { data: existingTrucks, error: checkTrucksError } = await supabase
+        .from("trucks")
+        .select("id, truck_id, carrier_id")
+        .eq("carrier_id", id);
+
+      if (checkTrucksError) {
+        console.error("Error checking trucks:", checkTrucksError);
+      } else {
+        console.log(
+          `Found ${existingTrucks?.length || 0} trucks for company ${id}`
+        );
+        console.log("Trucks to delete:", existingTrucks);
+      }
+
+      const { data: trucksData, error: trucksError } = await supabase
+        .from("trucks")
+        .delete()
+        .eq("carrier_id", id)
+        .select();
+
+      if (trucksError) {
+        console.error("Error deleting trucks:", trucksError);
+        console.error("Trucks error details:", {
+          message: trucksError.message,
+          details: trucksError.details,
+          hint: trucksError.hint,
+          code: trucksError.code,
+        });
+        return {
+          success: false,
+          error: `Failed to delete trucks: ${trucksError.message}`,
+        };
+      }
+      console.log(`Deleted ${trucksData?.length || 0} trucks records`);
+      console.log("Deleted trucks:", trucksData);
+
+      // 5. Delete drivers
+      console.log("Deleting drivers...");
+
+      // First, check how many drivers exist for this company
+      const { data: existingDrivers, error: checkDriversError } = await supabase
+        .from("drivers")
+        .select("id, name, carrier_id")
+        .eq("carrier_id", id);
+
+      if (checkDriversError) {
+        console.error("Error checking drivers:", checkDriversError);
+      } else {
+        console.log(
+          `Found ${existingDrivers?.length || 0} drivers for company ${id}`
+        );
+        console.log("Drivers to delete:", existingDrivers);
+      }
+
+      const { data: driversData, error: driversError } = await supabase
+        .from("drivers")
+        .delete()
+        .eq("carrier_id", id)
+        .select();
+
+      if (driversError) {
+        console.error("Error deleting drivers:", driversError);
+        console.error("Drivers error details:", {
+          message: driversError.message,
+          details: driversError.details,
+          hint: driversError.hint,
+          code: driversError.code,
+        });
+        return {
+          success: false,
+          error: `Failed to delete drivers: ${driversError.message}`,
+        };
+      }
+      console.log(`Deleted ${driversData?.length || 0} drivers records`);
+      console.log("Deleted drivers:", driversData);
+
+      // 6. Delete portal_users
+      console.log("Deleting portal_users...");
+      const { data: portalUsersData, error: portalUsersError } = await supabase
+        .from("portal_users")
+        .delete()
+        .eq("company_id", id)
+        .select();
+
+      if (portalUsersError) {
+        console.error("Error deleting portal_users:", portalUsersError);
+        return {
+          success: false,
+          error: `Failed to delete portal_users: ${portalUsersError.message}`,
+        };
+      }
+      console.log(
+        `Deleted ${portalUsersData?.length || 0} portal_users records`
+      );
+
+      // 7. Delete onboarding_emails
+      console.log("Deleting onboarding_emails...");
+      const { data: emailsData, error: emailsError } = await supabase
+        .from("onboarding_emails")
+        .delete()
+        .eq("company_id", id)
+        .select();
+
+      if (emailsError) {
+        console.error("Error deleting onboarding_emails:", emailsError);
+        return {
+          success: false,
+          error: `Failed to delete onboarding_emails: ${emailsError.message}`,
+        };
+      }
+      console.log(
+        `Deleted ${emailsData?.length || 0} onboarding_emails records`
+      );
+
+      // 8. Delete destination_sites (references carriers table)
+      console.log("Deleting destination_sites...");
+      const { data: destSitesData, error: destSitesError } = await supabase
+        .from("destination_sites")
+        .delete()
+        .eq("company_id", id)
+        .select();
+
+      if (destSitesError) {
+        console.error("Error deleting destination_sites:", destSitesError);
+        return {
+          success: false,
+          error: `Failed to delete destination_sites: ${destSitesError.message}`,
+        };
+      }
+      console.log(
+        `Deleted ${destSitesData?.length || 0} destination_sites records`
+      );
+
+      // 9. Delete pickup_sites (references carriers table)
+      console.log("Deleting pickup_sites...");
+      const { data: pickupSitesData, error: pickupSitesError } = await supabase
+        .from("pickup_sites")
+        .delete()
+        .eq("company_id", id)
+        .select();
+
+      if (pickupSitesError) {
+        console.error("Error deleting pickup_sites:", pickupSitesError);
+        return {
+          success: false,
+          error: `Failed to delete pickup_sites: ${pickupSitesError.message}`,
+        };
+      }
+      console.log(
+        `Deleted ${pickupSitesData?.length || 0} pickup_sites records`
+      );
+
+      // Finally, delete the company itself
+      console.log("Deleting company record...");
+      console.log(`Company ID to delete: ${id}`);
+      console.log(`Table name: ${tableName}`);
+
+      // First verify the company still exists
+      const { data: companyCheck, error: checkError } = await supabase
+        .from(tableName)
+        .select("id, name")
+        .eq("id", id)
+        .single();
+
+      if (checkError) {
+        console.error("Error checking company before deletion:", checkError);
+      } else {
+        console.log("Company found before deletion:", companyCheck);
+      }
+
+      const { data: companyData, error } = await supabase
+        .from(tableName)
+        .delete()
+        .eq("id", id)
+        .select();
+
+      if (error) {
+        console.error("Error deleting company:", error);
+        console.error("Company deletion error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        return {
+          success: false,
+          error: `Failed to delete company: ${error.message}`,
+        };
+      }
+
+      console.log(`Successfully deleted company ${id}`);
+      console.log(`Deleted company data:`, companyData);
+      console.log(`Number of companies deleted: ${companyData?.length || 0}`);
+
+      // Verify the company is actually gone
+      const { data: verifyGone, error: verifyError } = await supabase
+        .from(tableName)
+        .select("id, name")
+        .eq("id", id)
+        .single();
+
+      if (verifyError && verifyError.code === "PGRST116") {
+        console.log("✅ Verified: Company no longer exists in database");
+      } else if (verifyGone) {
+        console.error(
+          "⚠️ WARNING: Company still exists after deletion!",
+          verifyGone
+        );
+        return {
+          success: false,
+          error:
+            "Company deletion appeared to succeed but company still exists in database",
+        };
       }
 
       return { success: true };
@@ -818,8 +1098,12 @@ export const adminService = {
     tableName: string = "companies"
   ): Promise<{ success: boolean; data?: OnboardingEmail; error?: string }> {
     try {
-      const loginUrl = `${window.location.origin}/vendor/login`;
-      const onboardingUrl = `${window.location.origin}/vendor/onboarding`;
+      // Encode username and password for URL
+      const encodedUsername = encodeURIComponent(params.username);
+      const encodedPassword = encodeURIComponent(params.temp_password);
+
+      const loginUrl = `${window.location.origin}/vendor/login?username=${encodedUsername}&password=${encodedPassword}`;
+      const onboardingUrl = `${window.location.origin}/vendor/onboarding?username=${encodedUsername}&password=${encodedPassword}`;
 
       // Generate HTML email template
       const emailHTML = generateOnboardingEmailHTML({
@@ -881,6 +1165,50 @@ export const adminService = {
       return { success: true, data };
     } catch (error: any) {
       console.error("Error sending onboarding email:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async sendAccessEnabledEmail(params: {
+    company_id: string;
+    company_name: string;
+    sent_to: string;
+    username: string;
+    password: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Encode username and password for URL
+      const encodedUsername = encodeURIComponent(params.username);
+      const encodedPassword = encodeURIComponent(params.password);
+
+      const loginUrl = `${window.location.origin}/vendor/login?username=${encodedUsername}&password=${encodedPassword}`;
+
+      // Generate HTML email template
+      const emailHTML = generateAccessEnabledEmailHTML({
+        companyName: params.company_name,
+        username: params.username,
+        password: params.password,
+        loginUrl,
+      });
+
+      // Send the actual email
+      const emailResult = await sendEmail({
+        to: params.sent_to,
+        subject: `Portal Access Enabled - Avensis LogFlow`,
+        html: emailHTML,
+      });
+
+      // Return error if email failed to send
+      if (!emailResult.success) {
+        return {
+          success: false,
+          error: emailResult.error || "Failed to send email",
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error sending access enabled email:", error);
       return { success: false, error: error.message };
     }
   },
@@ -1087,12 +1415,13 @@ export const adminService = {
   async getCompanyStats(companyId: string): Promise<{
     trucks_count: number;
     drivers_count: number;
+    trailers_count: number;
     contacts_count: number;
     destination_sites_count: number;
     pickup_sites_count: number;
   }> {
     try {
-      const [trucks, drivers, contacts, destSites, pickupSites] =
+      const [trucks, drivers, trailers, contacts, destSites, pickupSites] =
         await Promise.all([
           supabase
             .from("trucks")
@@ -1102,6 +1431,10 @@ export const adminService = {
             .from("drivers")
             .select("id", { count: "exact" })
             .eq("carrier_id", companyId),
+          supabase
+            .from("trailers")
+            .select("id", { count: "exact" })
+            .eq("company_id", companyId),
           supabase
             .from("Contact_Info")
             .select("id", { count: "exact" })
@@ -1119,6 +1452,7 @@ export const adminService = {
       return {
         trucks_count: trucks.count || 0,
         drivers_count: drivers.count || 0,
+        trailers_count: trailers.count || 0,
         contacts_count: contacts.count || 0,
         destination_sites_count: destSites.count || 0,
         pickup_sites_count: pickupSites.count || 0,
@@ -1128,6 +1462,7 @@ export const adminService = {
       return {
         trucks_count: 0,
         drivers_count: 0,
+        trailers_count: 0,
         contacts_count: 0,
         destination_sites_count: 0,
         pickup_sites_count: 0,

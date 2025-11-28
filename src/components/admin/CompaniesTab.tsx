@@ -18,16 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Plus,
-  Search,
-  Eye,
-  Building2,
-  Lock,
-  KeyRound,
-  Mail,
-  Loader2,
-} from "lucide-react";
+import { Plus, Search, Eye, Lock, KeyRound } from "lucide-react";
 import {
   adminService,
   Company,
@@ -47,7 +38,6 @@ export const CompaniesTab = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
-  const [sendingEmailTo, setSendingEmailTo] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -80,6 +70,8 @@ export const CompaniesTab = () => {
     switch (status) {
       case "Active":
         return "bg-green-500";
+      case "Onboarding Submitted":
+        return "bg-emerald-500";
       case "Onboarding In Progress":
         return "bg-blue-500";
       case "Onboarding Invited":
@@ -105,91 +97,6 @@ export const CompaniesTab = () => {
         return "bg-gray-100 text-gray-800";
       default:
         return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const handleSendOnboardingEmail = async (company: Company) => {
-    // Pre-flight checks before showing confirmation
-    const contacts = await adminService.getContactInfoByCompanyId(company.id);
-
-    if (!contacts || contacts.length === 0) {
-      toast({
-        title: "Error",
-        description:
-          "No contact information found for this company. Please add a contact first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Find primary contact, or use first contact if no primary is set
-    const primaryContact = contacts.find((c) => c.is_primary) || contacts[0];
-    const contactEmail = primaryContact.Contact_Email;
-
-    if (!contactEmail) {
-      toast({
-        title: "Error",
-        description:
-          "No email address found for this company. Please add a contact email first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!company.password_hash) {
-      toast({
-        title: "Error",
-        description:
-          "Please set a password for this company first using the lock icon.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Show confirmation dialog
-    const confirmed = window.confirm(
-      `Send onboarding email to ${contactEmail} for ${company.name}?\n\nThis will send login credentials and onboarding instructions.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setSendingEmailTo(company.id);
-
-    try {
-      // Send the actual onboarding email
-      const result = await adminService.sendOnboardingEmail({
-        company_id: company.id,
-        company_name: company.name,
-        sent_to: contactEmail,
-        sent_by: "Admin",
-        username: company.name,
-        temp_password: "Please use the password set by admin",
-      });
-
-      if (result.success) {
-        toast({
-          title: "Email Sent",
-          description: `Onboarding email sent to ${contactEmail}`,
-        });
-        // Refresh the companies list to show updated status
-        loadCompanies();
-      } else {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to send onboarding email",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to send onboarding email",
-        variant: "destructive",
-      });
-    } finally {
-      setSendingEmailTo(null);
     }
   };
 
@@ -264,19 +171,20 @@ export const CompaniesTab = () => {
               <TableHead>Status</TableHead>
               <TableHead>Primary Contact</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Password</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredCompanies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
+                <TableCell colSpan={7} className="text-center py-8">
                   No companies found
                 </TableCell>
               </TableRow>
@@ -296,6 +204,11 @@ export const CompaniesTab = () => {
                   </TableCell>
                   <TableCell>{company.primary_contact_name || "-"}</TableCell>
                   <TableCell>{company.contact_email || "-"}</TableCell>
+                  <TableCell>
+                    <span className="font-mono text-sm">
+                      {company.plain_password || "-"}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button
@@ -320,22 +233,10 @@ export const CompaniesTab = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleSendOnboardingEmail(company)}
-                        disabled={sendingEmailTo === company.id}
-                        title="Send onboarding email"
-                      >
-                        {sendingEmailTo === company.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Mail className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
                         onClick={() =>
                           navigate(`/admin/companies/${company.id}`)
                         }
+                        title="View company details"
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         View

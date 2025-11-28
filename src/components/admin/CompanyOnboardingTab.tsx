@@ -37,6 +37,7 @@ export const CompanyOnboardingTab = ({
   const [stats, setStats] = useState({
     trucks_count: 0,
     drivers_count: 0,
+    trailers_count: 0,
     contacts_count: 0,
     destination_sites_count: 0,
     pickup_sites_count: 0,
@@ -81,10 +82,11 @@ export const CompanyOnboardingTab = ({
       return;
     }
 
-    if (!company.password_hash) {
+    if (!company.password_hash || !company.plain_password) {
       toast({
         title: "Error",
-        description: "Please set a password for this company first",
+        description:
+          "Please set a password for this company first before sending onboarding email.",
         variant: "destructive",
       });
       return;
@@ -98,7 +100,7 @@ export const CompanyOnboardingTab = ({
         sent_to: emailTo,
         sent_by: "Admin",
         username: company.name,
-        temp_password: "Use your company password",
+        temp_password: company.plain_password,
       });
 
       if (result.success) {
@@ -128,18 +130,26 @@ export const CompanyOnboardingTab = ({
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, isComplete: boolean) => {
+    // Sync badge color with icon status
+    if (isComplete) {
+      return <Badge className="bg-green-500 text-white">Complete</Badge>;
+    }
+
     switch (status) {
-      case "Complete":
-        return <Badge className="bg-green-500">Complete</Badge>;
       case "In Progress":
-        return <Badge className="bg-blue-500">In Progress</Badge>;
+        return <Badge className="bg-blue-500 text-white">In Progress</Badge>;
       case "Not Started":
-        return <Badge variant="secondary">Not Started</Badge>;
+        return <Badge className="bg-red-500 text-white">Not Started</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge className="bg-gray-500 text-white">{status}</Badge>;
     }
   };
+
+  // Check if onboarding is submitted or active - if so, show all as complete
+  const isOnboardingSubmitted = company.status === "Onboarding Submitted";
+  const isActive = company.status === "Active";
+  const isOnboardingComplete = isOnboardingSubmitted || isActive;
 
   // Define onboarding stages
   const stages = [
@@ -148,45 +158,59 @@ export const CompanyOnboardingTab = ({
       label: "Agreement",
       status: company.agreement_status,
       isComplete:
+        isOnboardingComplete ||
         company.agreement_status === "Complete" ||
         company.agreement_status === "Accepted",
-      subtitle: company.agreement_accepted_at
-        ? new Date(company.agreement_accepted_at).toLocaleDateString()
-        : "Not accepted",
+      subtitle:
+        isOnboardingComplete ||
+        company.agreement_status === "Complete" ||
+        company.agreement_status === "Accepted"
+          ? "Accepted"
+          : "Not accepted",
     },
     {
       id: "company_details",
       label: "Company Details",
       status: company.company_details_status,
-      isComplete: company.company_details_status === "Complete",
+      isComplete:
+        isOnboardingComplete || company.company_details_status === "Complete",
       subtitle: "",
     },
     {
       id: "contacts",
       label: "Contacts",
       status: company.contacts_status,
-      isComplete: company.contacts_status === "Complete",
+      isComplete:
+        isOnboardingComplete || company.contacts_status === "Complete",
       subtitle: `${stats.contacts_count} contact(s)`,
     },
     {
       id: "fleet",
       label: "Fleet",
       status: company.fleet_status,
-      isComplete: company.fleet_status === "Complete",
+      isComplete: isOnboardingComplete || company.fleet_status === "Complete",
       subtitle: `${stats.trucks_count} truck(s)`,
+    },
+    {
+      id: "trailers",
+      label: "Trailers",
+      status: company.trailers_status,
+      isComplete:
+        isOnboardingComplete || company.trailers_status === "Complete",
+      subtitle: `${stats.trailers_count} trailer(s)`,
     },
     {
       id: "drivers",
       label: "Drivers",
       status: company.drivers_status,
-      isComplete: company.drivers_status === "Complete",
+      isComplete: isOnboardingComplete || company.drivers_status === "Complete",
       subtitle: `${stats.drivers_count} driver(s)`,
     },
     {
       id: "portal_access",
       label: "Portal Access",
       status: company.portal_access_enabled ? "Complete" : "Not Started",
-      isComplete: company.portal_access_enabled,
+      isComplete: company.status === "Active" && company.portal_access_enabled,
       subtitle: company.portal_activated_at
         ? new Date(company.portal_activated_at).toLocaleDateString()
         : "Not activated",
@@ -248,11 +272,19 @@ export const CompanyOnboardingTab = ({
                     {stage.label}
                   </p>
                   {stage.subtitle && (
-                    <p className="text-xs text-muted-foreground">
+                    <p
+                      className={`text-xs ${
+                        stage.isComplete
+                          ? "text-green-600"
+                          : "text-muted-foreground"
+                      }`}
+                    >
                       {stage.subtitle}
                     </p>
                   )}
-                  <div className="mt-2">{getStatusBadge(stage.status)}</div>
+                  <div className="mt-2">
+                    {getStatusBadge(stage.status, stage.isComplete)}
+                  </div>
                 </div>
               </div>
             ))}

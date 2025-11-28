@@ -30,16 +30,68 @@ const VendorProfile = () => {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("company");
 
-  // Check authentication
+  // Check authentication and access status
   useEffect(() => {
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to access your profile",
-        variant: "destructive",
-      });
-      navigate("/vendor/login");
-    }
+    const checkAccess = async () => {
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to access your profile",
+          variant: "destructive",
+        });
+        navigate("/vendor/login");
+        return;
+      }
+
+      // Check company status and portal access
+      const { data: company } = await supabase
+        .from("companies")
+        .select("status, portal_access_enabled")
+        .eq("id", user.id)
+        .single();
+
+      if (company) {
+        // Check if company is suspended
+        if (company.status === "Suspended") {
+          toast({
+            title: "Access Suspended",
+            description:
+              "Your account has been suspended. Please contact your administrator.",
+            variant: "destructive",
+          });
+          navigate("/vendor/login");
+          return;
+        }
+
+        // Redirect to onboarding if company is in onboarding status
+        const isOnboardingStatus =
+          company.status === "Onboarding Invited" ||
+          company.status === "Onboarding In Progress";
+
+        if (isOnboardingStatus) {
+          toast({
+            title: "Complete Onboarding",
+            description: "Please complete your onboarding process first.",
+          });
+          navigate("/vendor/onboarding");
+          return;
+        }
+
+        // Check if portal access is disabled
+        if (!company.portal_access_enabled) {
+          toast({
+            title: "Access Disabled",
+            description:
+              "Portal access is currently disabled. Please contact your administrator.",
+            variant: "destructive",
+          });
+          navigate("/vendor/login");
+          return;
+        }
+      }
+    };
+
+    checkAccess();
   }, [user, navigate]);
 
   // Load vendor data

@@ -88,6 +88,14 @@ interface VendorFormData {
   weekend_availability: string;
   driver_comments: string;
   emergency_contact: string;
+
+  // Trailer Details
+  trailer_id: string;
+  trailer_vin: string;
+  trailer_make: string;
+  trailer_model: string;
+  trailer_year: string;
+  trailer_is_on_insurance_policy: string;
 }
 
 const VendorOnboarding = () => {
@@ -108,6 +116,7 @@ const VendorOnboarding = () => {
 
   // CSV upload state
   const [fleetCsvData, setFleetCsvData] = useState<any[]>([]);
+  const [trailerCsvData, setTrailerCsvData] = useState<any[]>([]);
   const [driverCsvData, setDriverCsvData] = useState<any[]>([]);
 
   // Additional contacts state
@@ -118,6 +127,9 @@ const VendorOnboarding = () => {
 
   // Additional drivers state
   const [additionalDrivers, setAdditionalDrivers] = useState<any[]>([]);
+
+  // Additional trailers state
+  const [additionalTrailers, setAdditionalTrailers] = useState<any[]>([]);
 
   // Initial contract acceptance state (must accept before accessing form)
   const [initialContractAccepted, setInitialContractAccepted] = useState(false);
@@ -132,6 +144,9 @@ const VendorOnboarding = () => {
 
   // Success state
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Data loading state to prevent agreement screen flash
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   // Check authentication and onboarding status
   useEffect(() => {
@@ -155,12 +170,41 @@ const VendorOnboarding = () => {
           .single();
 
         if (company) {
+          // Check if company is suspended
+          if (company.status === "Suspended") {
+            toast({
+              title: "Access Suspended",
+              description:
+                "Your account has been suspended. Please contact your administrator.",
+              variant: "destructive",
+            });
+            navigate("/vendor/login");
+            return;
+          }
+
+          // Allow access for onboarding statuses even if portal_access_enabled is false
+          const isOnboardingStatus =
+            company.status === "Onboarding Invited" ||
+            company.status === "Onboarding In Progress";
+
+          // Check if portal access is disabled (but allow onboarding statuses)
+          if (!company.portal_access_enabled && !isOnboardingStatus) {
+            toast({
+              title: "Access Disabled",
+              description:
+                "Portal access is currently disabled. Please contact your administrator.",
+              variant: "destructive",
+            });
+            navigate("/vendor/login");
+            return;
+          }
+
           // Check if vendor has filled in basic company info (has onboarded)
           const hasOnboarded =
             company.business_address && company.mc_number && company.dot_number;
 
-          if (hasOnboarded) {
-            // Redirect to profile page instead of onboarding
+          if (hasOnboarded && company.status === "Active") {
+            // Redirect to profile page if fully onboarded and active
             navigate("/vendor/profile");
           } else {
             // Update status to "Onboarding In Progress" if not already set
@@ -181,10 +225,15 @@ const VendorOnboarding = () => {
     checkOnboardingStatus();
   }, [user, authLoading, navigate]);
 
-  // Prefill form data from existing company record
+  // Prefill form data from existing company record and determine last checkpoint
   useEffect(() => {
     const prefillFormData = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setIsDataLoading(false);
+        return;
+      }
+
+      setIsDataLoading(true);
 
       try {
         const { data: company, error } = await supabase
@@ -195,6 +244,7 @@ const VendorOnboarding = () => {
 
         if (error) {
           console.error("Error fetching company data:", error);
+          setIsDataLoading(false);
           return;
         }
 
@@ -217,14 +267,159 @@ const VendorOnboarding = () => {
           if (company.mailing_address) {
             setShowMailingAddress(true);
           }
+
+          // Check if agreement was already accepted
+          if (company.agreement_status === "Accepted") {
+            setHasAgreedToInitialContract(true);
+            setFinalContractAccepted(true); // Also set final contract as accepted
+          }
+
+          // Determine last checkpoint and resume from there
+          const completedTabsList: string[] = ["company_details"];
+          let lastCompletedTab = "company_details";
+
+          // Check company_details completion
+          if (company.company_details_status === "Complete") {
+            completedTabsList.push("contacts");
+            lastCompletedTab = "contacts";
+          }
+
+          // Check contacts completion
+          if (company.contacts_status === "Complete") {
+            completedTabsList.push("fleet_details");
+            lastCompletedTab = "fleet_details";
+          }
+
+          // Check fleet completion
+          if (company.fleet_status === "Complete") {
+            completedTabsList.push("trailer_details");
+            lastCompletedTab = "trailer_details";
+          }
+
+          // Check trailers completion
+          if (company.trailers_status === "Complete") {
+            completedTabsList.push("driver_details");
+            lastCompletedTab = "driver_details";
+          }
+
+          // Set completed tabs and active tab to last checkpoint
+          setCompletedTabs(completedTabsList);
+          setActiveTab(lastCompletedTab);
+
+          console.log("Resuming from checkpoint:", lastCompletedTab);
+          console.log("Completed tabs:", completedTabsList);
+
+          // Load existing contacts
+          const { data: contacts } = await supabase
+            .from("Contact_Info")
+            .select("*")
+            .eq("company_id", user.id);
+
+          if (contacts && contacts.length > 0) {
+            // Find primary contact
+            const primaryContact = contacts.find((c) => c.is_primary);
+            if (primaryContact) {
+              setFormData((prev) => ({
+                ...prev,
+                primary_contact_name: primaryContact.Contact_Name || "",
+                contact_email: primaryContact.Contact_Email || "",
+                contact_phone: primaryContact.Contact_Phone || "",
+                location: primaryContact.Location || "",
+                role: primaryContact.Role || "",
+                comments: primaryContact.Notes || "",
+              }));
+            }
+
+            // Load additional contacts (non-primary)
+            const additionalContactsData = contacts
+              .filter((c) => !c.is_primary)
+              .map((c) => ({
+                id: c.id,
+                name: c.Contact_Name || "",
+                email: c.Contact_Email || "",
+                phone: c.Contact_Phone || "",
+                location: c.Location || "",
+                role: c.Role || "",
+                comments: c.Notes || "",
+              }));
+            setAdditionalContacts(additionalContactsData);
+          }
+
+          // Load existing trucks
+          const { data: trucks } = await supabase
+            .from("trucks")
+            .select("*")
+            .eq("carrier_id", user.id);
+
+          if (trucks && trucks.length > 0) {
+            const trucksData = trucks.map((t) => ({
+              id: t.id,
+              truck_id: t.truck_id || "",
+              license_plate: t.license_plate || "",
+              license_state: t.license_state || "",
+              truck_type: t.truck_type || "",
+              capacity: t.capacity || "",
+              gps_device_id: t.gps_device_id || "",
+              material_types_handled: t.material_types_handled || [],
+              vin: t.vin || "",
+              is_on_insurance_policy: t.is_on_insurance_policy ? "Yes" : "No",
+            }));
+            setAdditionalTrucks(trucksData);
+          }
+
+          // Load existing trailers
+          const { data: trailers } = await supabase
+            .from("trailers")
+            .select("*")
+            .eq("company_id", user.id);
+
+          if (trailers && trailers.length > 0) {
+            const trailersData = trailers.map((t) => ({
+              id: t.id,
+              trailer_id: t.trailer_id || "",
+              vin: t.vin || "",
+              make: t.make || "",
+              model: t.model || "",
+              year: t.year?.toString() || "",
+              is_on_insurance_policy: t.is_on_insurance_policy ? "Yes" : "No",
+            }));
+            setAdditionalTrailers(trailersData);
+          }
+
+          // Load existing drivers
+          const { data: drivers } = await supabase
+            .from("drivers")
+            .select("*")
+            .eq("carrier_id", user.id);
+
+          if (drivers && drivers.length > 0) {
+            const driversData = drivers.map((d) => ({
+              id: d.id,
+              driver_name: d.name || "",
+              phone_number: d.phone || "",
+              email_address: d.email || "",
+              cdl_number: d.cdl_number || "",
+              cdl_state: d.cdl_state || "",
+              driver_type: d.driver_type || "",
+              operating_hours: d.operating_hours || "",
+              weekend_availability: d.weekend_availability || "",
+              driver_comments: d.comments || "",
+              emergency_contact: d.emergency_contact || "",
+            }));
+            setAdditionalDrivers(driversData);
+          }
         }
       } catch (error) {
         console.error("Error prefilling form data:", error);
+      } finally {
+        setIsDataLoading(false);
       }
     };
 
     if (!authLoading && user) {
       prefillFormData();
+    } else if (!authLoading) {
+      setIsDataLoading(false);
     }
   }, [user, authLoading]);
 
@@ -267,6 +462,12 @@ const VendorOnboarding = () => {
     weekend_availability: "",
     driver_comments: "",
     emergency_contact: "",
+    trailer_id: "",
+    trailer_vin: "",
+    trailer_make: "",
+    trailer_model: "",
+    trailer_year: "",
+    trailer_is_on_insurance_policy: "",
   });
 
   const updateField = (field: keyof VendorFormData, value: any) => {
@@ -301,10 +502,76 @@ const VendorOnboarding = () => {
         skipEmptyLines: true,
         complete: (results) => {
           console.log("Fleet CSV parsed:", results.data);
+
+          // Map CSV data to truck format
+          const trucks = results.data.map((row: any, index: number) => ({
+            id: Date.now() + index,
+            truck_id: row.truck_id || "",
+            license_plate: row.license_plate || "",
+            license_state: row.license_state || "",
+            truck_type: row.truck_type || "",
+            capacity: row.capacity || "",
+            gps_device_id: row.gps_device_id || "",
+            material_types_handled: row.material_types_handled
+              ? row.material_types_handled
+                  .split(",")
+                  .map((m: string) => m.trim())
+              : [],
+            vin: row.vin || "",
+            is_on_insurance_policy:
+              row.is_on_insurance_policy?.toLowerCase() === "yes"
+                ? "yes"
+                : "no",
+          }));
+
+          setAdditionalTrucks(trucks);
           setFleetCsvData(results.data);
           toast({
             title: "Success",
             description: `Loaded ${results.data.length} fleet records from CSV`,
+          });
+        },
+        error: (error) => {
+          console.error("CSV parse error:", error);
+          toast({
+            title: "Error",
+            description: "Failed to parse CSV file",
+            variant: "destructive",
+          });
+        },
+      });
+    }
+  };
+
+  // Handle Trailer CSV Upload
+  const handleTrailerCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          console.log("Trailer CSV parsed:", results.data);
+
+          // Map CSV data to trailer format
+          const trailers = results.data.map((row: any, index: number) => ({
+            id: Date.now() + index,
+            trailer_id: row.trailer_id || "",
+            vin: row.vin || "",
+            make: row.make || "",
+            model: row.model || "",
+            year: row.year || "",
+            is_on_insurance_policy:
+              row.is_on_insurance_policy?.toLowerCase() === "yes"
+                ? "yes"
+                : "no",
+          }));
+
+          setAdditionalTrailers(trailers);
+          setTrailerCsvData(results.data);
+          toast({
+            title: "Success",
+            description: `Loaded ${results.data.length} trailer records from CSV`,
           });
         },
         error: (error) => {
@@ -328,6 +595,24 @@ const VendorOnboarding = () => {
         skipEmptyLines: true,
         complete: (results) => {
           console.log("Driver CSV parsed:", results.data);
+
+          // Map CSV data to driver format
+          const drivers = results.data.map((row: any, index: number) => ({
+            id: Date.now() + index,
+            driver_name: row.driver_name || "",
+            phone_number: row.phone_number || "",
+            email_address: row.email_address || "",
+            cdl_number: row.cdl_number || "",
+            cdl_state: row.cdl_state || "",
+            driver_type: row.driver_type || "",
+            operating_hours: row.operating_hours || "",
+            weekend_availability:
+              row.weekend_availability?.toLowerCase() === "yes" ? "yes" : "no",
+            driver_comments: row.driver_comments || "",
+            emergency_contact: row.emergency_contact || "",
+          }));
+
+          setAdditionalDrivers(drivers);
           setDriverCsvData(results.data);
           toast({
             title: "Success",
@@ -348,9 +633,9 @@ const VendorOnboarding = () => {
 
   // Download CSV Template
   const downloadFleetTemplate = () => {
-    const template = `truck_id,carrier_name,license_plate,truck_type,capacity,gps_device_id,material_types_handled,truck_state,vin_optional
-TRUCK001,ABC Trucking,ABC123,End Dump,25,GPS001,"Sand,Rock",Owned,1HGBH41JXMN109186
-TRUCK002,XYZ Transport,XYZ456,Tanker,30,GPS002,"Oil,Waste",Leased,2HGBH41JXMN109187`;
+    const template = `truck_id,license_plate,license_state,truck_type,capacity,gps_device_id,material_types_handled,vin,is_on_insurance_policy
+TRUCK001,ABC123,CA,End Dump,25,GPS001,"Sand,Rock",1HGBH41JXMN109186,yes
+TRUCK002,XYZ456,TX,Tanker,30,GPS002,"Oil,Waste",2HGBH41JXMN109187,yes`;
 
     const blob = new Blob([template], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -361,10 +646,24 @@ TRUCK002,XYZ Transport,XYZ456,Tanker,30,GPS002,"Oil,Waste",Leased,2HGBH41JXMN109
     window.URL.revokeObjectURL(url);
   };
 
+  const downloadTrailerTemplate = () => {
+    const template = `trailer_id,vin,make,model,year,is_on_insurance_policy
+TRAILER001,1HGBH41JXMN109186,Great Dane,Everest,2023,yes
+TRAILER002,2HGBH41JXMN109187,Wabash,DuraPlate,2022,yes`;
+
+    const blob = new Blob([template], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "trailer_template.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const downloadDriverTemplate = () => {
-    const template = `driver_name,phone_number,email_address,license_number,employment_type,operating_hours,weekend_availability,driver_comments
-John Doe,555-0100,john@example.com,DL123456,Full-time,8am-5pm,Yes,Experienced driver
-Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
+    const template = `driver_name,phone_number,email_address,cdl_number,cdl_state,driver_type,operating_hours,weekend_availability,driver_comments,emergency_contact
+John Doe,555-0100,john@example.com,DL123456,CA,Full-time,8am-5pm,yes,Experienced driver,Jane Doe 555-0200
+Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver,John Smith 555-0201`;
 
     const blob = new Blob([template], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -474,10 +773,45 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     );
   };
 
+  // Add additional trailer
+  const addAdditionalTrailer = () => {
+    const newTrailer = {
+      id: Date.now(),
+      trailer_id: "",
+      vin: "",
+      make: "",
+      model: "",
+      year: "",
+      is_on_insurance_policy: "",
+    };
+    setAdditionalTrailers([...additionalTrailers, newTrailer]);
+  };
+
+  // Remove additional trailer
+  const removeAdditionalTrailer = (id: number) => {
+    setAdditionalTrailers(
+      additionalTrailers.filter((trailer) => trailer.id !== id)
+    );
+  };
+
+  // Update additional trailer
+  const updateAdditionalTrailer = (
+    id: number,
+    field: string,
+    value: string
+  ) => {
+    setAdditionalTrailers(
+      additionalTrailers.map((trailer) =>
+        trailer.id === id ? { ...trailer, [field]: value } : trailer
+      )
+    );
+  };
+
   const tabOrder = [
     "company_details",
     "contacts",
     "fleet_details",
+    "trailer_details",
     "driver_details",
   ];
 
@@ -493,18 +827,25 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
           !formData.business_address ||
           !formData.city ||
           !formData.state ||
-          !formData.zip
+          !formData.zip ||
+          !formData.legal_name_for_invoicing ||
+          !formData.mc_number ||
+          !formData.dot_number ||
+          !formData.upload_coi ||
+          !formData.upload_w9 ||
+          !signerName
         ) {
           toast({
             title: "Required Fields Missing",
             description:
-              "Please fill in all required fields in Company Details",
+              "Please fill in all required fields in Company Details (including Legal Name, MC Number, DOT Number, COI, W9, and Signer Name)",
             variant: "destructive",
           });
           return false;
         }
         return true;
       case "contacts":
+        // Validate primary contact fields (required)
         if (
           !formData.primary_contact_name ||
           !formData.contact_email ||
@@ -512,10 +853,25 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
         ) {
           toast({
             title: "Required Fields Missing",
-            description: "Please fill in all required fields in Contacts",
+            description:
+              "Please fill in all required primary contact fields (Name, Email, Phone)",
             variant: "destructive",
           });
           return false;
+        }
+        // Validate additional contacts if any were added
+        for (let i = 0; i < additionalContacts.length; i++) {
+          const contact = additionalContacts[i];
+          if (!contact.name || !contact.email || !contact.phone) {
+            toast({
+              title: "Required Fields Missing",
+              description: `Please fill in all required fields for Additional Contact ${
+                i + 1
+              }`,
+              variant: "destructive",
+            });
+            return false;
+          }
         }
         return true;
       case "fleet_details":
@@ -543,6 +899,39 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
             toast({
               title: "Required Fields Missing",
               description: `Please fill in all required fields for Truck ${
+                i + 1
+              }`,
+              variant: "destructive",
+            });
+            return false;
+          }
+        }
+        return true;
+      case "trailer_details":
+        // Check if at least one trailer has been added
+        if (additionalTrailers.length === 0) {
+          toast({
+            title: "No Trailers Added",
+            description:
+              "Please add at least one trailer using the 'Add Trailer' button",
+            variant: "destructive",
+          });
+          return false;
+        }
+        // Validate each trailer has required fields
+        for (let i = 0; i < additionalTrailers.length; i++) {
+          const trailer = additionalTrailers[i];
+          if (
+            !trailer.trailer_id ||
+            !trailer.vin ||
+            !trailer.make ||
+            !trailer.model ||
+            !trailer.year ||
+            !trailer.is_on_insurance_policy
+          ) {
+            toast({
+              title: "Required Fields Missing",
+              description: `Please fill in all required fields for Trailer ${
                 i + 1
               }`,
               variant: "destructive",
@@ -640,24 +1029,49 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
 
         case "contacts":
           // Save contacts to Contact_Info table
-          if (additionalContacts.length > 0) {
-            // Delete existing contacts for this company first
-            await supabase
-              .from("Contact_Info")
-              .delete()
-              .eq("company_id", user.id);
+          // Delete existing contacts for this company first
+          await supabase
+            .from("Contact_Info")
+            .delete()
+            .eq("company_id", user.id);
 
-            // Insert new contacts
-            const contactsData = additionalContacts.map((contact) => ({
+          // Build contacts array starting with primary contact from formData
+          const contactsData = [];
+
+          // Add primary contact (always first and marked as primary)
+          if (
+            formData.primary_contact_name &&
+            formData.contact_email &&
+            formData.contact_phone
+          ) {
+            contactsData.push({
+              company_id: user.id,
+              Contact_Name: formData.primary_contact_name,
+              Contact_Phone: formData.contact_phone,
+              Contact_Email: formData.contact_email,
+              Location: formData.location || null,
+              Role: formData.role || null,
+              Notes: formData.comments || null,
+              is_primary: true,
+            });
+          }
+
+          // Add additional contacts (not primary)
+          additionalContacts.forEach((contact) => {
+            contactsData.push({
               company_id: user.id,
               Contact_Name: contact.name,
               Contact_Phone: contact.phone,
               Contact_Email: contact.email,
-              Location: contact.location,
-              Role: contact.role,
-              Notes: contact.comments,
-            }));
+              Location: contact.location || null,
+              Role: contact.role || null,
+              Notes: contact.comments || null,
+              is_primary: false,
+            });
+          });
 
+          // Insert all contacts
+          if (contactsData.length > 0) {
             const { error: contactsError } = await supabase
               .from("Contact_Info")
               .insert(contactsData);
@@ -677,6 +1091,25 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
         case "fleet_details":
           // Save trucks to trucks table
           if (additionalTrucks.length > 0) {
+            // Check for duplicate truck IDs (excluding current company's trucks)
+            const truckIds = additionalTrucks.map((t) => t.truck_id);
+            const duplicateTruckIds = await checkDuplicateTrucks(
+              truckIds,
+              user.id
+            );
+
+            if (duplicateTruckIds.length > 0) {
+              toast({
+                title: "Duplicate Truck IDs Found",
+                description: `The following truck IDs already exist in the database: ${duplicateTruckIds.join(
+                  ", "
+                )}. Please use unique truck IDs.`,
+                variant: "destructive",
+              });
+              setIsSaving(false);
+              return;
+            }
+
             // Delete existing trucks for this company first
             await supabase.from("trucks").delete().eq("carrier_id", user.id);
 
@@ -691,7 +1124,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
               gps_device_id: truck.gps_device_id,
               material_types_handled: truck.material_types_handled,
               vin: truck.vin,
-              is_on_insurance_policy: truck.is_on_insurance_policy === "yes",
+              is_on_insurance_policy: truck.is_on_insurance_policy === "Yes",
               status: "active",
             }));
 
@@ -710,34 +1143,163 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
           statusField = "fleet_status";
           break;
 
-        case "drivers":
-        case "driver_details":
-          // Save drivers to drivers table
-          if (additionalDrivers.length > 0) {
-            // Delete existing drivers for this company first
-            await supabase.from("drivers").delete().eq("carrier_id", user.id);
+        case "trailer":
+        case "trailer_details":
+          // Save trailers to trailers table
+          if (additionalTrailers.length > 0) {
+            // Check for duplicate trailer IDs (excluding current company's trailers)
+            const trailerIds = additionalTrailers.map((t) => t.trailer_id);
+            const duplicateTrailerIds = await checkDuplicateTrailers(
+              trailerIds,
+              user.id
+            );
 
-            // Insert new drivers
-            const driversData = additionalDrivers.map((driver) => ({
-              name: driver.driver_name,
-              carrier_id: user.id,
-              phone: driver.phone_number,
-              email: driver.email_address,
-              cdl_number: driver.cdl_number,
-              cdl_state: driver.cdl_state,
-              driver_type: driver.driver_type,
-              operating_hours: driver.operating_hours,
-              weekend_availability: driver.weekend_availability === "yes",
-              comments: driver.driver_comments,
-              emergency_contact: driver.emergency_contact,
+            if (duplicateTrailerIds.length > 0) {
+              toast({
+                title: "Duplicate Trailer IDs Found",
+                description: `The following trailer IDs already exist in the database: ${duplicateTrailerIds.join(
+                  ", "
+                )}. Please use unique trailer IDs.`,
+                variant: "destructive",
+              });
+              setIsSaving(false);
+              return;
+            }
+
+            // Delete existing trailers for this company first
+            await supabase.from("trailers").delete().eq("company_id", user.id);
+
+            // Insert new trailers
+            const trailersData = additionalTrailers.map((trailer) => ({
+              trailer_id: trailer.trailer_id,
+              company_id: user.id,
+              vin: trailer.vin,
+              make: trailer.make,
+              model: trailer.model,
+              year: parseInt(trailer.year) || null,
+              is_on_insurance_policy: trailer.is_on_insurance_policy === "Yes",
+              status: "active",
             }));
 
-            const { error: driversError } = await supabase
-              .from("drivers")
-              .insert(driversData);
+            const { error: trailersError } = await supabase
+              .from("trailers")
+              .insert(trailersData);
+
+            if (trailersError) {
+              console.error("Error saving trailers:", trailersError);
+            }
+          }
+
+          updateData = {
+            trailers_status: "Complete",
+          };
+          statusField = "trailers_status";
+          break;
+
+        case "drivers":
+        case "driver_details":
+          // Save drivers to drivers table - Check for duplicates first
+          if (additionalDrivers.length > 0) {
+            // Check for duplicate emails in the database
+            const driverEmails = additionalDrivers
+              .map((d) => d.email_address)
+              .filter((email) => email && email.trim() !== "");
+
+            if (driverEmails.length > 0) {
+              const { data: existingDrivers, error: checkError } =
+                await supabase
+                  .from("drivers")
+                  .select("email")
+                  .in("email", driverEmails);
+
+              if (checkError) {
+                console.error(
+                  "Error checking for duplicate drivers:",
+                  checkError
+                );
+                toast({
+                  title: "Error",
+                  description:
+                    "Failed to verify driver emails. Please try again.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              if (existingDrivers && existingDrivers.length > 0) {
+                const duplicateEmails = existingDrivers.map((d) => d.email);
+                console.error(
+                  "Duplicate driver emails found:",
+                  duplicateEmails
+                );
+                toast({
+                  title: "Duplicate Driver Emails",
+                  description: `The following driver email(s) already exist: ${duplicateEmails.join(
+                    ", "
+                  )}. Please use different email addresses.`,
+                  variant: "destructive",
+                });
+                return;
+              }
+            }
+
+            // No duplicates found, proceed with insertion
+            const driversData = additionalDrivers.map((driver, index) => {
+              // Generate unique driver QR code with index to ensure uniqueness
+              const driverQrCode = `DRIVER-${Date.now()}-${index}-${Math.random()
+                .toString(36)
+                .substr(2, 9)}`;
+
+              return {
+                name: driver.driver_name,
+                carrier_id: user.id, // Ensure correct company foreign key
+                phone: driver.phone_number,
+                email: driver.email_address,
+                cdl_number: driver.cdl_number,
+                cdl_state: driver.cdl_state,
+                driver_type: driver.driver_type,
+                operating_hours: driver.operating_hours,
+                weekend_availability: driver.weekend_availability === "yes",
+                comments: driver.driver_comments,
+                emergency_contact: driver.emergency_contact,
+                driver_qr_code: driverQrCode, // Add QR code
+                status: "active",
+              };
+            });
+
+            const { data: insertedDrivers, error: driversError } =
+              await supabase.from("drivers").insert(driversData).select();
 
             if (driversError) {
               console.error("Error saving drivers:", driversError);
+              console.error("Driver data that failed:", driversData);
+
+              // Check if it's a duplicate email error from database constraint
+              if (
+                driversError.message.includes("duplicate") ||
+                driversError.code === "23505"
+              ) {
+                toast({
+                  title: "Duplicate Driver Email",
+                  description:
+                    "One or more driver emails already exist in the system. Please use different email addresses.",
+                  variant: "destructive",
+                });
+              } else {
+                toast({
+                  title: "Error Saving Drivers",
+                  description: `Failed to save drivers. Error: ${driversError.message}`,
+                  variant: "destructive",
+                });
+              }
+              return;
+            } else {
+              console.log(
+                `Successfully inserted ${
+                  insertedDrivers?.length || 0
+                } driver(s) for company ${user.id}`
+              );
+              console.log("Inserted drivers:", insertedDrivers);
             }
           }
 
@@ -820,7 +1382,117 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     }
   };
 
+  // Check for duplicate truck IDs in database
+  const checkDuplicateTrucks = async (
+    truckIds: string[],
+    excludeCarrierId?: string
+  ): Promise<string[]> => {
+    try {
+      let query = supabase
+        .from("trucks")
+        .select("truck_id")
+        .in("truck_id", truckIds);
+
+      // Exclude trucks from the current company if updating
+      if (excludeCarrierId) {
+        query = query.neq("carrier_id", excludeCarrierId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error checking duplicate trucks:", error);
+        return [];
+      }
+
+      return data?.map((t) => t.truck_id) || [];
+    } catch (error) {
+      console.error("Error checking duplicate trucks:", error);
+      return [];
+    }
+  };
+
+  // Check for duplicate trailer IDs in database
+  const checkDuplicateTrailers = async (
+    trailerIds: string[],
+    excludeCompanyId?: string
+  ): Promise<string[]> => {
+    try {
+      let query = supabase
+        .from("trailers")
+        .select("trailer_id")
+        .in("trailer_id", trailerIds);
+
+      // Exclude trailers from the current company if updating
+      if (excludeCompanyId) {
+        query = query.neq("company_id", excludeCompanyId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error checking duplicate trailers:", error);
+        return [];
+      }
+
+      return data?.map((t) => t.trailer_id) || [];
+    } catch (error) {
+      console.error("Error checking duplicate trailers:", error);
+      return [];
+    }
+  };
+
   const handleSubmit = async () => {
+    // Validate final contract acceptance
+    if (!finalContractAccepted) {
+      toast({
+        title: "Terms Acceptance Required",
+        description:
+          "Please accept the terms and conditions before submitting. You may need to log out and log back in to refresh your session.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate all required company details fields
+    if (
+      !formData.vendor_company_name ||
+      !formData.business_address ||
+      !formData.city ||
+      !formData.state ||
+      !formData.zip ||
+      !formData.legal_name_for_invoicing ||
+      !formData.mc_number ||
+      !formData.dot_number ||
+      !formData.upload_coi ||
+      !formData.upload_w9
+    ) {
+      toast({
+        title: "Company Details Required",
+        description:
+          "Please fill in all required company details fields (Legal Name, MC Number, DOT Number, COI, W9) on the Company tab before submitting",
+        variant: "destructive",
+      });
+      setActiveTab("company_details");
+      return;
+    }
+
+    // Validate primary contact exists
+    if (
+      !formData.primary_contact_name ||
+      !formData.contact_email ||
+      !formData.contact_phone
+    ) {
+      toast({
+        title: "Primary Contact Required",
+        description:
+          "Please fill in the primary contact information on the Contacts tab before submitting",
+        variant: "destructive",
+      });
+      setActiveTab("contacts");
+      return;
+    }
+
     if (!signerName) {
       toast({
         title: "Signer Name Required",
@@ -878,12 +1550,14 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
           : null,
         mc_number: formData.mc_number,
         dot_number: formData.dot_number,
-        status: "Pending Review",
-        agreement_status: initialContractAccepted ? "Accepted" : "Not Shown",
+        status: "Onboarding Submitted",
+        // Preserve agreement status if already accepted (for returning users)
+        agreement_status: finalContractAccepted ? "Accepted" : "Not Shown",
         company_details_status: "Complete",
-        contacts_status:
-          additionalContacts.length > 0 ? "Complete" : "Not Started",
+        contacts_status: "Complete", // Primary contact is always required
         fleet_status: additionalTrucks.length > 0 ? "Complete" : "Not Started",
+        trailers_status:
+          additionalTrailers.length > 0 ? "Complete" : "Not Started",
         drivers_status:
           additionalDrivers.length > 0 ? "Complete" : "Not Started",
         portal_access_enabled: false,
@@ -907,33 +1581,66 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
       console.log("Company created:", company);
 
       // 3. Create contact records
-      if (additionalContacts.length > 0) {
-        const contactsData = additionalContacts.map((contact, index) => ({
+      const contactsData = [];
+
+      // Add primary contact (always first and marked as primary)
+      contactsData.push({
+        company_id: company.id,
+        Contact_Name: formData.primary_contact_name,
+        Contact_Phone: formData.contact_phone,
+        Contact_Email: formData.contact_email,
+        Location: formData.location || null,
+        Role: formData.role || null,
+        Notes: formData.comments || null,
+        is_primary: true,
+      });
+
+      // Add additional contacts (not primary)
+      additionalContacts.forEach((contact) => {
+        contactsData.push({
           company_id: company.id,
           Contact_Name: contact.name,
           Contact_Phone: contact.phone,
           Contact_Email: contact.email,
-          Location: contact.location,
-          Role: contact.role,
-          Notes: contact.comments,
-        }));
+          Location: contact.location || null,
+          Role: contact.role || null,
+          Notes: contact.comments || null,
+          is_primary: false,
+        });
+      });
 
-        const { error: contactsError } = await supabase
-          .from("Contact_Info")
-          .insert(contactsData);
+      const { error: contactsError } = await supabase
+        .from("Contact_Info")
+        .insert(contactsData);
 
-        if (contactsError) {
-          console.error("Error creating contacts:", contactsError);
-          throw new Error(
-            `Failed to create contacts: ${contactsError.message}`
-          );
-        } else {
-          console.log("Contacts created:", contactsData.length);
-        }
+      if (contactsError) {
+        console.error("Error creating contacts:", contactsError);
+        throw new Error(`Failed to create contacts: ${contactsError.message}`);
+      } else {
+        console.log("Contacts created:", contactsData.length);
       }
 
       // 4. Create truck records
       if (additionalTrucks.length > 0) {
+        // Check for duplicate truck IDs (exclude current company's trucks)
+        const truckIds = additionalTrucks.map((t) => t.truck_id);
+        const duplicateTruckIds = await checkDuplicateTrucks(
+          truckIds,
+          company.id
+        );
+
+        if (duplicateTruckIds.length > 0) {
+          toast({
+            title: "Duplicate Truck IDs Found",
+            description: `The following truck IDs already exist in the database: ${duplicateTruckIds.join(
+              ", "
+            )}. Please use unique truck IDs.`,
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
         const trucksData = additionalTrucks.map((truck) => ({
           truck_id: truck.truck_id,
           carrier_id: company.id,
@@ -948,44 +1655,172 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
           status: "active",
         }));
 
+        // Use upsert to handle trucks that may have been created during "Save Progress"
         const { error: trucksError } = await supabase
           .from("trucks")
-          .insert(trucksData);
+          .upsert(trucksData, {
+            onConflict: "truck_id,carrier_id",
+            ignoreDuplicates: false,
+          });
 
         if (trucksError) {
-          console.error("Error creating trucks:", trucksError);
+          console.error("Error creating/updating trucks:", trucksError);
           // Don't fail the whole submission if trucks fail
         } else {
-          console.log("Trucks created:", trucksData.length);
+          console.log("Trucks created/updated:", trucksData.length);
         }
       }
 
-      // 5. Create driver records
-      if (additionalDrivers.length > 0) {
-        const driversData = additionalDrivers.map((driver) => ({
-          name: driver.driver_name,
-          carrier_id: company.id,
-          email: driver.email_address,
-          phone: driver.phone_number,
-          cdl_number: driver.cdl_number,
-          cdl_state: driver.cdl_state,
-          driver_type: driver.driver_type,
-          operating_hours: driver.operating_hours,
-          weekend_availability: driver.weekend_availability,
-          comments: driver.driver_comments,
-          emergency_contact: driver.emergency_contact,
+      // 5. Create trailer records
+      if (additionalTrailers.length > 0) {
+        // Check for duplicate trailer IDs (exclude current company's trailers)
+        const trailerIds = additionalTrailers.map((t) => t.trailer_id);
+        const duplicateTrailerIds = await checkDuplicateTrailers(
+          trailerIds,
+          company.id
+        );
+
+        if (duplicateTrailerIds.length > 0) {
+          toast({
+            title: "Duplicate Trailer IDs Found",
+            description: `The following trailer IDs already exist in the database: ${duplicateTrailerIds.join(
+              ", "
+            )}. Please use unique trailer IDs.`,
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+
+        const trailersData = additionalTrailers.map((trailer) => ({
+          trailer_id: trailer.trailer_id,
+          company_id: company.id,
+          vin: trailer.vin,
+          make: trailer.make,
+          model: trailer.model,
+          year: parseInt(trailer.year) || null,
+          is_on_insurance_policy: trailer.is_on_insurance_policy === "Yes",
           status: "active",
         }));
 
-        const { error: driversError } = await supabase
+        // Use upsert to handle trailers that may have been created during "Save Progress"
+        const { error: trailersError } = await supabase
+          .from("trailers")
+          .upsert(trailersData, {
+            onConflict: "trailer_id,company_id",
+            ignoreDuplicates: false,
+          });
+
+        if (trailersError) {
+          console.error("Error creating/updating trailers:", trailersError);
+          // Don't fail the whole submission if trailers fail
+        } else {
+          console.log("Trailers created/updated:", trailersData.length);
+        }
+      }
+
+      // 6. Create driver records - Check for duplicate emails first
+      if (additionalDrivers.length > 0) {
+        // Check for duplicate emails in the database
+        const driverEmails = additionalDrivers
+          .map((d) => d.email_address)
+          .filter((email) => email && email.trim() !== "");
+
+        if (driverEmails.length > 0) {
+          const { data: existingDrivers, error: checkError } = await supabase
+            .from("drivers")
+            .select("email")
+            .in("email", driverEmails);
+
+          if (checkError) {
+            console.error("Error checking for duplicate drivers:", checkError);
+            toast({
+              title: "Error",
+              description: "Failed to verify driver emails. Please try again.",
+              variant: "destructive",
+            });
+            setIsSubmitting(false);
+            return;
+          }
+
+          if (existingDrivers && existingDrivers.length > 0) {
+            const duplicateEmails = existingDrivers.map((d) => d.email);
+            console.error("Duplicate driver emails found:", duplicateEmails);
+            toast({
+              title: "Duplicate Driver Emails",
+              description: `The following driver email(s) already exist in the system: ${duplicateEmails.join(
+                ", "
+              )}. Please use different email addresses.`,
+              variant: "destructive",
+            });
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
+        // No duplicates found, proceed with insertion
+        const driversData = additionalDrivers.map((driver, index) => {
+          // Generate unique driver QR code with index to ensure uniqueness
+          const driverQrCode = `DRIVER-${Date.now()}-${index}-${Math.random()
+            .toString(36)
+            .substr(2, 9)}`;
+
+          return {
+            name: driver.driver_name,
+            carrier_id: company.id, // Ensure correct company foreign key
+            email: driver.email_address,
+            phone: driver.phone_number,
+            cdl_number: driver.cdl_number,
+            cdl_state: driver.cdl_state,
+            driver_type: driver.driver_type,
+            operating_hours: driver.operating_hours,
+            weekend_availability: driver.weekend_availability,
+            comments: driver.driver_comments,
+            emergency_contact: driver.emergency_contact,
+            driver_qr_code: driverQrCode, // Add QR code
+            status: "active",
+          };
+        });
+
+        console.log("Attempting to insert drivers:", driversData);
+
+        // Insert drivers
+        const { data: insertedDrivers, error: driversError } = await supabase
           .from("drivers")
-          .insert(driversData);
+          .insert(driversData)
+          .select();
 
         if (driversError) {
           console.error("Error creating drivers:", driversError);
-          // Don't fail the whole submission if drivers fail
+          console.error("Driver data that failed:", driversData);
+
+          // Check if it's a duplicate email error from database constraint
+          if (
+            driversError.message.includes("duplicate") ||
+            driversError.code === "23505"
+          ) {
+            toast({
+              title: "Duplicate Driver Email",
+              description:
+                "One or more driver emails already exist in the system. Please use different email addresses.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Error Creating Drivers",
+              description: `Failed to create ${driversData.length} driver(s). Error: ${driversError.message}`,
+              variant: "destructive",
+            });
+          }
+          setIsSubmitting(false);
+          return;
         } else {
-          console.log("Drivers created:", driversData.length);
+          console.log(
+            `Successfully inserted ${
+              insertedDrivers?.length || 0
+            } driver(s) for company ${company.id}`
+          );
+          console.log("Inserted drivers:", insertedDrivers);
         }
       }
 
@@ -1010,8 +1845,8 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
     }
   };
 
-  // Show loading state while checking authentication
-  if (authLoading) {
+  // Show loading state while checking authentication or loading data
+  if (authLoading || isDataLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -1453,6 +2288,28 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   <span className="text-xs font-medium">Fleet</span>
                 </TabsTrigger>
                 <TabsTrigger
+                  value="trailer_details"
+                  disabled={!completedTabs.includes("trailer_details")}
+                  className={`flex flex-col items-center gap-2 py-4 ${
+                    !completedTabs.includes("trailer_details")
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
+                  }`}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
+                      activeTab === "trailer_details"
+                        ? "bg-primary border-primary text-primary-foreground"
+                        : completedTabs.includes("trailer_details")
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "bg-red-500 border-red-500 text-white"
+                    }`}
+                  >
+                    <Truck className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-medium">Trailers</span>
+                </TabsTrigger>
+                <TabsTrigger
                   value="driver_details"
                   disabled={!completedTabs.includes("driver_details")}
                   className={`flex flex-col items-center gap-2 py-4 ${
@@ -1488,11 +2345,16 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                     <Input
                       id="vendor_company_name"
                       value={formData.vendor_company_name}
-                      onChange={(e) =>
-                        updateField("vendor_company_name", e.target.value)
-                      }
+                      readOnly
+                      disabled
+                      className="bg-muted cursor-not-allowed"
                       placeholder="Legal vendor or company name"
+                      title="Company name is set by the administrator and cannot be changed during onboarding"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Company name is set by the administrator and cannot be
+                      changed
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -1538,7 +2400,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
 
                   <div className="space-y-2">
                     <Label htmlFor="legal_name_for_invoicing">
-                      Legal Name Used for Invoicing
+                      Legal Name Used for Invoicing *
                     </Label>
                     <Input
                       id="legal_name_for_invoicing"
@@ -1547,6 +2409,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                         updateField("legal_name_for_invoicing", e.target.value)
                       }
                       placeholder="Legal entity name for invoices"
+                      required
                     />
                   </div>
 
@@ -1586,17 +2449,18 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="mc_number">MC Number</Label>
+                    <Label htmlFor="mc_number">MC Number *</Label>
                     <Input
                       id="mc_number"
                       value={formData.mc_number}
                       onChange={(e) => updateField("mc_number", e.target.value)}
                       placeholder="Motor Carrier number"
+                      required
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="dot_number">DOT Number</Label>
+                    <Label htmlFor="dot_number">DOT Number *</Label>
                     <Input
                       id="dot_number"
                       value={formData.dot_number}
@@ -1604,12 +2468,13 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                         updateField("dot_number", e.target.value)
                       }
                       placeholder="Department of Transportation number"
+                      required
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="upload_coi">
-                      Upload COI (Certificate of Insurance)
+                      Upload COI (Certificate of Insurance) *
                     </Label>
                     <Input
                       id="upload_coi"
@@ -1617,6 +2482,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                       onChange={handleCoiFileChange}
                       className="cursor-pointer"
+                      required
                     />
                     {formData.upload_coi && (
                       <p className="text-sm text-primary">
@@ -1626,13 +2492,14 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="upload_w9">Upload W9</Label>
+                    <Label htmlFor="upload_w9">Upload W9 *</Label>
                     <Input
                       id="upload_w9"
                       type="file"
                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                       onChange={handleW9FileChange}
                       className="cursor-pointer"
+                      required
                     />
                     {formData.upload_w9 && (
                       <p className="text-sm text-primary">
@@ -1869,6 +2736,33 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                   <div className="flex gap-2">
                     <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={downloadFleetTemplate}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Template
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        document.getElementById("fleet-csv-upload")?.click()
+                      }
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload CSV
+                    </Button>
+                    <input
+                      id="fleet-csv-upload"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFleetCsvUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
                       variant="default"
                       size="sm"
                       onClick={addAdditionalTruck}
@@ -1915,15 +2809,20 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                             <Label>License Plate *</Label>
                             <Input
                               value={truck.license_plate}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                const value = e.target.value.slice(0, 8); // Max 8 characters
                                 updateAdditionalTruck(
                                   truck.id,
                                   "license_plate",
-                                  e.target.value
-                                )
-                              }
+                                  value
+                                );
+                              }}
                               placeholder="License plate number"
+                              maxLength={8}
                             />
+                            <p className="text-xs text-muted-foreground">
+                              Maximum 8 characters
+                            </p>
                           </div>
 
                           <div className="space-y-2">
@@ -2131,11 +3030,207 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
                 )}
               </TabsContent>
 
+              {/* Trailer Details Tab */}
+              <TabsContent value="trailer_details" className="space-y-4 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Trailer Details</h2>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={downloadTrailerTemplate}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Template
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        document.getElementById("trailer-csv-upload")?.click()
+                      }
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload CSV
+                    </Button>
+                    <input
+                      id="trailer-csv-upload"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleTrailerCsvUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      onClick={addAdditionalTrailer}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Trailer
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Additional Trailers */}
+                {additionalTrailers.length > 0 && (
+                  <div className="space-y-4">
+                    {additionalTrailers.map((trailer, index) => (
+                      <Card key={trailer.id} className="p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-medium">Trailer {index + 1}</h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAdditionalTrailer(trailer.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Trailer ID *</Label>
+                            <Input
+                              value={trailer.trailer_id}
+                              onChange={(e) =>
+                                updateAdditionalTrailer(
+                                  trailer.id,
+                                  "trailer_id",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Unique trailer number"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>VIN *</Label>
+                            <Input
+                              value={trailer.vin}
+                              onChange={(e) =>
+                                updateAdditionalTrailer(
+                                  trailer.id,
+                                  "vin",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Vehicle Identification Number"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Make *</Label>
+                            <Input
+                              value={trailer.make}
+                              onChange={(e) =>
+                                updateAdditionalTrailer(
+                                  trailer.id,
+                                  "make",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g., Great Dane, Wabash"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Model *</Label>
+                            <Input
+                              value={trailer.model}
+                              onChange={(e) =>
+                                updateAdditionalTrailer(
+                                  trailer.id,
+                                  "model",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Model name"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Year *</Label>
+                            <Input
+                              type="number"
+                              value={trailer.year}
+                              onChange={(e) =>
+                                updateAdditionalTrailer(
+                                  trailer.id,
+                                  "year",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Year of manufacture"
+                              min="1900"
+                              max={new Date().getFullYear() + 1}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>
+                              Is this trailer listed on your insurance policy? *
+                            </Label>
+                            <Select
+                              value={trailer.is_on_insurance_policy}
+                              onValueChange={(value) =>
+                                updateAdditionalTrailer(
+                                  trailer.id,
+                                  "is_on_insurance_policy",
+                                  value
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Yes or No" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Yes">Yes</SelectItem>
+                                <SelectItem value="No">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
               {/* Driver Details Tab */}
               <TabsContent value="driver_details" className="space-y-4 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold">Driver Details</h2>
                   <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={downloadDriverTemplate}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Template
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        document.getElementById("driver-csv-upload")?.click()
+                      }
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload CSV
+                    </Button>
+                    <input
+                      id="driver-csv-upload"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleDriverCsvUpload}
+                      className="hidden"
+                    />
                     <Button
                       type="button"
                       variant="default"
@@ -2410,39 +3505,56 @@ Jane Smith,555-0101,jane@example.com,DL789012,Part-time,9am-3pm,No,New driver`;
           </Card>
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between items-center">
-            <Button
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={isFirstTab || isSubmitting}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Previous
-            </Button>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={isFirstTab || isSubmitting}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Previous
+              </Button>
 
-            <div className="text-sm text-muted-foreground">
-              Step {currentTabIndex + 1} of {tabOrder.length}
+              <div className="text-sm text-muted-foreground">
+                Step {currentTabIndex + 1} of {tabOrder.length}
+              </div>
+
+              {!isLastTab ? (
+                <Button onClick={handleNext} disabled={isSubmitting}>
+                  Next
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || additionalDrivers.length === 0}
+                  title={
+                    additionalDrivers.length === 0
+                      ? "Please add at least one driver before submitting"
+                      : ""
+                  }
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Submit
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
 
-            {!isLastTab ? (
-              <Button onClick={handleNext} disabled={isSubmitting}>
-                Next
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            ) : (
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Submit
-                  </>
-                )}
-              </Button>
+            {/* Show warning when on driver_details tab and no drivers added */}
+            {isLastTab && additionalDrivers.length === 0 && (
+              <div className="text-sm text-amber-600 dark:text-amber-400 text-center">
+                ⚠️ Please add at least one driver to enable submission
+              </div>
             )}
           </div>
         </div>

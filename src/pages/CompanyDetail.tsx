@@ -12,7 +12,6 @@ import {
   Truck,
   // UserCircle, // Not needed - Portal Users tab hidden
   // Mail, // Not needed - Onboarding tab hidden
-  MapPin,
   Shield,
 } from "lucide-react";
 import { adminService, Company } from "@/lib/adminService";
@@ -21,7 +20,6 @@ import { CompanyContactsTab } from "@/components/admin/CompanyContactsTab";
 // import { CompanyPortalUsersTab } from "@/components/admin/CompanyPortalUsersTab"; // Hidden
 // import { CompanyOnboardingTab } from "@/components/admin/CompanyOnboardingTab"; // Hidden
 import { CompanyFleetTab } from "@/components/admin/CompanyFleetTab";
-import { CompanySitesTab } from "@/components/admin/CompanySitesTab";
 
 const CompanyDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -157,10 +155,6 @@ const CompanyDetail = () => {
                   <Truck className="h-4 w-4" />
                   <span className="hidden sm:inline">Fleet</span>
                 </TabsTrigger>
-                <TabsTrigger value="sites" className="gap-2">
-                  <MapPin className="h-4 w-4" />
-                  <span className="hidden sm:inline">Sites</span>
-                </TabsTrigger>
               </TabsList>
 
               <div className="p-6">
@@ -190,10 +184,6 @@ const CompanyDetail = () => {
 
                 <TabsContent value="fleet" className="mt-0">
                   <CompanyFleetTab companyId={company.id} />
-                </TabsContent>
-
-                <TabsContent value="sites" className="mt-0">
-                  <CompanySitesTab companyId={company.id} />
                 </TabsContent>
               </div>
             </Tabs>

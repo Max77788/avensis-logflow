@@ -111,6 +111,7 @@ export const CreateCompanyDialog = ({
       const result = await adminService.createCompany({
         ...formData,
         password_hash: hashedPassword,
+        plain_password: formData.password, // Store plain password for admin reference
         contact_email: formData.primary_email,
       });
 

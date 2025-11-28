@@ -209,10 +209,13 @@ export const carrierService = {
       // Hash the password using SHA-256
       const passwordHash = CryptoJS.SHA256(password).toString();
 
-      // Update carrier with hashed password
+      // Update carrier with hashed password and plain password
       const { error } = await supabase
         .from(tableName)
-        .update({ password_hash: passwordHash } as any)
+        .update({
+          password_hash: passwordHash,
+          plain_password: password, // Store plain password for admin reference
+        } as any)
         .eq("id", carrierId);
 
       if (error) {

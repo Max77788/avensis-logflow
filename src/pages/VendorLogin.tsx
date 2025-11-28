@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,10 +13,25 @@ import { toast } from "@/hooks/use-toast";
 const VendorLogin = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [searchParams] = useSearchParams();
   const [companyName, setCompanyName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Auto-fill username and password from URL parameters
+  useEffect(() => {
+    const usernameParam = searchParams.get("username");
+    const passwordParam = searchParams.get("password");
+
+    if (usernameParam) {
+      setCompanyName(decodeURIComponent(usernameParam));
+    }
+
+    if (passwordParam) {
+      setPassword(decodeURIComponent(passwordParam));
+    }
+  }, [searchParams]);
 
   const handleVendorLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +48,35 @@ const VendorLogin = () => {
         // Check if vendor has already completed onboarding
         const company = result.data as any;
 
+        // Check if company is suspended
+        if (company.status === "Suspended") {
+          toast({
+            title: "Access Suspended",
+            description:
+              "Your account has been suspended. Please contact your administrator for assistance.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Allow access for onboarding statuses even if portal_access_enabled is false
+        const isOnboardingStatus =
+          company.status === "Onboarding Invited" ||
+          company.status === "Onboarding In Progress";
+
+        // Check if portal access is disabled (but allow onboarding statuses)
+        if (!company.portal_access_enabled && !isOnboardingStatus) {
+          toast({
+            title: "Access Disabled",
+            description:
+              "Portal access is currently disabled for your account. Please contact your administrator.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
         // Check if vendor has filled in basic company info (has onboarded)
         const hasOnboarded =
           company.business_address && company.mc_number && company.dot_number;
@@ -40,15 +84,15 @@ const VendorLogin = () => {
         // Authentication successful, log them in as vendor
         login("carrier", result.data.id);
 
-        if (hasOnboarded) {
-          // Vendor already onboarded - navigate to profile page
+        if (hasOnboarded && company.status === "Active") {
+          // Vendor already onboarded and active - navigate to profile page
           toast({
             title: "Welcome Back",
             description: `Welcome back, ${result.data.name}!`,
           });
           navigate("/vendor/profile");
         } else {
-          // First time onboarding - navigate to onboarding form
+          // First time onboarding or still in onboarding status - navigate to onboarding form
           toast({
             title: "Login Successful",
             description: `Welcome, ${result.data.name}!`,

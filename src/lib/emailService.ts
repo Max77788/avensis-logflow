@@ -67,6 +67,76 @@ export async function sendEmail(
 }
 
 /**
+ * Generate HTML template for access enabled email
+ */
+export function generateAccessEnabledEmailHTML(params: {
+  companyName: string;
+  username: string;
+  password: string;
+  loginUrl: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Access Enabled - Avensis LogFlow</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+    <h1 style="color: #10b981; margin-bottom: 20px;">🎉 Your Portal Access is Now Active!</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Dear ${params.companyName},</p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      Great news! Your account has been activated and you now have full access to the Avensis LogFlow platform.
+    </p>
+
+    <div style="background-color: #fff; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #10b981;">
+      <h2 style="color: #10b981; margin-top: 0; font-size: 18px;">Access Your Portal</h2>
+      <p style="margin: 10px 0;">
+        <strong>Click here to log in automatically:</strong><br>
+        <a href="${params.loginUrl}" style="display: inline-block; margin-top: 10px; padding: 12px 24px; background-color: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Access Portal Now</a>
+      </p>
+      <p style="margin: 20px 0 10px 0; font-size: 14px; color: #666;">Or use these credentials to log in manually:</p>
+      <p style="margin: 10px 0;"><strong>Username:</strong> ${params.username}</p>
+      <p style="margin: 10px 0;"><strong>Password:</strong> ${params.password}</p>
+      <p style="margin: 10px 0;"><strong>Login URL:</strong><br>
+        <a href="${params.loginUrl}" style="color: #10b981; text-decoration: none; font-size: 14px; word-break: break-all;">${params.loginUrl}</a>
+      </p>
+    </div>
+
+    <h3 style="color: #10b981; font-size: 16px; margin-top: 25px;">What You Can Do Now:</h3>
+    <ul style="font-size: 15px; line-height: 1.8;">
+      <li>Access your complete company profile</li>
+      <li>Manage your fleet and drivers</li>
+      <li>View and track tickets</li>
+      <li>Update company information</li>
+      <li>Monitor logistics operations in real-time</li>
+    </ul>
+
+    <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #3b82f6;">
+      <p style="margin: 0; font-size: 14px;">
+        <strong>💡 Need Help?</strong> If you have any questions or need assistance, please contact your administrator or our support team.
+      </p>
+    </div>
+
+    <p style="font-size: 15px; margin-top: 25px;">
+      Thank you for being part of Avensis LogFlow!
+    </p>
+
+    <p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+      Best regards,<br>
+      <strong>The Avensis LogFlow Team</strong>
+    </p>
+  </div>
+</body>
+</html>
+`;
+}
+
+/**
  * Generate HTML template for onboarding email
  */
 export function generateOnboardingEmailHTML(params: {
