@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Moon, Sun, Home, Settings, LogOut } from "lucide-react";
-import { APP_TITLE } from "@/lib/config";
 
 interface HeaderProps {
   showSettingsButton?: boolean;
@@ -26,11 +25,13 @@ export const Header = ({
     <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
       <div className="container mx-auto px-3 py-3 md:px-4 md:py-4">
         <div className="flex items-center justify-between gap-4">
-          {/* Left Section - App Name */}
+          {/* Left Section - Avensis Logo */}
           <div className="flex-shrink-0">
-            <h1 className="text-lg md:text-xl font-bold text-foreground">
-              {APP_TITLE}
-            </h1>
+            <img
+              src="/avensis-logo.jpg"
+              alt="Avensis Energy Services"
+              className="h-8 md:h-10 w-auto object-contain"
+            />
           </div>
 
           {/* Right Section - Settings, Home, Logout, Theme Toggle */}

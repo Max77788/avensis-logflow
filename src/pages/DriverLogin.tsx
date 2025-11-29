@@ -4,21 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, User, BookOpen } from "lucide-react";
+import { LogIn, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { carrierService } from "@/lib/carrierService";
-import { APP_TITLE } from "@/lib/config";
 import { Header } from "@/components/Header";
-import { useTheme } from "@/contexts/ThemeContext";
 
 const DriverLogin = () => {
   const navigate = useNavigate();
   const { login, setDriverProfile } = useAuth();
   const { t } = useLanguage();
-  const { toggleTheme } = useTheme();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [driverEmail, setDriverEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -73,9 +70,11 @@ const DriverLogin = () => {
           {/* Header */}
           <div className="mb-8 text-center">
             <div className="flex justify-center mb-4">
-              <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-full">
-                <User className="h-12 w-12 text-green-600 dark:text-green-400" />
-              </div>
+              <img
+                src="/avensis-logo.jpg"
+                alt="Avensis Energy Services"
+                className="h-20 md:h-24 w-auto object-contain"
+              />
             </div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
               {t("login.driverLogin")}
@@ -154,4 +153,3 @@ const DriverLogin = () => {
 };
 
 export default DriverLogin;
-

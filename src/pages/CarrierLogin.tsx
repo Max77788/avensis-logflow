@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Truck, LogIn, Eye, EyeOff } from "lucide-react";
+import { LogIn, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 import { carrierService } from "@/lib/carrierService";
@@ -138,9 +138,13 @@ const CarrierLogin = () => {
             </form>
 
             <div className="mt-6 pt-6 border-t border-border">
-              <div className="flex items-start gap-3 text-sm text-muted-foreground">
-                <Truck className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                <p>
+              <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
+                <img
+                  src="/avensis-logo.jpg"
+                  alt="Avensis Energy Services"
+                  className="h-12 w-auto object-contain opacity-70"
+                />
+                <p className="text-center">
                   The Carrier Portal allows you to view all loads your trucks
                   have completed on the Avensis eTicket platform.
                 </p>

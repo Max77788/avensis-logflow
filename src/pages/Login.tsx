@@ -2,20 +2,17 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Truck, User, QrCode, BookOpen, Shield, Building2 } from "lucide-react";
+import { User, QrCode, BookOpen, Shield, Building2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { APP_TITLE } from "@/lib/config";
 import { Header } from "@/components/Header";
-import { useTheme } from "@/contexts/ThemeContext";
 
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { t } = useLanguage();
-  const { toggleTheme } = useTheme();
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const handleAttendantClick = () => {
@@ -43,13 +40,14 @@ const Login = () => {
         <div className="w-full max-w-md">
           {/* Header */}
           <div className="mb-8 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary mx-auto mb-4">
-              <Truck className="h-8 w-8 text-primary-foreground" />
+            <div className="flex items-center justify-center mx-auto mb-4">
+              <img
+                src="/avensis-logo.jpg"
+                alt="Avensis Energy Services"
+                className="h-20 md:h-24 w-auto object-contain"
+              />
             </div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              {APP_TITLE}
-            </h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-lg">
               {t("login.digitalTicketingSystem")}
             </p>
           </div>

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, LogIn, Loader2, Eye, EyeOff } from "lucide-react";
+import { LogIn, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
 import { carrierService } from "@/lib/carrierService";
@@ -139,9 +139,11 @@ const VendorLogin = () => {
       <div className="container mx-auto px-4 py-8 max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="p-4 bg-primary/10 rounded-full">
-              <Building2 className="h-12 w-12 text-primary" />
-            </div>
+            <img
+              src="/avensis-logo.jpg"
+              alt="Avensis Energy Services"
+              className="h-20 md:h-24 w-auto object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold mb-2">Vendor Portal</h1>
           <p className="text-muted-foreground">
@@ -224,10 +226,13 @@ const VendorLogin = () => {
 
         <div className="mt-6 text-center">
           <Button
-              variant="ghost"
-              onClick={() => window.location.href = "https://avensis-logistics-pl-tjsx.bolt.host/"}
-              className="text-sm"
-            >
+            variant="ghost"
+            onClick={() =>
+              (window.location.href =
+                "https://avensis-logistics-pl-tjsx.bolt.host/")
+            }
+            className="text-sm"
+          >
             ← Back to Main Login
           </Button>
         </div>

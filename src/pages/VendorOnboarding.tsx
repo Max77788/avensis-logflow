@@ -335,6 +335,32 @@ const VendorOnboarding = () => {
             // Find primary contact, or use first contact if none marked as primary
             let primaryContact = contacts.find((c) => c.is_primary);
 
+            // Check if there are multiple primary contacts (data integrity issue)
+            const primaryContacts = contacts.filter((c) => c.is_primary);
+            if (primaryContacts.length > 1) {
+              console.warn(
+                "Multiple primary contacts found! Fixing by keeping only the first one."
+              );
+
+              // Unset all as primary first
+              await supabase
+                .from("Contact_Info")
+                .update({ is_primary: false })
+                .eq("company_id", user.id);
+
+              // Set only the first one as primary
+              primaryContact = primaryContacts[0];
+              await supabase
+                .from("Contact_Info")
+                .update({ is_primary: true })
+                .eq("id", primaryContact.id);
+
+              console.log(
+                "Fixed: Set only first contact as primary:",
+                primaryContact.id
+              );
+            }
+
             // If no contact is marked as primary, use the first contact and mark it as primary
             if (!primaryContact && contacts.length > 0) {
               console.log(
@@ -1078,7 +1104,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
 
         case "contacts":
           // Save contacts to Contact_Info table
-          // Delete existing contacts for this company first
+          // Delete existing contacts for this company first to avoid duplicates
           await supabase
             .from("Contact_Info")
             .delete()
@@ -1088,6 +1114,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
           const contactsData = [];
 
           // Add primary contact (always first and marked as primary)
+          // Only one contact should be marked as primary
           if (
             formData.primary_contact_name &&
             formData.contact_email &&
@@ -1101,11 +1128,11 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
               Location: formData.location || null,
               Role: formData.role || null,
               Notes: formData.comments || null,
-              is_primary: true,
+              is_primary: true, // Only this contact is marked as primary
             });
           }
 
-          // Add additional contacts (not primary)
+          // Add additional contacts (explicitly marked as NOT primary)
           additionalContacts.forEach((contact) => {
             contactsData.push({
               company_id: user.id,
@@ -1115,7 +1142,7 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
               Location: contact.location || null,
               Role: contact.role || null,
               Notes: contact.comments || null,
-              is_primary: false,
+              is_primary: false, // Additional contacts are never primary
             });
           });
 
@@ -1127,6 +1154,10 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
 
             if (contactsError) {
               console.error("Error saving contacts:", contactsError);
+            } else {
+              console.log(
+                `Saved ${contactsData.length} contacts (1 primary, ${additionalContacts.length} additional)`
+              );
             }
           }
 
@@ -1630,6 +1661,9 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
       console.log("Company created:", company);
 
       // 3. Create contact records
+      // First, delete any existing contacts to avoid duplicates
+      await supabase.from("Contact_Info").delete().eq("company_id", company.id);
+
       const contactsData = [];
 
       // Add primary contact (always first and marked as primary)
