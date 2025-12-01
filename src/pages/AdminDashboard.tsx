@@ -5,10 +5,13 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2 } from "lucide-react";
 import { CompaniesTab } from "@/components/admin/CompaniesTab";
+import AddUserDialog from "@/components/admin/AddUserDialog";
+import { Button } from "@/components/ui/button";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("companies");
+  const [showAddUser, setShowAddUser] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -31,6 +34,7 @@ const AdminDashboard = () => {
                 Manage companies, sites, and onboarding workflows
               </p>
             </div>
+            <Button onClick={() => setShowAddUser(true)} variant="outline">Add User</Button>
           </div>
 
           {/* Main Tabs */}
@@ -52,6 +56,7 @@ const AdminDashboard = () => {
           </Card>
         </div>
       </main>
+      <AddUserDialog open={showAddUser} onOpenChange={setShowAddUser} onSuccess={() => {/*refresh users list*/}} />
     </div>
   );
 };

@@ -420,7 +420,7 @@ const Overview = () => {
               </div>
             </div>
             <h1 className="text-3xl font-bold text-foreground">
-              Overview Dashboard Access
+              Scalehouse Dashboard Access
             </h1>
             <p className="text-muted-foreground mt-2">
               Please enter your credentials to continue

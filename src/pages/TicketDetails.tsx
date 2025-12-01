@@ -646,18 +646,21 @@ const TicketDetails = () => {
                             </div>
                           </div>
                           */}
-                          {/* Navigation Button 
-                          <Button
-                            onClick={() =>
-                              navigate(
-                                `/tickets/${ticket.ticket_id}/confirm-delivery`
-                              )
-                            }
-                            className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-                          >
-                            Go to Confirmation Screen
-                          </Button>
-                          */}
+                          {/* Navigation Button - For Driver to Access Confirm Delivery */}
+                          {ticket.status !== "CLOSED" && (
+                            <Button
+                              onClick={() =>
+                                navigate(
+                                  `/tickets/${ticket.ticket_id}/confirm-delivery`
+                                )
+                              }
+                              className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                              size="lg"
+                            >
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Go to Confirmation Screen
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </Card>

@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, BookOpen } from "lucide-react";
+import { LogIn, BookOpen, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { carrierService } from "@/lib/carrierService";
 import { Header } from "@/components/Header";
+import * as CryptoJS from "crypto-js";
+import { toast } from "@/hooks/use-toast";
 
 const DriverLogin = () => {
   const navigate = useNavigate();
@@ -18,6 +20,8 @@ const DriverLogin = () => {
   const { t } = useLanguage();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [driverEmail, setDriverEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleDriverLogin = async (e: React.FormEvent) => {
@@ -29,6 +33,20 @@ const DriverLogin = () => {
       const driver = await carrierService.getDriverByEmail(driverEmail);
 
       if (driver) {
+        // If password-based auth is configured (driver has password_hash), enforce it.
+        // If not, fall back to legacy email-only login so existing deployments keep working.
+        if ((driver as any).password_hash) {
+          const hashed = CryptoJS.SHA256(password).toString();
+          if ((driver as any).password_hash !== hashed) {
+            setIsLoading(false);
+            toast({
+              title: t("login.error") ?? "Login Failed",
+              description: t("login.incorrectPassword") ?? "Incorrect password. Please try again.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
         // Driver exists, log them in
         login("driver", driver.id);
 
