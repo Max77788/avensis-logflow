@@ -33,6 +33,8 @@ import VendorAlreadyOnboarded from "./pages/VendorAlreadyOnboarded";
 import VendorProfile from "./pages/VendorProfile";
 import NotFound from "./pages/NotFound";
 import { initDatabase } from "./lib/initDatabase";
+import DriverOnboarding from "./pages/DriverOnboarding";
+import DriverOnboardingRoutes from "./pages/driver-onboarding/index";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +80,8 @@ const App = () => {
                     <Route path="/overview" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />
                     <Route path="/tickets/create" element={<CreateTicket />} />
+                    <Route path="/driver-onboarding" element={<DriverOnboarding />} />
+                    <Route path="/driver-onboarding/*" element={<DriverOnboardingRoutes />} />
 
                     {/* Protected routes - require authentication */}
                     <Route

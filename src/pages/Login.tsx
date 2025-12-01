@@ -56,6 +56,25 @@ const Login = () => {
           <div className="space-y-4">
             <Card
               className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
+              onClick={() => navigate("/driver-onboarding")}
+            >
+              <div className="p-6 space-y-4 flex flex-col items-center text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-sky-100 group-hover:bg-sky-200 transition-colors">
+                  <BookOpen className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground mb-1">
+                    Driver Onboarding
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Recruit, assess, manage and onboard new drivers
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card
+              className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
               onClick={() => navigate("/driver/login")}
             >
               <div className="p-6 space-y-4 flex flex-col items-center text-center">
