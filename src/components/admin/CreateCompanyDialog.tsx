@@ -66,7 +66,7 @@ export const CreateCompanyDialog = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    company_type: "Carrier" as CompanyType,
+    company_type: "" as CompanyType | "",
     status: "Draft" as CompanyStatus,
     address: "",
     city: "",
@@ -116,8 +116,9 @@ export const CreateCompanyDialog = ({
       });
 
       if (result.success && result.data) {
-        // Send onboarding email if status is "Onboarding Invited"
+        // Send onboarding email ONLY if company type is "Carrier" and status is "Onboarding Invited"
         if (
+          formData.company_type === "Carrier" &&
           formData.status === "Onboarding Invited" &&
           formData.primary_email
         ) {
@@ -151,7 +152,7 @@ export const CreateCompanyDialog = ({
         // Reset form
         setFormData({
           name: "",
-          company_type: "Carrier",
+          company_type: "" as CompanyType | "",
           status: "Draft",
           address: "",
           city: "",
@@ -212,11 +213,13 @@ export const CreateCompanyDialog = ({
                   setFormData({
                     ...formData,
                     company_type: value as CompanyType,
+                    // Reset status to Draft when type changes
+                    status: "Draft",
                   })
                 }
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select company type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Carrier">Carrier</SelectItem>
@@ -229,31 +232,37 @@ export const CreateCompanyDialog = ({
               </Select>
             </div>
 
-            {/* Status */}
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, status: value as CompanyStatus })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Draft">Draft</SelectItem>
-                  <SelectItem value="Onboarding Invited">
-                    Onboarding Invited
-                  </SelectItem>
-                  <SelectItem value="Onboarding In Progress">
-                    Onboarding In Progress
-                  </SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Status - Only show after Company Type is selected */}
+            {formData.company_type && (
+              <div className="grid gap-2">
+                <Label htmlFor="status">Status *</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, status: value as CompanyStatus })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Draft">Draft</SelectItem>
+                    {formData.company_type === "Carrier" && (
+                      <>
+                        <SelectItem value="Onboarding Invited">
+                          Onboarding Invited
+                        </SelectItem>
+                        <SelectItem value="Onboarding In Progress">
+                          Onboarding In Progress
+                        </SelectItem>
+                      </>
+                    )}
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Primary Email */}
             <div className="grid gap-2">

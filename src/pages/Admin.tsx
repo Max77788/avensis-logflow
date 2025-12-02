@@ -98,6 +98,25 @@ const Admin = () => {
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
         <div className="mx-auto max-w-6xl space-y-6">
+          {/* Hardcoded Credentials */}
+          <Card className="shadow-md border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+            <div className="p-4">
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                Admin Credentials
+              </h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-1">Username:</p>
+                  <p className="font-mono font-semibold text-blue-900 dark:text-blue-100">admin</p>
+                </div>
+                <div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-1">Password:</p>
+                  <p className="font-mono font-semibold text-blue-900 dark:text-blue-100">admin123</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Filters */}
           <Card className="shadow-md">
             <div className="space-y-4 p-4">
