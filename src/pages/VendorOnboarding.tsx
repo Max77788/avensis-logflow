@@ -39,7 +39,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import Papa from "papaparse";
 import { useAuth } from "@/contexts/AuthContext";
-import { APP_TITLE } from "@/lib/config";
+import { APP_TITLE, CONTRACT_WEBHOOK_URL } from "@/lib/config";
 import { supabase } from "@/lib/supabase";
 
 interface VendorFormData {
@@ -150,6 +150,145 @@ const VendorOnboarding = () => {
 
   // Track if contacts were pre-loaded from database
   const [hasPreloadedContacts, setHasPreloadedContacts] = useState(false);
+
+  // Contract content state
+  const [contractContent, setContractContent] = useState<string>("");
+  const [isLoadingContract, setIsLoadingContract] = useState(false);
+  const [contractError, setContractError] = useState<string | null>(null);
+
+  // Format contract text for display
+  const formatContractContent = (text: string): string => {
+    if (!text) return "";
+
+    // Replace vertical tabs (\u000b) with double newlines for section breaks
+    let formatted = text.replace(/\u000b/g, "\n\n");
+    
+    // Split by newlines to process line by line
+    const lines = formatted.split(/\n/).map(line => line.trim()).filter(line => line.length > 0);
+    
+    const formattedLines: string[] = [];
+    let currentParagraph = "";
+    
+    lines.forEach((line, index) => {
+      // Check if it's a numbered section header (e.g., "1. Purpose")
+      if (/^\d+\.\s+[A-Z][^\.]*$/.test(line)) {
+        // Save any accumulated paragraph
+        if (currentParagraph) {
+          formattedLines.push(`<p class="text-sm text-muted-foreground mb-4">${currentParagraph}</p>`);
+          currentParagraph = "";
+        }
+        formattedLines.push(`<h5 class="font-semibold text-base mt-6 mb-3">${line}</h5>`);
+        return;
+      }
+      
+      // Check if it's the title/header
+      if (line.includes("App Usage Agreement") && index < 3) {
+        if (currentParagraph) {
+          formattedLines.push(`<p class="text-sm text-muted-foreground mb-4">${currentParagraph}</p>`);
+          currentParagraph = "";
+        }
+        formattedLines.push(`<h4 class="font-semibold text-lg mb-4">${line}</h4>`);
+        return;
+      }
+      
+      // Check if it's copyright notice
+      if (line.includes("©") || line.includes("All Rights Reserved")) {
+        if (currentParagraph) {
+          formattedLines.push(`<p class="text-sm text-muted-foreground mb-4">${currentParagraph}</p>`);
+          currentParagraph = "";
+        }
+        formattedLines.push(`<p class="text-sm text-muted-foreground mt-8 italic">${line}</p>`);
+        return;
+      }
+      
+      // Check if it's a bullet point or list item
+      if (line.startsWith("•") || line.startsWith("-") || /^[A-Z][a-z]+\s/.test(line) && line.length < 80 && !line.includes(".")) {
+        if (currentParagraph) {
+          formattedLines.push(`<p class="text-sm text-muted-foreground mb-4">${currentParagraph}</p>`);
+          currentParagraph = "";
+        }
+        // Format as list item
+        const listItem = line.startsWith("•") ? line : `• ${line}`;
+        formattedLines.push(`<p class="text-sm text-muted-foreground mb-2 ml-4">${listItem}</p>`);
+        return;
+      }
+      
+      // Accumulate into paragraph
+      if (currentParagraph) {
+        currentParagraph += " " + line;
+      } else {
+        currentParagraph = line;
+      }
+      
+      // If line ends with period and next line might be a new section, finalize paragraph
+      if (line.endsWith(".") && index < lines.length - 1) {
+        const nextLine = lines[index + 1]?.trim() || "";
+        if (/^\d+\.\s+[A-Z]/.test(nextLine) || nextLine.includes("©")) {
+          formattedLines.push(`<p class="text-sm text-muted-foreground mb-4">${currentParagraph}</p>`);
+          currentParagraph = "";
+        }
+      }
+    });
+    
+    // Add any remaining paragraph
+    if (currentParagraph) {
+      formattedLines.push(`<p class="text-sm text-muted-foreground mb-4">${currentParagraph}</p>`);
+    }
+    
+    return formattedLines.join("");
+  };
+
+  // Fetch contract content from webhook
+  useEffect(() => {
+    const fetchContract = async () => {
+      if (!CONTRACT_WEBHOOK_URL) {
+        console.warn("Contract webhook URL not configured. Using fallback contract.");
+        setContractError("Contract webhook URL not configured");
+        return;
+      }
+
+      setIsLoadingContract(true);
+      setContractError(null);
+
+      try {
+        const response = await fetch(CONTRACT_WEBHOOK_URL, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch contract: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        // Extract contentDoc from response
+        const contractText = data.contentDoc || data.content || "";
+        
+        if (!contractText) {
+          throw new Error("Contract content not found in response");
+        }
+
+        // Format the contract text
+        const formattedContent = formatContractContent(contractText);
+        setContractContent(formattedContent);
+      } catch (error: any) {
+        console.error("Error fetching contract:", error);
+        setContractError(error.message || "Failed to load contract content");
+        toast({
+          title: "Warning",
+          description: "Could not load contract content. Please contact support if this persists.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingContract(false);
+      }
+    };
+
+    fetchContract();
+  }, []);
 
   // Check authentication and onboarding status
   useEffect(() => {
@@ -2075,149 +2214,59 @@ Jane Smith,555-0101,jane@example.com,DL789012,TX,Part-time,9am-3pm,no,New driver
             <Card className="shadow-lg">
               <div className="p-8">
                 <div className="bg-muted p-6 rounded-lg max-h-[500px] overflow-y-auto mb-6">
-                  <div className="prose prose-sm max-w-none">
-                    <h4 className="font-semibold text-lg mb-4">
-                      {APP_TITLE} APP USAGE AGREEMENT
-                    </h4>
-
-                    <p className="text-sm text-muted-foreground mb-4">
-                      This App Usage Agreement ("Agreement") governs the use of
-                      the {APP_TITLE} digital platform ("Platform"), powered by
-                      FusionIQ Labs LLC, by any trucking or transportation
-                      vendor ("Vendor") and its authorized users. By selecting
-                      "I Agree", the Vendor acknowledges that it has read,
-                      understood, and accepted the terms of this Agreement. Last
-                      updated: 26.11.2025.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      1. PURPOSE
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {APP_TITLE} provides a secure, paperless environment for
-                      creating, verifying, and managing load tickets and
-                      delivery documentation. The Platform supports Avensis
-                      Energy LLC and its approved vendors in executing digital
-                      hauling operations.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      2. PLATFORM ACCESS
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Vendors may access the Platform solely for legitimate
-                      business activities authorized by Avensis Energy. Login
-                      credentials are for internal company use only and must not
-                      be shared or transferred. {APP_TITLE} may monitor usage to
-                      maintain system security and performance.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      3. PLATFORM FEES
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      A Platform Fee of USD $1.00 per load processed through{" "}
-                      {APP_TITLE} applies. The fee will be automatically
-                      deducted from Vendor payout settlements processed through
-                      Avensis Energy. {APP_TITLE} may adjust this fee with a
-                      minimum of 30 days’ notice, provided through the app or in
-                      writing.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      4. DATA OWNERSHIP
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      All operational data related to loads—including pickup and
-                      delivery details, ticket images, signatures, weights, and
-                      GPS data—are owned by Avensis Energy LLC. FusionIQ Labs
-                      LLC retains ownership of the software, code, workflows,
-                      and analytics comprising the {APP_TITLE} Platform. The
-                      Vendor grants {APP_TITLE} and Avensis Energy permission to
-                      use Vendor-submitted data for operational processing,
-                      audits, and compliance.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      5. CONFIDENTIALITY & DATA PROTECTION
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {APP_TITLE} implements reasonable technical and
-                      administrative safeguards to protect data entered into the
-                      Platform. Vendors must not attempt to access, obtain, or
-                      disclose data belonging to other parties.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      6. SERVICE NATURE
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {APP_TITLE} is not a broker, carrier, dispatcher, or
-                      employer of the Vendor or its drivers. It functions solely
-                      as a digital documentation and workflow system. Vendors
-                      remain fully responsible for their own operations,
-                      equipment, and personnel.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      7. LIMITATION OF LIABILITY
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {APP_TITLE} and FusionIQ Labs LLC are not liable for any
-                      indirect, incidental, or consequential damages arising
-                      from Platform use. Total liability to any Vendor shall not
-                      exceed the Platform Fees charged for that Vendor’s loads
-                      during the three (3) months preceding any claim.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      8. SUSPENSION OF ACCESS
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {APP_TITLE} may suspend or revoke Platform access if a
-                      Vendor misuses the system, introduces security risks, or
-                      engages in fraudulent activity. Because billing is handled
-                      through Avensis Energy, suspension affects access only and
-                      does not modify payment obligations between Avensis Energy
-                      and FusionIQ Labs.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      9. UPDATES TO TERMS
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {APP_TITLE} may update this Agreement from time to time.
-                      Continued use of the Platform after notice of any update
-                      constitutes acceptance of the revised terms.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      10. GOVERNING LAW & DISPUTE RESOLUTION
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      This Agreement is governed by the laws of the State of
-                      Texas. Any dispute will first be addressed through
-                      informal discussion, and if unresolved, through
-                      arbitration held in Texas.
-                    </p>
-
-                    <h5 className="font-semibold text-base mt-6 mb-3">
-                      11. ACKNOWLEDGMENT
-                    </h5>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      By clicking "I Agree", the Vendor confirms that:
-                      <br />• It is authorized to act on behalf of its company;
-                      <br />• It understands {APP_TITLE} is a digital
-                      documentation service only; and
-                      <br />• It agrees to the USD $1.00 per load Platform Fee
-                      and all terms listed above.
-                    </p>
-
-                    <p className="text-sm text-muted-foreground mt-8 italic">
-                      © 2025 {APP_TITLE} — Powered by FusionIQ Labs LLC. All
-                      Rights Reserved.
-                    </p>
-                  </div>
+                  {isLoadingContract ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="ml-3 text-muted-foreground">Loading contract...</p>
+                    </div>
+                  ) : contractError ? (
+                    <div className="text-center py-8">
+                      <p className="text-destructive mb-2">Failed to load contract</p>
+                      <p className="text-sm text-muted-foreground">{contractError}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-4"
+                        onClick={async () => {
+                          setIsLoadingContract(true);
+                          setContractError(null);
+                          try {
+                            const response = await fetch(CONTRACT_WEBHOOK_URL, {
+                              method: "GET",
+                              headers: {
+                                "Content-Type": "application/json",
+                              },
+                            });
+                            if (!response.ok) {
+                              throw new Error(`Failed to fetch contract: ${response.status}`);
+                            }
+                            const data = await response.json();
+                            const contractText = data.contentDoc || data.content || "";
+                            if (!contractText) {
+                              throw new Error("Contract content not found in response");
+                            }
+                            const formattedContent = formatContractContent(contractText);
+                            setContractContent(formattedContent);
+                          } catch (error: any) {
+                            setContractError(error.message || "Failed to load contract content");
+                          } finally {
+                            setIsLoadingContract(false);
+                          }
+                        }}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  ) : contractContent ? (
+                    <div
+                      className="prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: contractContent }}
+                    />
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No contract content available</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-start space-x-3 mb-6 p-4 bg-primary/5 rounded-lg">
