@@ -118,7 +118,7 @@ export function generateAccessEnabledEmailHTML(params: {
 
     <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #3b82f6;">
       <p style="margin: 0; font-size: 14px;">
-        <strong>💡 Need Help?</strong> If you have any questions or need assistance, please contact your administrator or our support team.
+        <strong>💡 Need Help?</strong> If you have any questions or need assistance, please contact <a href="mailto:onboarding@primalfreight.com" style="color: #2563eb; text-decoration: none;">onboarding@primalfreight.com</a>.
       </p>
     </div>
 
@@ -226,7 +226,7 @@ export function generateOnboardingEmailHTML(params: {
     <h2 style="color: #2563eb; font-size: 20px; margin-top: 30px; margin-bottom: 15px;">Need Help?</h2>
     <p style="font-size: 16px; margin-bottom: 15px;">
       If you have any questions or need support during onboarding, please contact our implementation team at
-      <a href="mailto:support@avensisenergy.com" style="color: #2563eb; text-decoration: none;">support@avensisenergy.com</a>
+      <a href="mailto:onboarding@primalfreight.com" style="color: #2563eb; text-decoration: none;">onboarding@primalfreight.com</a>
     </p>
 
     <p style="font-size: 16px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
