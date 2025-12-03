@@ -51,7 +51,8 @@ const App = () => {
             <ShiftProvider>
               <TooltipProvider>
                 <Toaster />
-                <LanguageSelector isModal={true} />
+                {/* Language selector modal disabled temporarily */}
+                {/* <LanguageSelector isModal={true} /> */}
                 <BrowserRouter>
                   <Routes>
                     {/* Public routes */}
@@ -80,8 +81,14 @@ const App = () => {
                     <Route path="/overview" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />
                     <Route path="/tickets/create" element={<CreateTicket />} />
-                    <Route path="/driver-onboarding" element={<DriverOnboarding />} />
-                    <Route path="/driver-onboarding/*" element={<DriverOnboardingRoutes />} />
+                    <Route
+                      path="/driver-onboarding"
+                      element={<DriverOnboarding />}
+                    />
+                    <Route
+                      path="/driver-onboarding/*"
+                      element={<DriverOnboardingRoutes />}
+                    />
 
                     {/* Protected routes - require authentication */}
                     <Route
