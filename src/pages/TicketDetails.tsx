@@ -22,6 +22,7 @@ import {
   Camera,
   X,
   Download,
+  ArrowLeft,
 } from "lucide-react";
 import type { Ticket } from "@/lib/types";
 import { QRCodeSVG } from "qrcode.react";
@@ -116,7 +117,7 @@ const TicketDetails = () => {
         console.log("Fetching ticket from service...");
         // Otherwise fetch from service
         const found = await ticketService.getTicket(id);
-        
+
         console.log("Found ticket:", found);
 
         setTicket(found);
@@ -466,8 +467,7 @@ const TicketDetails = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <Header
-        showHomeButton
-        onHomeClick={() => navigate("/")}
+        showHomeButton={false}
         showSettingsButton
         onSettingsClick={() => navigate("/driver/profile")}
       />
@@ -475,6 +475,15 @@ const TicketDetails = () => {
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
         <div className="mx-auto max-w-2xl space-y-4">
+          {/* Go Back Button */}
+          <Button
+            variant="outline"
+            onClick={() => navigate(-1)}
+            className="mb-2"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Go Back
+          </Button>
           {/* Carrier, Truck, Driver - Always in Row */}
           <Card className="shadow-md">
             <div className="grid grid-cols-3 gap-1 p-3">

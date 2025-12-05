@@ -752,8 +752,9 @@ const CreateTicket = () => {
             </div>
           </Card>
 
-          {/* Ticket Image Upload - For all users to store ticket images */}
+          {/* Ticket Image Upload - For all users to store ticket images 
           <TicketImageUpload onImageSelected={setTicketImage} />
+          */}
 
           {/* Signature - Optional 
           <SignaturePad
