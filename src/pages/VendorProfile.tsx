@@ -97,6 +97,7 @@ const VendorProfile = () => {
     { id: "pickup_location", label: "Pickup Location", enabled: true },
     { id: "dropoff_location", label: "Drop-off Location", enabled: true },
     { id: "net_weight", label: "Net Weight", enabled: true },
+    { id: "tare_weight", label: "Tare Weight", enabled: true },
     { id: "gross_weight", label: "Gross Weight", enabled: false },
     { id: "close_time", label: "Ticket Close Time", enabled: true },
     { id: "attendant", label: "Destination Attendant Name", enabled: true },
@@ -408,6 +409,8 @@ const VendorProfile = () => {
         return ticket.destination_site;
       case "net_weight":
         return ticket.net_weight ? ticket.net_weight.toFixed(2) : "-";
+      case "tare_weight":
+        return ticket.tare_weight ? ticket.tare_weight.toFixed(2) : "-";
       case "gross_weight":
         return ticket.gross_weight ? ticket.gross_weight.toFixed(2) : "-";
       case "close_time":
@@ -758,6 +761,9 @@ const VendorProfile = () => {
                               Net Weight
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              Tare Weight
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                               Gross Weight
                             </th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -805,6 +811,11 @@ const VendorProfile = () => {
                               <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">
                                 {ticket.net_weight
                                   ? `${ticket.net_weight.toFixed(2)} tons`
+                                  : "-"}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">
+                                {ticket.tare_weight
+                                  ? `${ticket.tare_weight.toFixed(2)} tons`
                                   : "-"}
                               </td>
                               <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">
