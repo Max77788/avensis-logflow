@@ -23,11 +23,19 @@ const ScaleHouse = () => {
   const ticket = location.state?.ticket as Ticket | undefined;
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Authentication state - Load from localStorage on mount
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    const stored = localStorage.getItem("scaleHouseAuthenticated");
+    return stored === "true";
+  });
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Persist authentication state to localStorage
+  useEffect(() => {
+    localStorage.setItem("scaleHouseAuthenticated", isAuthenticated.toString());
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!ticket) {

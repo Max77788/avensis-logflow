@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import type { UserRole } from "@/lib/types";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -16,17 +17,39 @@ interface LogoutModalProps {
   redirectPath?: string;
 }
 
+/**
+ * Get the appropriate login page based on the user's role
+ */
+const getLoginPageForRole = (role?: UserRole): string => {
+  if (!role) return "/driver/login";
+
+  switch (role) {
+    case "admin":
+      return "/login";
+    case "attendant":
+      return "/login";
+    case "driver":
+      return "/driver/login";
+    case "carrier":
+      return "/carrier/login";
+    default:
+      return "/driver/login";
+  }
+};
+
 export const LogoutModal: React.FC<LogoutModalProps> = ({
   open,
   onOpenChange,
-  redirectPath = "/login",
+  redirectPath,
 }) => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
-    navigate(redirectPath);
+    // Use provided redirectPath, or determine based on user role
+    const targetPath = redirectPath || getLoginPageForRole(user?.role);
+    navigate(targetPath);
   };
 
   return (
@@ -40,7 +63,10 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({
         </AlertDialogHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <AlertDialogCancel className="sm:order-1">Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleLogout} className="sm:order-2 bg-red-500 hover:bg-red-600">
+          <AlertDialogAction
+            onClick={handleLogout}
+            className="sm:order-2 bg-red-500 hover:bg-red-600"
+          >
             Logout
           </AlertDialogAction>
         </div>
@@ -48,4 +74,3 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({
     </AlertDialog>
   );
 };
-

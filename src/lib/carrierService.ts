@@ -516,6 +516,53 @@ export const carrierService = {
     }
   },
 
+  async getDriverByPhone(phone: string): Promise<Driver | null> {
+    try {
+      const { data, error } = await supabase
+        .from("drivers")
+        .select("*")
+        .eq("phone", phone)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data || null;
+    } catch (error) {
+      console.error("Error fetching driver by phone:", error);
+      return null;
+    }
+  },
+
+  async getDriverByEmailOrPhone(emailOrPhone: string): Promise<Driver | null> {
+    try {
+      // First try to find by email
+      const { data: emailData, error: emailError } = await supabase
+        .from("drivers")
+        .select("*")
+        .eq("email", emailOrPhone)
+        .maybeSingle();
+
+      if (emailData) {
+        return emailData;
+      }
+
+      // If not found by email, try by phone
+      const { data: phoneData, error: phoneError } = await supabase
+        .from("drivers")
+        .select("*")
+        .eq("phone", emailOrPhone)
+        .maybeSingle();
+
+      if (phoneData) {
+        return phoneData;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error fetching driver by email or phone:", error);
+      return null;
+    }
+  },
+
   async getDriverByQRCode(qrCode: string): Promise<Driver | null> {
     try {
       const { data, error } = await supabase

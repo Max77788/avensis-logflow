@@ -4,24 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, BookOpen, Eye, EyeOff } from "lucide-react";
+import { LogIn, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { carrierService } from "@/lib/carrierService";
 import { Header } from "@/components/Header";
-import * as CryptoJS from "crypto-js";
-import { toast } from "@/hooks/use-toast";
 
 const DriverLogin = () => {
   const navigate = useNavigate();
   const { login, setDriverProfile } = useAuth();
   const { t } = useLanguage();
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [driverEmail, setDriverEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [emailOrPhone, setEmailOrPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleDriverLogin = async (e: React.FormEvent) => {
@@ -29,24 +24,10 @@ const DriverLogin = () => {
     setIsLoading(true);
 
     try {
-      // Check if driver exists
-      const driver = await carrierService.getDriverByEmail(driverEmail);
+      // Check if driver exists by email or phone
+      const driver = await carrierService.getDriverByEmailOrPhone(emailOrPhone);
 
       if (driver) {
-        // If password-based auth is configured (driver has password_hash), enforce it.
-        // If not, fall back to legacy email-only login so existing deployments keep working.
-        if ((driver as any).password_hash) {
-          const hashed = CryptoJS.SHA256(password).toString();
-          if ((driver as any).password_hash !== hashed) {
-            setIsLoading(false);
-            toast({
-              title: t("login.error") ?? "Login Failed",
-              description: t("login.incorrectPassword") ?? "Incorrect password. Please try again.",
-              variant: "destructive",
-            });
-            return;
-          }
-        }
         // Driver exists, log them in
         login("driver", driver.id);
 
@@ -70,7 +51,14 @@ const DriverLogin = () => {
         }
       } else {
         // Driver doesn't exist, redirect to sign up
-        navigate("/driver/signup", { state: { email: driverEmail } });
+        // Try to determine if input is email or phone for pre-filling signup form
+        const isEmail = emailOrPhone.includes("@");
+        navigate("/driver/signup", {
+          state: {
+            email: isEmail ? emailOrPhone : "",
+            phone: !isEmail ? emailOrPhone : "",
+          },
+        });
       }
     } catch (error) {
       console.error("Error during driver login:", error);
@@ -98,7 +86,7 @@ const DriverLogin = () => {
               {t("login.driverLogin")}
             </h1>
             <p className="text-muted-foreground">
-              {t("login.enterEmailToLogin")}
+              Enter your email or phone number to login
             </p>
           </div>
 
@@ -106,13 +94,13 @@ const DriverLogin = () => {
           <Card className="p-6 shadow-lg">
             <form onSubmit={handleDriverLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">{t("login.loginId")}</Label>
+                <Label htmlFor="emailOrPhone">Email or Phone Number</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="driver@example.com"
-                  value={driverEmail}
-                  onChange={(e) => setDriverEmail(e.target.value)}
+                  id="emailOrPhone"
+                  type="text"
+                  placeholder="driver@example.com or +1234567890"
+                  value={emailOrPhone}
+                  onChange={(e) => setEmailOrPhone(e.target.value)}
                   required
                 />
               </div>

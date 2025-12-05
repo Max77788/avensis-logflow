@@ -18,6 +18,8 @@ import {
   Lock,
   LogIn,
   Loader2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -69,11 +71,20 @@ const Overview = () => {
   const { t } = useLanguage();
   const { logout } = useAuth();
 
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Authentication state - Load from localStorage on mount
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    const stored = localStorage.getItem("overviewAuthenticated");
+    return stored === "true";
+  });
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Persist authentication state to localStorage
+  useEffect(() => {
+    localStorage.setItem("overviewAuthenticated", isAuthenticated.toString());
+  }, [isAuthenticated]);
 
   // Tickets state
   const [allTickets, setAllTickets] = useState<UITicket[]>([]);
@@ -101,7 +112,6 @@ const Overview = () => {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [carrierFilter, setCarrierFilter] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<string>("today");
-  const [showTruckFilters, setShowTruckFilters] = useState(false);
   const [showLogoutWarning, setShowLogoutWarning] = useState(false);
 
   // Handle login
@@ -380,6 +390,26 @@ const Overview = () => {
     dateFilter,
   ]);
 
+  // Memoized map of busy trucks (trucks with active tickets)
+  const busyTrucksMap = useMemo(() => {
+    const map = new Map<string, string>(); // truck UUID -> ticket_id
+
+    // Find all active tickets (CREATED or VERIFIED status)
+    const activeTickets = allTickets.filter(
+      (ticket) => ticket.status === "CREATED" || ticket.status === "VERIFIED"
+    );
+
+    // Map truck UUID to ticket_id for active tickets
+    // Note: ticket.truck_id is the UUID (foreign key), not the display name
+    activeTickets.forEach((ticket) => {
+      if (ticket.truck_id) {
+        map.set(ticket.truck_id, ticket.ticket_id);
+      }
+    });
+
+    return map;
+  }, [allTickets]);
+
   // Memoized filtered trucks - show only active trucks (trucks that are assigned to drivers)
   const filteredTrucks = useMemo(() => {
     const search = debouncedTruckSearch.trim().toLowerCase();
@@ -445,15 +475,29 @@ const Overview = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <Button
@@ -822,89 +866,115 @@ const Overview = () => {
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredTrucks.map((truck) => (
-                    <Card
-                      key={truck.id}
-                      className="group relative overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 cursor-pointer border-border/50 bg-card"
-                      onClick={() => {
-                        navigate(
-                          `/tickets/create?truck_id=${encodeURIComponent(
-                            truck.truck_id
-                          )}&carrier_id=${encodeURIComponent(
-                            truck.carrier_id
-                          )}&truck_uuid=${encodeURIComponent(truck.id)}`
-                        );
-                      }}
-                    >
-                      {/* Active Status Indicator */}
-                      {truck.active && (
+                  {filteredTrucks.map((truck) => {
+                    // Check if truck is busy using truck UUID (truck.id)
+                    // because ticket.truck_id stores the UUID, not the display name
+                    const isBusy = busyTrucksMap.has(truck.id);
+                    const activeTicketId = busyTrucksMap.get(truck.id);
+
+                    return (
+                      <Card
+                        key={truck.id}
+                        className={`group relative overflow-hidden transition-all duration-200 border-border/50 ${
+                          isBusy
+                            ? "opacity-75 cursor-not-allowed bg-muted/50 pointer-events-none"
+                            : "hover:shadow-lg hover:border-primary/50 cursor-pointer bg-card"
+                        }`}
+                        onClick={
+                          isBusy
+                            ? (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }
+                            : () => {
+                                // Navigate to create ticket for available trucks only
+                                navigate(
+                                  `/tickets/create?truck_id=${encodeURIComponent(
+                                    truck.truck_id
+                                  )}&carrier_id=${encodeURIComponent(
+                                    truck.carrier_id
+                                  )}&truck_uuid=${encodeURIComponent(truck.id)}`
+                                );
+                              }
+                        }
+                      >
+                        {/* Status Indicator - Top Right */}
                         <div className="absolute top-3 right-3 z-10">
-                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
-                            <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
-                            <span className="text-xs font-medium text-green-700 dark:text-green-300">
-                              Active
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="p-5">
-                        {/* Header Section */}
-                        <div className="flex items-start gap-4 mb-4">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex-shrink-0 group-hover:from-primary/30 group-hover:to-primary/20 transition-colors">
-                            <TruckIcon className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0 pt-1">
-                            <h3 className="font-bold text-lg text-foreground truncate mb-0.5">
-                              {truck.truck_id}
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                              Truck ID
-                            </p>
-                          </div>
+                          {isBusy ? (
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+                              <Lock className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                              <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
+                                Busy
+                              </span>
+                            </div>
+                          ) : truck.active ? (
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                              <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                              <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                                Available
+                              </span>
+                            </div>
+                          ) : null}
                         </div>
 
-                        {/* Divider */}
-                        <div className="h-px bg-border/50 mb-4" />
-
-                        {/* Information Grid - Row Layout */}
-                        <div className="grid grid-cols-2 gap-3">
-                          {/* Carrier */}
-                          <div className="flex items-start gap-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 flex-shrink-0">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <div className="p-5">
+                          {/* Header Section */}
+                          <div className="flex items-start gap-4 mb-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex-shrink-0 group-hover:from-primary/30 group-hover:to-primary/20 transition-colors">
+                              <TruckIcon className="h-6 w-6 text-primary" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-muted-foreground mb-0.5">
-                                {t("common.carrier")}
-                              </p>
-                              <p className="text-sm font-medium text-foreground truncate">
-                                {truck.carrier_name || "Unknown"}
+                            <div className="flex-1 min-w-0 pt-1">
+                              <h3 className="font-bold text-lg text-foreground truncate mb-0.5">
+                                {truck.truck_id}
+                              </h3>
+                              <p className="text-xs text-muted-foreground">
+                                Truck ID
                               </p>
                             </div>
                           </div>
 
-                          {/* Driver */}
-                          <div className="flex items-start gap-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 flex-shrink-0">
-                              <User className="h-4 w-4 text-muted-foreground" />
+                          {/* Divider */}
+                          <div className="h-px bg-border/50 mb-4" />
+
+                          {/* Information Grid - Row Layout */}
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* Carrier */}
+                            <div className="flex items-start gap-2">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 flex-shrink-0">
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-muted-foreground mb-0.5">
+                                  {t("common.carrier")}
+                                </p>
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {truck.carrier_name || "Unknown"}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-muted-foreground mb-0.5">
-                                {t("common.driver")}
-                              </p>
-                              <p className="text-sm font-medium text-foreground truncate">
-                                {truck.driver_name || "Not assigned"}
-                              </p>
+
+                            {/* Driver */}
+                            <div className="flex items-start gap-2">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted/50 flex-shrink-0">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-muted-foreground mb-0.5">
+                                  {t("common.driver")}
+                                </p>
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {truck.driver_name || "Not assigned"}
+                                </p>
+                              </div>
                             </div>
                           </div>
+
+                          {/* Hover Effect Indicator */}
+                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
                         </div>
-
-                        {/* Hover Effect Indicator */}
-                        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    );
+                  })}
                 </div>
 
                 {trucksHasMore && (
@@ -944,8 +1014,13 @@ const Overview = () => {
 
             <AlertDialogAction
               onClick={() => {
+                // Clear Overview authentication
+                setIsAuthenticated(false);
+                localStorage.removeItem("overviewAuthenticated");
+                // Clear main auth
                 logout();
-                navigate("/login");
+                // Refresh the page to show login modal again
+                window.location.reload();
               }}
               className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

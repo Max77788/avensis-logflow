@@ -61,14 +61,23 @@ export const PickupSitesTab = () => {
       const companiesData = await adminService.getAllCompanies();
       console.log("Loaded companies:", companiesData.length, companiesData);
 
+      // Filter companies to show only "Scale House" type
+      const scaleHouseCompanies = companiesData.filter(
+        (company) => company.type === "Scale House"
+      );
+      console.log(
+        "Filtered Scale House companies:",
+        scaleHouseCompanies.length
+      );
+
       setSites(sitesData);
-      setCompanies(companiesData);
+      setCompanies(scaleHouseCompanies);
 
       console.log(
         "State updated - sites:",
         sitesData.length,
         "companies:",
-        companiesData.length
+        scaleHouseCompanies.length
       );
     } catch (error) {
       console.error("Error loading pickup sites data:", error);

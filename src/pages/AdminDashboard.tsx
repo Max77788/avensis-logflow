@@ -1,158 +1,133 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Lock, LogIn, Loader2 } from "lucide-react";
-import { CompaniesTab } from "@/components/admin/CompaniesTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Building2, MapPin, Building, Lock, Eye, EyeOff } from "lucide-react";
+import { CompaniesTab } from "@/components/admin/CompaniesTab";
+import { PickupSitesTab } from "@/components/admin/PickupSitesTab";
+import { DestinationSitesTab } from "@/components/admin/DestinationSitesTab";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
-// Hardcoded credentials for admin dashboard access
-const ADMIN_CREDENTIALS = {
-  username: "admin",
-  password: "admin123",
-};
-
 const AdminDashboard = () => {
-  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState("companies");
-  
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Simple login state - Load from localStorage on mount
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    const stored = localStorage.getItem("adminAuthenticated");
+    return stored === "true";
+  });
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Handle login
+  // Simple credentials
+  const ADMIN_USERNAME = "admin";
+  const ADMIN_PASSWORD = "admin123";
+
+  // Persist authentication state to localStorage
+  useEffect(() => {
+    localStorage.setItem("adminAuthenticated", isAuthenticated.toString());
+  }, [isAuthenticated]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoggingIn(true);
 
-    // Simulate a brief loading state for better UX
-    setTimeout(() => {
-      if (
-        username.trim() === ADMIN_CREDENTIALS.username &&
-        password === ADMIN_CREDENTIALS.password
-      ) {
-        setIsAuthenticated(true);
-        toast({
-          title: "Login Successful",
-          description: "Welcome to Admin Dashboard",
-        });
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "Invalid username or password",
-          variant: "destructive",
-        });
-      }
-      setIsLoggingIn(false);
-    }, 500);
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      toast({
+        title: "Success",
+        description: "Welcome to Admin Dashboard",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Invalid username or password",
+        variant: "destructive",
+      });
+    }
   };
 
-  // Show login wall if not authenticated
+  // Show login form if not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          {/* Header */}
-          <div className="mb-8 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="p-4 bg-primary/10 rounded-full">
-                <Lock className="h-12 w-12 text-primary" />
-              </div>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md p-8 shadow-lg">
+          <div className="flex flex-col items-center mb-6">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+              <Lock className="h-6 w-6 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Admin Dashboard Access
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Please enter your credentials to continue
+            <h1 className="text-2xl font-bold text-foreground">Admin Login</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Enter your credentials to access the dashboard
             </p>
           </div>
 
-          {/* Login Form */}
-          <Card className="p-6">
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="Enter username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  autoComplete="username"
-                />
-              </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="Enter username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete="current-password"
+                  className="pr-10"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
-
-              <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={isLoggingIn}
-              >
-                {isLoggingIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Logging in...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Login
-                  </>
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-4 pt-4 border-t border-border">
-              <Button
-                variant="ghost"
-                onClick={() => navigate("/home")}
-                className="w-full"
-              >
-                Back to Home
-              </Button>
             </div>
-          </Card>
 
-          {/* Info */}
-          <p className="text-center text-xs text-muted-foreground mt-6">
-            Authorized personnel only. Contact your administrator for access.
-          </p>
-        </div>
+            <Button type="submit" className="w-full">
+              Sign In
+            </Button>
+          </form>
+        </Card>
       </div>
     );
   }
 
+  // Admin Dashboard content - shown after authentication
   return (
     <div className="min-h-screen bg-background">
       <Header
-        showHomeButton
-        onHomeClick={() => navigate("/home")}
         showLogoutButton
         onLogoutClick={() => {
+          // Clear admin authentication
           setIsAuthenticated(false);
-          setUsername("");
-          setPassword("");
-          navigate("/login");
+          localStorage.removeItem("adminAuthenticated");
+          // Clear main auth
+          logout();
+          // Refresh the page to show login modal again
+          window.location.reload();
         }}
       />
 
@@ -173,16 +148,30 @@ const AdminDashboard = () => {
           {/* Main Tabs */}
           <Card className="shadow-md">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-1">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="companies" className="gap-2">
                   <Building2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Companies</span>
+                </TabsTrigger>
+                <TabsTrigger value="pickup-sites" className="gap-2">
+                  <MapPin className="h-4 w-4" />
+                  <span className="hidden sm:inline">Pickup Locations</span>
+                </TabsTrigger>
+                <TabsTrigger value="destination-sites" className="gap-2">
+                  <Building className="h-4 w-4" />
+                  <span className="hidden sm:inline">Destination Sites</span>
                 </TabsTrigger>
               </TabsList>
 
               <div className="p-6">
                 <TabsContent value="companies" className="mt-0">
                   <CompaniesTab />
+                </TabsContent>
+                <TabsContent value="pickup-sites" className="mt-0">
+                  <PickupSitesTab />
+                </TabsContent>
+                <TabsContent value="destination-sites" className="mt-0">
+                  <DestinationSitesTab />
                 </TabsContent>
               </div>
             </Tabs>

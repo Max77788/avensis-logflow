@@ -53,7 +53,7 @@ const DriverDashboard = () => {
   const handleEndShift = () => {
     endShift();
     logout();
-    navigate("/login");
+    navigate("/driver/login");
   };
 
   const getStatusColor = (status: string) => {

@@ -65,14 +65,20 @@ export const DestinationSitesTab = () => {
       const companiesData = await adminService.getAllCompanies();
       console.log("Loaded companies:", companiesData.length, companiesData);
 
+      // Filter companies to show only "Contractor" type
+      const contractorCompanies = companiesData.filter(
+        (company) => company.type === "Contractor"
+      );
+      console.log("Filtered Contractor companies:", contractorCompanies.length);
+
       setSites(sitesData);
-      setCompanies(companiesData);
+      setCompanies(contractorCompanies);
 
       console.log(
         "State updated - sites:",
         sitesData.length,
         "companies:",
-        companiesData.length
+        contractorCompanies.length
       );
     } catch (error) {
       console.error("Error loading data:", error);
@@ -192,8 +198,6 @@ export const DestinationSitesTab = () => {
       site.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       site.city?.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  
 
   const getCompanyName = (companyId: string) => {
     const company = companies.find((c) => c.id === companyId);

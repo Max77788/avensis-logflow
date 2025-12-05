@@ -174,13 +174,12 @@ export const ticketService = {
     }
   },
 
-  async getAllTickets({ sourceTableName = "tickets" }: {
+  async getAllTickets({
+    sourceTableName = "tickets",
+  }: {
     sourceTableName?: string;
   }): Promise<Ticket[]> {
-    
     console.log("getAllTickets called with sourceTableName:", sourceTableName);
-    
-    
 
     try {
       // Join with trucks, carriers, and drivers to get related data
@@ -207,7 +206,7 @@ export const ticketService = {
         .order("created_at", { ascending: false });
 
       console.log("getAllTickets - fetched data:", data?.length, "tickets");
-      
+
       if (error) throw error;
 
       // Map tickets with joined data
@@ -262,6 +261,47 @@ export const ticketService = {
       return tickets;
     } catch (error) {
       console.error("Error getting active tickets for driver:", error);
+      return [];
+    }
+  },
+
+  async getActiveTicketsByTruck(truckUuid: string): Promise<Ticket[]> {
+    try {
+      // Join with trucks, carriers, and drivers to get related data
+      const { data, error } = await supabase
+        .from("tickets")
+        .select(
+          `
+          *,
+          truck:trucks!tickets_truck_id_fkey (
+            id,
+            truck_id,
+            carrier:companies (
+              id,
+              name
+            )
+          ),
+          driver:drivers (
+            id,
+            name,
+            driver_qr_code
+          )
+        `
+        )
+        .eq("truck_id", truckUuid)
+        .in("status", ["CREATED", "VERIFIED"])
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const tickets = (data || []).map((item: any) => {
+        const ticket = this.mapDbTicketToTicket(item);
+        return ticket;
+      });
+
+      return tickets;
+    } catch (error) {
+      console.error("Error getting active tickets for truck:", error);
       return [];
     }
   },
@@ -540,11 +580,14 @@ export const ticketService = {
 
   // Add this inside `export const ticketService = { ... }`
 
-  async getTicketsOverview(params?: {
-    limit?: number;
-    fromDate?: string; // "YYYY-MM-DD"
-    page?: number;
-  }, sourceTableName: string = "tickets"): Promise<{
+  async getTicketsOverview(
+    params?: {
+      limit?: number;
+      fromDate?: string; // "YYYY-MM-DD"
+      page?: number;
+    },
+    sourceTableName: string = "tickets"
+  ): Promise<{
     tickets: Ticket[];
     total: number;
     page: number;

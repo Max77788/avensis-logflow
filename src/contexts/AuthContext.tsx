@@ -17,7 +17,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
+  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   // Load auth state from localStorage on mount
@@ -61,6 +63,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setDriverProfile(null);
     localStorage.removeItem("authUser");
     localStorage.removeItem("driverProfile");
+    // Also clear Overview and ScaleHouse authentication
+    localStorage.removeItem("overviewAuthenticated");
+    localStorage.removeItem("scaleHouseAuthenticated");
   };
 
   const updateDriverProfile = (profile: DriverProfile) => {
@@ -99,4 +104,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

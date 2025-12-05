@@ -532,8 +532,12 @@ const Index = () => {
 
             <AlertDialogAction
               onClick={() => {
+                const loginPage =
+                  user?.role === "admin" || user?.role === "attendant"
+                    ? "/login"
+                    : "/driver/login";
                 logout();
-                navigate("/login");
+                navigate(loginPage);
               }}
               className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

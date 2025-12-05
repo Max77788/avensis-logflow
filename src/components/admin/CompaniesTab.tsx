@@ -91,7 +91,7 @@ export const CompaniesTab = () => {
         return "bg-blue-100 text-blue-800";
       case "Scale House":
         return "bg-purple-100 text-purple-800";
-      case "Destination Client":
+      case "Contractor":
         return "bg-green-100 text-green-800";
       case "Other":
         return "bg-gray-100 text-gray-800";

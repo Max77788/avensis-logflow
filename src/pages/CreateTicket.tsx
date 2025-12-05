@@ -61,6 +61,8 @@ const CreateTicket = () => {
     setHasShownActiveTicketNotification,
   ] = useState(false);
   const [hasActiveTicket, setHasActiveTicket] = useState(false);
+  const [truckHasActiveTicket, setTruckHasActiveTicket] = useState(false);
+  const [activeTicketId, setActiveTicketId] = useState<string>("");
   const [ticketImage, setTicketImage] = useState<File | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
   const [truckNameDisplay, setTruckNameDisplay] = useState<string>("");
@@ -271,6 +273,31 @@ const CreateTicket = () => {
     checkActiveTickets();
   }, [driverProfile?.id, hasShownActiveTicketNotification]);
 
+  // Check if truck has active tickets when coming from Overview
+  useEffect(() => {
+    const checkTruckActiveTickets = async () => {
+      if (isFromOverview && truckUuidFromOverview) {
+        const activeTickets = await ticketService.getActiveTicketsByTruck(
+          truckUuidFromOverview
+        );
+        if (activeTickets.length > 0) {
+          setTruckHasActiveTicket(true);
+          setActiveTicketId(activeTickets[0].ticket_id);
+          toast({
+            title: "Truck Busy",
+            description: `This truck is currently fulfilling ticket ${activeTickets[0].ticket_id}. Cannot create a new ticket.`,
+            variant: "destructive",
+          });
+          // Redirect back to scale-house page after a short delay
+          setTimeout(() => {
+            navigate("/scale-house");
+          }, 3000);
+        }
+      }
+    };
+    checkTruckActiveTickets();
+  }, [isFromOverview, truckUuidFromOverview, navigate]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -284,6 +311,21 @@ const CreateTicket = () => {
         driverProfile.id
       );
       if (activeTickets.length > 0) {
+        return;
+      }
+    }
+
+    // Check if truck has active tickets (for Overview page flow)
+    if (formData.truck_uuid) {
+      const truckActiveTickets = await ticketService.getActiveTicketsByTruck(
+        formData.truck_uuid
+      );
+      if (truckActiveTickets.length > 0) {
+        toast({
+          title: "Truck Busy",
+          description: `This truck is currently fulfilling ticket ${truckActiveTickets[0].ticket_id}. Cannot create a new ticket.`,
+          variant: "destructive",
+        });
         return;
       }
     }
@@ -787,6 +829,7 @@ const CreateTicket = () => {
               disabled={
                 isSubmitting ||
                 hasActiveTicket ||
+                truckHasActiveTicket ||
                 !isShiftComplete ||
                 isDriverInactive ||
                 !formData.destination_site ||
@@ -794,8 +837,10 @@ const CreateTicket = () => {
                 formData.driver_name === "To be defined later"
               }
               title={
-                !formData.driver_name ||
-                formData.driver_name === "To be defined later"
+                truckHasActiveTicket
+                  ? `Truck is busy with ticket ${activeTicketId}`
+                  : !formData.driver_name ||
+                    formData.driver_name === "To be defined later"
                   ? "Truck must have an assigned driver"
                   : isDriverInactive
                   ? t("createTicket.driverInactiveWarning")

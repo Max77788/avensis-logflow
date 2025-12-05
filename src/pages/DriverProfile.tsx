@@ -609,7 +609,7 @@ const DriverProfile = () => {
 
   const confirmLogout = () => {
     logout();
-    navigate("/login");
+    navigate("/driver/login");
   };
 
   if (!user || user.role !== "driver") {
@@ -885,7 +885,7 @@ const DriverProfile = () => {
             <AlertDialogAction
               onClick={() => {
                 logout();
-                navigate("/login");
+                navigate("/driver/login");
               }}
               className="w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

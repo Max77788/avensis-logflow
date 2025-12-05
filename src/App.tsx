@@ -78,7 +78,7 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
-                    <Route path="/overview" element={<Overview />} />
+                    <Route path="/scale-house" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />
                     <Route path="/tickets/create" element={<CreateTicket />} />
                     <Route

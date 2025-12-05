@@ -99,7 +99,7 @@ const Login = () => {
 
             <Card
               className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
-              onClick={() => navigate("/overview")}
+              onClick={() => navigate("/scale-house")}
             >
               <div className="p-6 space-y-4 flex flex-col items-center text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 group-hover:bg-purple-200 transition-colors overflow-hidden flex-shrink-0">

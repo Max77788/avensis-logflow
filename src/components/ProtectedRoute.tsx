@@ -8,6 +8,50 @@ interface ProtectedRouteProps {
 }
 
 /**
+ * Get the appropriate login page based on the required role
+ */
+const getLoginPageForRole = (requiredRole?: UserRole | UserRole[]): string => {
+  // If no specific role is required, default to driver login
+  if (!requiredRole) {
+    return "/driver/login";
+  }
+
+  // If multiple roles are allowed, use the first one to determine login page
+  const role = Array.isArray(requiredRole) ? requiredRole[0] : requiredRole;
+
+  switch (role) {
+    case "admin":
+      return "/login"; // Admin uses the main login page
+    case "attendant":
+      return "/login"; // Attendant uses the main login page
+    case "driver":
+      return "/driver/login";
+    case "carrier":
+      return "/carrier/login";
+    default:
+      return "/driver/login";
+  }
+};
+
+/**
+ * Get the appropriate login page based on the user's current role
+ */
+const getLoginPageForUser = (userRole: UserRole): string => {
+  switch (userRole) {
+    case "admin":
+      return "/login";
+    case "attendant":
+      return "/login";
+    case "driver":
+      return "/driver/login";
+    case "carrier":
+      return "/carrier/login";
+    default:
+      return "/driver/login";
+  }
+};
+
+/**
  * ProtectedRoute component that redirects unauthenticated users to login
  * Optionally enforces a specific role requirement or multiple roles
  */
@@ -26,9 +70,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Redirect to login if not authenticated
+  // Redirect to appropriate login page if not authenticated
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const loginPage = getLoginPageForRole(requiredRole);
+    return <Navigate to={loginPage} replace />;
   }
 
   // Check role if required
@@ -37,7 +82,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       ? requiredRole
       : [requiredRole];
     if (!allowedRoles.includes(user.role)) {
-      return <Navigate to="/" replace />;
+      // Redirect to the user's own login page if they don't have permission
+      const loginPage = getLoginPageForUser(user.role);
+      return <Navigate to={loginPage} replace />;
     }
   }
 

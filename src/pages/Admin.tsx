@@ -106,12 +106,20 @@ const Admin = () => {
               </h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-1">Username:</p>
-                  <p className="font-mono font-semibold text-blue-900 dark:text-blue-100">admin</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-1">
+                    Username:
+                  </p>
+                  <p className="font-mono font-semibold text-blue-900 dark:text-blue-100">
+                    admin
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-1">Password:</p>
-                  <p className="font-mono font-semibold text-blue-900 dark:text-blue-100">admin123</p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-1">
+                    Password:
+                  </p>
+                  <p className="font-mono font-semibold text-blue-900 dark:text-blue-100">
+                    admin123
+                  </p>
                 </div>
               </div>
             </div>
