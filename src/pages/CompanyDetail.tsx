@@ -20,13 +20,25 @@ import { CompanyContactsTab } from "@/components/admin/CompanyContactsTab";
 // import { CompanyPortalUsersTab } from "@/components/admin/CompanyPortalUsersTab"; // Hidden
 // import { CompanyOnboardingTab } from "@/components/admin/CompanyOnboardingTab"; // Hidden
 import { CompanyFleetTab } from "@/components/admin/CompanyFleetTab";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CompanyDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("info");
+
+  // Check admin authentication
+  useEffect(() => {
+    const isAdminAuthenticated =
+      localStorage.getItem("adminAuthenticated") === "true";
+    if (!isAdminAuthenticated) {
+      // Redirect to admin dashboard if not authenticated
+      navigate("/admin/dashboard");
+    }
+  }, [navigate]);
 
   useEffect(() => {
     if (id) {
@@ -85,9 +97,16 @@ const CompanyDetail = () => {
     <div className="min-h-screen bg-background">
       <Header
         showHomeButton
-        onHomeClick={() => navigate("/")}
+        onHomeClick={() => navigate("/admin/dashboard")}
         showLogoutButton
-        onLogoutClick={() => navigate("/login")}
+        onLogoutClick={() => {
+          // Clear admin authentication
+          localStorage.removeItem("adminAuthenticated");
+          // Clear main auth
+          logout();
+          // Redirect to admin dashboard which will show login modal
+          navigate("/admin/dashboard");
+        }}
       />
 
       <main className="container mx-auto px-4 py-6">

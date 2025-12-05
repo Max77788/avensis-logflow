@@ -161,11 +161,7 @@ const App = () => {
                     />
                     <Route
                       path="/admin/companies/:id"
-                      element={
-                        <ProtectedRoute>
-                          <CompanyDetail />
-                        </ProtectedRoute>
-                      }
+                      element={<CompanyDetail />}
                     />
                     <Route
                       path="/carrier/portal"
