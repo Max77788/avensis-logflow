@@ -406,22 +406,22 @@ const CreateTicket = () => {
 
       // Determine redirect destination based on how the page was opened
       // If URL parameters are present (truck_id, carrier_id, truck_uuid), it means
-      // the page was opened from the scale house/overview page, so redirect back there
+      // the page was opened from the scale house page, so redirect back there
       const hasUrlParams =
         truckIdFromOverview || carrierIdFromOverview || truckUuidFromOverview;
 
       // Wait for ticket to be fully registered in Supabase before redirecting
       setTimeout(() => {
         if (hasUrlParams) {
-          // Redirect to overview page if opened via URL parameters (from scale house/overview)
-          navigate(`/overview`);
+          // Redirect to scale house page if opened via URL parameters (from scale house)
+          navigate(`/scale-house`);
         } else {
           // For drivers creating tickets normally, redirect to home/dashboard
           if (user?.role === "driver") {
             navigate(`/home`);
           } else {
-            // For other users (attendants, carriers), redirect to overview
-            navigate(`/overview`);
+            // For other users (attendants, carriers), redirect to scale house
+            navigate(`/scale-house`);
           }
         }
       }, 700);
