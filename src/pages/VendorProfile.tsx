@@ -393,7 +393,7 @@ const VendorProfile = () => {
   const getColumnValue = (ticket: Ticket, columnId: string): string => {
     switch (columnId) {
       case "ticket_date":
-        return new Date(ticket.created_at).toLocaleDateString();
+        return new Date(ticket.created_at).toLocaleString();
       case "client_name":
         return "Avensis Energy";
       case "transaction_id":
@@ -781,9 +781,7 @@ const VendorProfile = () => {
                               className="hover:bg-muted/30 transition-colors"
                             >
                               <td className="px-4 py-3 text-sm text-foreground whitespace-nowrap">
-                                {new Date(
-                                  ticket.created_at
-                                ).toLocaleDateString()}
+                                {new Date(ticket.created_at).toLocaleString()}
                               </td>
                               <td className="px-4 py-3 text-sm text-foreground">
                                 Avensis Energy
