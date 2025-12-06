@@ -4,13 +4,43 @@ export type UserRole = "driver" | "attendant" | "carrier" | "admin";
 
 export type DriverStatus = "active" | "inactive";
 
+export interface PickupSite {
+  id: string;
+  name: string;
+  address?: string;
+  gps_location?: string;
+  company_id?: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DestinationSite {
+  id: string;
+  name: string;
+  location?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  gps_location?: string;
+  company_id?: string;
+  default_email?: string;
+  notes?: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Ticket {
   ticket_id: string;
   truck_qr_id: string;
   truck_id: string;
   product: string;
-  origin_site: string;
-  destination_site: string;
+  origin_site: string; // Text field (legacy, kept for backward compatibility)
+  destination_site: string; // Text field (legacy, kept for backward compatibility)
+  origin_site_id?: string; // Foreign key to pickup_sites
+  destination_site_id?: string; // Foreign key to destination_sites
   gross_weight?: number;
   tare_weight?: number;
   net_weight?: number;
@@ -39,6 +69,7 @@ export interface Ticket {
   ticket_image_url?: string;
   transaction_id?: string;
   truck_name?: string;
+  manual_ticket_id?: string;
 }
 
 export interface GPSCoordinates {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { User, QrCode, BookOpen, Shield, Building2 } from "lucide-react";
+import { User, BookOpen, Shield, Building2, MapPin } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -16,8 +16,8 @@ const Login = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const handleAttendantClick = () => {
-    login("attendant");
-    navigate("/home");
+    // Navigate to contractor login page for destination attendants
+    navigate("/contractor/login");
   };
 
   const handleAdminClick = () => {
@@ -131,14 +131,14 @@ const Login = () => {
             >
               <div className="p-6 space-y-4 flex flex-col items-center text-center">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 group-hover:bg-blue-200 transition-colors">
-                  <QrCode className="h-6 w-6 text-blue-600" />
+                  <MapPin className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-foreground mb-1">
-                    {t("login.attendant")}
+                    Destination Attendant
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {t("login.attendantDesc")}
+                    Contractor portal for destination sites
                   </p>
                 </div>
               </div>

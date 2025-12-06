@@ -69,8 +69,9 @@ const DriverLogin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background">
-      <Header showHomeButton onHomeClick={() => navigate("/")} />
-
+      {/* <Header showHomeButton onHomeClick={() => navigate("/")} /> */}
+      <Header />
+      
       <div className="flex items-center justify-center p-4 pt-24">
         <div className="w-full max-w-md">
           {/* Header */}

@@ -170,11 +170,18 @@ const Overview = () => {
         isToday = createdAtStr === todayStr;
       }
 
+      // Enhanced search key with more fields for better searchability
       const searchKey = [
         t.ticket_id ?? "",
         t.truck_id ?? "",
+        t.truck_name ?? "", // Truck display name
         t.carrier ?? "",
+        t.driver_name ?? "",
         t.destination_site ?? "",
+        t.origin_site ?? "",
+        t.product ?? "",
+        t.status ?? "",
+        t.manual_ticket_id ?? "", // Manual ticket ID
       ]
         .join(" ")
         .toLowerCase();
@@ -192,22 +199,28 @@ const Overview = () => {
    * Extracts nested data from Supabase joins and adds search key
    * - Extracts carrier name from carriers object
    * - Extracts driver name from active_driver object
-   * - Adds lowercase search key for filtering
+   * - Adds enhanced search key for filtering by truck ID, carrier, and driver
    */
   const normalizeTrucks = (trucks: Truck[]): UITruck[] => {
     return trucks.map((t: any) => {
-      const truckId = t.truck_id || "";
-      const searchKey = truckId.toLowerCase();
-
       console.log("Truck:", t);
 
       // Extract carrier name from nested carriers object
       const carrierName =
-        t.carriers?.name || t.carrier_name || t.companies.name || "Unknown";
+        t.carriers?.name || t.carrier_name || t.companies?.name || "Unknown";
 
       // Extract driver name from nested active_driver object
       const driverName =
         t.active_driver?.name || t.driver_name || "Not assigned";
+
+      // Enhanced search key with truck ID, carrier name, and driver name
+      const searchKey = [
+        t.truck_id || "",
+        carrierName,
+        driverName !== "Not assigned" ? driverName : "",
+      ]
+        .join(" ")
+        .toLowerCase();
 
       return {
         ...t,
@@ -410,19 +423,19 @@ const Overview = () => {
     return map;
   }, [allTickets]);
 
-  // Memoized filtered trucks - show only active trucks (trucks that are assigned to drivers)
+  // Memoized filtered trucks - show all trucks without active tickets
   const filteredTrucks = useMemo(() => {
     const search = debouncedTruckSearch.trim().toLowerCase();
 
     return allTrucks.filter((truck: UITruck) => {
       const searchKey = truck._search || "";
       const matchesSearch = !search || searchKey.includes(search);
-      // Only show trucks that have status = 'active' (assigned to a driver)
-      const isAssigned = truck.status === "active";
+      // Show all trucks that don't have active tickets (regardless of driver assignment)
+      const hasActiveTicket = busyTrucksMap.has(truck.id);
 
-      return matchesSearch && isAssigned;
+      return matchesSearch && !hasActiveTicket;
     });
-  }, [allTrucks, debouncedTruckSearch]);
+  }, [allTrucks, debouncedTruckSearch, busyTrucksMap]);
 
   // Unique carriers for filter
   const uniqueCarriers = useMemo(() => {
@@ -544,8 +557,6 @@ const Overview = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <Header
-        showHomeButton
-        onHomeClick={() => navigate("/home")}
         showLogoutButton
         onLogoutClick={() => setShowLogoutWarning(true)}
       />
@@ -590,7 +601,7 @@ const Overview = () => {
                 <div className="relative flex-1 min-w-0">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder={t("overview.searchByTicketTruckCarrier")}
+                    placeholder="Search by ticket, truck, carrier, driver, destination, origin, product, status..."
                     value={ticketSearch}
                     onChange={(e) => setTicketSearch(e.target.value)}
                     className="pl-10 text-xs md:text-sm"
@@ -841,7 +852,7 @@ const Overview = () => {
               <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder={t("overview.searchTrucks")}
+                  placeholder="Search by truck ID, carrier, or driver..."
                   value={truckSearch}
                   onChange={(e) => setTruckSearch(e.target.value)}
                   className="pl-10 text-xs md:text-sm"
@@ -867,54 +878,30 @@ const Overview = () => {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredTrucks.map((truck) => {
-                    // Check if truck is busy using truck UUID (truck.id)
-                    // because ticket.truck_id stores the UUID, not the display name
-                    const isBusy = busyTrucksMap.has(truck.id);
-                    const activeTicketId = busyTrucksMap.get(truck.id);
-
+                    // All trucks in filteredTrucks are available (no active tickets)
                     return (
                       <Card
                         key={truck.id}
-                        className={`group relative overflow-hidden transition-all duration-200 border-border/50 ${
-                          isBusy
-                            ? "opacity-75 cursor-not-allowed bg-muted/50 pointer-events-none"
-                            : "hover:shadow-lg hover:border-primary/50 cursor-pointer bg-card"
-                        }`}
-                        onClick={
-                          isBusy
-                            ? (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }
-                            : () => {
-                                // Navigate to create ticket for available trucks only
-                                navigate(
-                                  `/tickets/create?truck_id=${encodeURIComponent(
-                                    truck.truck_id
-                                  )}&carrier_id=${encodeURIComponent(
-                                    truck.carrier_id
-                                  )}&truck_uuid=${encodeURIComponent(truck.id)}`
-                                );
-                              }
-                        }
+                        className="group relative overflow-hidden transition-all duration-200 border-border/50 hover:shadow-lg hover:border-primary/50 cursor-pointer bg-card"
+                        onClick={() => {
+                          // Navigate to create ticket for available trucks
+                          navigate(
+                            `/tickets/create?truck_id=${encodeURIComponent(
+                              truck.truck_id
+                            )}&carrier_id=${encodeURIComponent(
+                              truck.carrier_id
+                            )}&truck_uuid=${encodeURIComponent(truck.id)}`
+                          );
+                        }}
                       >
                         {/* Status Indicator - Top Right */}
                         <div className="absolute top-3 right-3 z-10">
-                          {isBusy ? (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
-                              <Lock className="h-3 w-3 text-orange-600 dark:text-orange-400" />
-                              <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
-                                Busy
-                              </span>
-                            </div>
-                          ) : truck.active ? (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
-                              <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
-                              <span className="text-xs font-medium text-green-700 dark:text-green-300">
-                                Available
-                              </span>
-                            </div>
-                          ) : null}
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                            <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                            <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                              Available
+                            </span>
+                          </div>
                         </div>
 
                         <div className="p-5">

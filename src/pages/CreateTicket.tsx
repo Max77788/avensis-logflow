@@ -17,14 +17,17 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import type { Ticket } from "@/lib/types";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService, type Carrier } from "@/lib/carrierService";
+import { siteService } from "@/lib/siteService";
+import type { PickupSite, DestinationSite } from "@/lib/types";
 import {
   CARRIERS,
   PICKUP_LOCATIONS,
   DESTINATION_SITES,
 } from "@/lib/trucksAndCarriers";
 
-// Fallback destination sites (in case database is unavailable)
+// Fallback sites (in case database is unavailable)
 const FALLBACK_DESTINATION_SITES = DESTINATION_SITES;
+const FALLBACK_PICKUP_LOCATIONS = PICKUP_LOCATIONS;
 
 const CreateTicket = () => {
   const navigate = useNavigate();
@@ -44,17 +47,21 @@ const CreateTicket = () => {
     truck_uuid: "", // UUID (foreign key)
     driver_id: "",
     driver_name: "",
-    pickup_location: "Primal Materials",
-    destination_site: "",
+    pickup_location: "Primal Materials", // Text field (legacy)
+    pickup_location_id: "", // Foreign key to pickup_sites
+    destination_site: "", // Text field (legacy)
+    destination_site_id: "", // Foreign key to destination_sites
     net_weight: "",
+    manual_ticket_id: "", // Ticket ID field
   });
 
   const [signature, setSignature] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [carriers, setCarriers] = useState<Carrier[]>([]);
   const [availableTrucks, setAvailableTrucks] = useState<any[]>([]);
-  const [destinationSites, setDestinationSites] = useState<string[]>(
-    FALLBACK_DESTINATION_SITES
+  const [pickupSites, setPickupSites] = useState<PickupSite[]>([]);
+  const [destinationSites, setDestinationSites] = useState<DestinationSite[]>(
+    []
   );
   const [
     hasShownActiveTicketNotification,
@@ -78,16 +85,20 @@ const CreateTicket = () => {
     }
   }, []);
 
-  // Fetch carriers and destination sites on component mount
-
+  // Fetch carriers, pickup sites, and destination sites on component mount
   useEffect(() => {
     const fetchData = async () => {
       const carriersData = await carrierService.getAllCarriers();
       setCarriers(carriersData);
 
-      const sitesData = await ticketService.getDestinationSites();
-      if (sitesData.length > 0) {
-        setDestinationSites(sitesData.map((site) => site.name));
+      const pickupSitesData = await siteService.getPickupSites();
+      if (pickupSitesData.length > 0) {
+        setPickupSites(pickupSitesData);
+      }
+
+      const destinationSitesData = await siteService.getDestinationSites();
+      if (destinationSitesData.length > 0) {
+        setDestinationSites(destinationSitesData);
       }
     };
     fetchData();
@@ -339,9 +350,13 @@ const CreateTicket = () => {
       return;
     }
 
+    // Only require driver if NOT coming from Overview page
+    const hasUrlParams =
+      truckIdFromOverview || carrierIdFromOverview || truckUuidFromOverview;
+
     if (
-      !formData.driver_name ||
-      formData.driver_name === "To be defined later"
+      !hasUrlParams &&
+      (!formData.driver_name || formData.driver_name === "To be defined later")
     ) {
       toast({
         title: "Driver Required",
@@ -363,21 +378,26 @@ const CreateTicket = () => {
 
     setIsSubmitting(true);
 
-    // Create ticket with only foreign keys (truck_uuid and driver_id)
+    // Create ticket with foreign keys (truck_uuid, driver_id, origin_site_id, destination_site_id)
     // Carrier name will be fetched via: truck_uuid -> trucks.carrier_id -> carriers.name
     // Driver name will be fetched via: driver_id -> drivers.name
+    // Origin site name will be fetched via: origin_site_id -> pickup_sites.name
+    // Destination site name will be fetched via: destination_site_id -> destination_sites.name
     const ticket: Ticket = {
       ticket_id: `TKT-${Date.now()}`,
       truck_qr_id: `TRUCK-${formData.truck_id}`,
       truck_id: formData.truck_uuid, // UUID (foreign key to trucks table)
       product: "", // Optional field, left empty
-      origin_site: formData.pickup_location, // Pickup location as origin
-      destination_site: formData.destination_site,
+      origin_site: formData.pickup_location, // Text field (legacy, kept for backward compatibility)
+      destination_site: formData.destination_site, // Text field (legacy, kept for backward compatibility)
+      origin_site_id: formData.pickup_location_id || undefined, // Foreign key to pickup_sites
+      destination_site_id: formData.destination_site_id || undefined, // Foreign key to destination_sites
       net_weight: parseFloat(formData.net_weight) || 0,
       scale_operator_signature: signature,
       status: "VERIFIED",
       created_at: new Date().toISOString(),
       verified_at_scale: new Date().toISOString(),
+      manual_ticket_id: formData.manual_ticket_id || undefined, // Optional ticket ID
       // Removed denormalized fields - use FKs instead:
       // carrier: formData.carrier,
       // carrier_id: formData.carrier_id,
@@ -680,20 +700,30 @@ const CreateTicket = () => {
                   {t("createTicket.pickupLocation")}
                 </Label>
                 <SearchableSelect
-                  value={"Primal Materials"}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, pickup_location: value })
-                  }
+                  value={formData.pickup_location}
+                  onValueChange={(value) => {
+                    // Find the selected pickup site to get its ID
+                    const selectedSite = pickupSites.find(
+                      (site) => site.name === value
+                    );
+                    setFormData({
+                      ...formData,
+                      pickup_location: value,
+                      pickup_location_id: selectedSite?.id || "",
+                    });
+                  }}
                   placeholder="Select pickup location"
-                  items={PICKUP_LOCATIONS.map((location) => ({
-                    value: location,
-                    label: location,
-                  })).sort((a, b) =>
-                    a.label.localeCompare(b.label, undefined, {
-                      numeric: true,
-                      sensitivity: "base",
-                    })
-                  )}
+                  items={pickupSites
+                    .map((site) => ({
+                      value: site.name,
+                      label: site.name,
+                    }))
+                    .sort((a, b) =>
+                      a.label.localeCompare(b.label, undefined, {
+                        numeric: true,
+                        sensitivity: "base",
+                      })
+                    )}
                 />
               </div>
               <div>
@@ -702,14 +732,22 @@ const CreateTicket = () => {
                 </Label>
                 <SearchableSelect
                   value={formData.destination_site}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, destination_site: value })
-                  }
+                  onValueChange={(value) => {
+                    // Find the selected destination site to get its ID
+                    const selectedSite = destinationSites.find(
+                      (site) => site.name === value
+                    );
+                    setFormData({
+                      ...formData,
+                      destination_site: value,
+                      destination_site_id: selectedSite?.id || "",
+                    });
+                  }}
                   placeholder="Select destination site"
                   items={destinationSites
                     .map((site) => ({
-                      value: site,
-                      label: site,
+                      value: site.name,
+                      label: site.name,
                     }))
                     .sort((a, b) =>
                       a.label.localeCompare(b.label, undefined, {
@@ -748,6 +786,32 @@ const CreateTicket = () => {
                     !formData.net_weight && "border-red-500 border-2"
                   )}
                 />
+              </div>
+            </div>
+          </Card>
+
+          {/* Ticket ID / Transaction ID */}
+          <Card className="overflow-hidden shadow-md">
+            <div className="space-y-4 p-4">
+              <div>
+                <Label
+                  htmlFor="manual_ticket_id"
+                  className="text-sm font-medium"
+                >
+                  Ticket ID (Optional)
+                </Label>
+                <Input
+                  id="manual_ticket_id"
+                  name="manual_ticket_id"
+                  type="text"
+                  value={formData.manual_ticket_id}
+                  onChange={handleChange}
+                  placeholder="Enter ticket ID"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Optional identifier for this ticket
+                </p>
               </div>
             </div>
           </Card>
@@ -834,14 +898,17 @@ const CreateTicket = () => {
                 !isShiftComplete ||
                 isDriverInactive ||
                 !formData.destination_site ||
-                !formData.driver_name ||
-                formData.driver_name === "To be defined later"
+                // Only require driver if NOT from Overview
+                (!isFromOverview &&
+                  (!formData.driver_name ||
+                    formData.driver_name === "To be defined later"))
               }
               title={
                 truckHasActiveTicket
                   ? `Truck is busy with ticket ${activeTicketId}`
-                  : !formData.driver_name ||
-                    formData.driver_name === "To be defined later"
+                  : !isFromOverview &&
+                    (!formData.driver_name ||
+                      formData.driver_name === "To be defined later")
                   ? "Truck must have an assigned driver"
                   : isDriverInactive
                   ? t("createTicket.driverInactiveWarning")

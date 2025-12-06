@@ -31,6 +31,8 @@ import VendorLogin from "./pages/VendorLogin";
 import VendorOnboarding from "./pages/VendorOnboarding";
 import VendorAlreadyOnboarded from "./pages/VendorAlreadyOnboarded";
 import VendorProfile from "./pages/VendorProfile";
+import ContractorLogin from "./pages/ContractorLogin";
+import ContractorPortal from "./pages/ContractorPortal";
 import NotFound from "./pages/NotFound";
 import { initDatabase } from "./lib/initDatabase";
 import DriverOnboarding from "./pages/DriverOnboarding";
@@ -77,6 +79,14 @@ const App = () => {
                           <VendorProfile />
                         </ProtectedRoute>
                       }
+                    />
+                    <Route
+                      path="/contractor/login"
+                      element={<ContractorLogin />}
+                    />
+                    <Route
+                      path="/contractor/portal"
+                      element={<ContractorPortal />}
                     />
                     <Route path="/scale-house" element={<Overview />} />
                     <Route path="/tickets/:id" element={<TicketDetails />} />

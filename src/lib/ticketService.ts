@@ -84,16 +84,20 @@ export const ticketService = {
         }
       }
 
-      // Insert ticket with only foreign keys (truck_id and driver_id)
+      // Insert ticket with foreign keys (truck_id, driver_id, origin_site_id, destination_site_id)
       // Carrier is fetched via truck_id -> trucks.carrier_id -> carriers.name
       // Driver name is fetched via driver_id -> drivers.name
+      // Origin site name is fetched via origin_site_id -> pickup_sites.name
+      // Destination site name is fetched via destination_site_id -> destination_sites.name
       const { error } = await supabase.from("tickets").insert({
         ticket_id: ticket.ticket_id,
         truck_qr_id: ticket.truck_qr_id,
         truck_id: ticket.truck_id,
         // product: ticket.product,
-        origin_site: ticket.origin_site,
-        destination_site: ticket.destination_site,
+        origin_site: ticket.origin_site, // Keep text field for backward compatibility
+        destination_site: ticket.destination_site, // Keep text field for backward compatibility
+        origin_site_id: ticket.origin_site_id || null, // Foreign key to pickup_sites
+        destination_site_id: ticket.destination_site_id || null, // Foreign key to destination_sites
         gross_weight: ticket.gross_weight || null,
         tare_weight: ticket.tare_weight || null,
         net_weight: ticket.net_weight || null,
@@ -110,10 +114,12 @@ export const ticketService = {
         // scale_ticket_file_url: ticket.scale_ticket_file_url || null,
         // include_scale_ticket_in_email: ticket.include_scale_ticket_in_email || false,
         confirmer_name: ticket.confirmer_name || null,
+        // transaction_id: ticket.transaction_id || null, // Optional ticket ID
         // Removed denormalized fields - use FKs instead:
         // carrier: ticket.carrier || null,
         // driver_name: ticket.driver_name || null,
         // carrier_id: ticket.carrier_id || null,
+        manual_ticket_id: ticket.manual_ticket_id || null, // Optional ticket ID
         driver_id: ticket.driver_id || null,
         ticket_image_url: imageUrl,
       });
@@ -137,7 +143,7 @@ export const ticketService = {
 
   async getTicket(ticketId: string): Promise<Ticket | null> {
     try {
-      // Join with trucks, carriers, and drivers to get related data
+      // Join with trucks, carriers, drivers, pickup sites, and destination sites to get related data
       const { data, error } = await supabase
         .from("tickets")
         .select(
@@ -155,6 +161,17 @@ export const ticketService = {
             id,
             name,
             driver_qr_code
+          ),
+          pickup_site:pickup_sites!tickets_origin_site_id_fkey (
+            id,
+            name,
+            address
+          ),
+          destination_site_data:destination_sites!tickets_destination_site_id_fkey (
+            id,
+            name,
+            location,
+            address
           )
         `
         )
@@ -182,7 +199,7 @@ export const ticketService = {
     console.log("getAllTickets called with sourceTableName:", sourceTableName);
 
     try {
-      // Join with trucks, carriers, and drivers to get related data
+      // Join with trucks, carriers, drivers, pickup sites, and destination sites to get related data
       const { data, error } = await supabase
         .from(sourceTableName)
         .select(
@@ -200,6 +217,17 @@ export const ticketService = {
             id,
             name,
             driver_qr_code
+          ),
+          pickup_site:pickup_sites (
+            id,
+            name,
+            address
+          ),
+          destination_site_data:destination_sites (
+            id,
+            name,
+            location,
+            address
           )
         `
         )
@@ -603,7 +631,7 @@ export const ticketService = {
       throw new Error("Supabase client not initialized");
     }
 
-    // Join with trucks, carriers, and drivers to get related data
+    // Join with trucks, carriers, drivers, pickup sites, and destination sites to get related data
     let query = supabase
       .from(sourceTableName)
       .select(
@@ -621,6 +649,17 @@ export const ticketService = {
         id,
         name,
         driver_qr_code
+      ),
+      pickup_site:pickup_sites!${sourceTableName}_origin_site_id_fkey (
+        id,
+        name,
+        address
+      ),
+      destination_site_data:destination_sites!${sourceTableName}_destination_site_id_fkey (
+        id,
+        name,
+        location,
+        address
       )
       `,
         { count: "exact" }

@@ -245,9 +245,7 @@ const DestinationAttendantConfirm = () => {
       {/* Header */}
       <Header
         showHomeButton
-        onHomeClick={() => navigate("/home")}
-        showSettingsButton
-        onSettingsClick={() => navigate("/driver/profile")}
+        onHomeClick={() => navigate("/contractor/portal")}
       />
 
       {/* Main Content */}

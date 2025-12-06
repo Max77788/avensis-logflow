@@ -113,8 +113,9 @@ export const truckService = {
 
   /**
    * Get active trucks overview with driver information
-   * A truck is active if its status is 'active'
+   * A truck is active if its status is 'active' and belongs to a carrier-type company
    * Driver information is obtained by left joining drivers table on default_truck_id
+   * Shows ALL trucks from carrier companies, regardless of driver assignment
    */
   async getActiveTrucksOverview(
     params?: TrucksOverviewParams
@@ -129,8 +130,7 @@ export const truckService = {
     }
 
     try {
-      // Select trucks with carrier information and driver information
-      // Driver is found by left joining drivers table where drivers.default_truck_id = trucks.id
+      // First, get all active trucks from carrier-type companies
       const { data, error, count } = await supabase
         .from("trucks")
         .select(
@@ -141,22 +141,19 @@ export const truckService = {
       status,
       created_at,
       updated_at,
-      companies(name),
-      drivers:drivers!inner(
+      companies!inner(
         id,
         name,
-        email,
-        status
+        type
       )
     `,
           { count: "exact" }
         )
         .eq("status", "active")
-        .eq("drivers.status", "active")
+        .eq("companies.type", "Carrier")
         .order("truck_id", { ascending: true })
         .range(fromIndex, toIndex);
 
-      
       console.log("getActiveTrucksOverview data:", data);
 
       if (error) {
@@ -164,12 +161,37 @@ export const truckService = {
         throw new Error(error.message || "Failed to load trucks");
       }
 
+      // Now get driver information for these trucks
+      // Find drivers where default_truck_id matches any of our truck IDs
+      const truckIds = (data || []).map((truck: any) => truck.id);
+
+      let driverMap = new Map<string, any>();
+
+      if (truckIds.length > 0) {
+        const { data: drivers, error: driversError } = await supabase
+          .from("drivers")
+          .select("id, name, email, status, default_truck_id")
+          .in("default_truck_id", truckIds);
+
+        if (!driversError && drivers) {
+          drivers.forEach((driver: any) => {
+            if (driver.default_truck_id) {
+              driverMap.set(driver.default_truck_id, driver);
+            }
+          });
+        }
+      }
+
       // Transform the data to match expected format
-      // The drivers join returns an array, but we only expect one driver per truck
       const trucks = (data || []).map((truck: any) => ({
-        ...truck,
-        active_driver: truck.drivers?.[0] || null,
-        drivers: undefined, // Remove the drivers array from the response
+        id: truck.id,
+        truck_id: truck.truck_id,
+        carrier_id: truck.carrier_id,
+        status: truck.status,
+        created_at: truck.created_at,
+        updated_at: truck.updated_at,
+        companies: truck.companies,
+        active_driver: driverMap.get(truck.id) || null,
       }));
 
       const result: TrucksOverviewResponse = {
