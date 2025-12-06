@@ -435,7 +435,7 @@ const ContractorPortal = () => {
                         {ticket.manual_ticket_id || "-"}
                       </td>
                       <td className="p-3 text-sm">
-                        {new Date(ticket.created_at).toLocaleDateString()}
+                        {new Date(ticket.created_at).toLocaleString()}
                       </td>
                       <td className="p-3 text-sm">
                         {ticket.truck_name || "-"}

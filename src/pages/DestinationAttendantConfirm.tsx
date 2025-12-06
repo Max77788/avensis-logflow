@@ -391,6 +391,29 @@ const DestinationAttendantConfirm = () => {
                   </div>
                 </Card>
               </div>
+              {/* Ticket Image Display */}
+              {ticket?.ticket_image_url && (
+                <Card className="border border-border bg-card p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <FileText className="h-6 w-6 text-primary" />
+                    <h3 className="text-lg font-bold text-foreground">
+                      {t("destinationConfirm.ticketImage")}
+                    </h3>
+                  </div>
+                  <div className="flex justify-center">
+                    <a
+                      href={ticket.ticket_image_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      <FileText className="h-4 w-4" />
+                      View Ticket Image
+                    </a>
+                  </div>
+                </Card>
+              )}
+
               <div className="mt-6 pt-6 border-t border-border/70">
                 <Button
                   variant="outline"
@@ -402,7 +425,7 @@ const DestinationAttendantConfirm = () => {
                 </Button>
               </div>
 
-              {/* Confirmation Details 
+              {/* Confirmation Details
               <Card
                 className={`border-0 p-6 ${
                   isDark
