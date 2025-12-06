@@ -533,15 +533,17 @@ const Overview = () => {
               </Button>
             </form>
 
+            {/*
             <div className="mt-4 pt-4 border-t border-border">
               <Button
                 variant="ghost"
-                onClick={() => navigate("/home")}
+                onClick={() => navigate("/")}
                 className="w-full"
               >
                 Back to Home
               </Button>
             </div>
+            */}
           </Card>
 
           {/* Info */}

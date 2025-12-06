@@ -760,6 +760,32 @@ const CreateTicket = () => {
             </div>
           </Card>
 
+          {/* Transaction ID */}
+          <Card className="overflow-hidden shadow-md">
+            <div className="space-y-4 p-4">
+              <div>
+                <Label
+                  htmlFor="manual_ticket_id"
+                  className="text-sm font-medium"
+                >
+                  Transaction ID (Optional)
+                </Label>
+                <Input
+                  id="manual_ticket_id"
+                  name="manual_ticket_id"
+                  type="text"
+                  value={formData.manual_ticket_id}
+                  onChange={handleChange}
+                  placeholder="Enter transaction ID"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Optional identifier for this ticket
+                </p>
+              </div>
+            </div>
+          </Card>
+
           {/* Weight Info */}
           <Card className="overflow-hidden shadow-md">
             <div className="bg-success/5 p-4">
@@ -786,32 +812,6 @@ const CreateTicket = () => {
                     !formData.net_weight && "border-red-500 border-2"
                   )}
                 />
-              </div>
-            </div>
-          </Card>
-
-          {/* Ticket ID / Transaction ID */}
-          <Card className="overflow-hidden shadow-md">
-            <div className="space-y-4 p-4">
-              <div>
-                <Label
-                  htmlFor="manual_ticket_id"
-                  className="text-sm font-medium"
-                >
-                  Ticket ID (Optional)
-                </Label>
-                <Input
-                  id="manual_ticket_id"
-                  name="manual_ticket_id"
-                  type="text"
-                  value={formData.manual_ticket_id}
-                  onChange={handleChange}
-                  placeholder="Enter ticket ID"
-                  className="mt-1"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Optional identifier for this ticket
-                </p>
               </div>
             </div>
           </Card>

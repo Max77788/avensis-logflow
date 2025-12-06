@@ -209,8 +209,7 @@ const ContractorPortal = () => {
     return tickets.filter((ticket) => {
       const matchesSearch =
         searchQuery === "" ||
-        ticket.ticket_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ticket.transaction_id
+        ticket.manual_ticket_id
           ?.toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
         ticket.truck_name?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -336,7 +335,7 @@ const ContractorPortal = () => {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by ticket ID, transaction ID, or truck..."
+                  placeholder="Search by transaction ID or truck..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -399,9 +398,6 @@ const ContractorPortal = () => {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                      Ticket ID
-                    </th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                       Transaction ID
                     </th>
                     <th className="text-left p-3 text-sm font-medium text-muted-foreground">
@@ -422,22 +418,21 @@ const ContractorPortal = () => {
                     <th className="text-left p-3 text-sm font-medium text-muted-foreground">
                       Status
                     </th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                      Actions
-                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTickets.map((ticket) => (
                     <tr
-                      key={ticket.id}
-                      className="border-b border-border hover:bg-accent/5 transition-colors"
+                      key={ticket.ticket_id}
+                      onClick={() =>
+                        navigate(
+                          `/tickets/${ticket.ticket_id}/confirm-delivery`
+                        )
+                      }
+                      className="border-b border-border hover:bg-accent/10 transition-colors cursor-pointer"
                     >
                       <td className="p-3 text-sm font-medium">
-                        {ticket.ticket_id}
-                      </td>
-                      <td className="p-3 text-sm">
-                        {ticket.transaction_id || "-"}
+                        {ticket.manual_ticket_id || "-"}
                       </td>
                       <td className="p-3 text-sm">
                         {new Date(ticket.created_at).toLocaleDateString()}
@@ -459,33 +454,6 @@ const ContractorPortal = () => {
                       </td>
                       <td className="p-3">
                         <StatusBadge status={ticket.status} />
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              navigate(`/tickets/${ticket.ticket_id}/confirm-delivery`)
-                            }
-                          >
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            View
-                          </Button>
-                          {/*
-                          {ticket.status === "VERIFIED" && (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                handleApproveTicket(ticket.ticket_id)
-                              }
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Approve
-                            </Button>
-                          )}
-                          */}
-                        </div>
                       </td>
                     </tr>
                   ))}

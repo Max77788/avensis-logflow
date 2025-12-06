@@ -12,6 +12,7 @@ import {
   User,
   FileText,
   AlertCircle,
+  Home,
 } from "lucide-react";
 import { ticketService } from "@/lib/ticketService";
 import { useGPS } from "@/hooks/useGPS";
@@ -356,7 +357,6 @@ const DestinationAttendantConfirm = () => {
                     </div>
                   </div>
                 </Card>
-
                 {/* Right Column */}
                 <Card className="border border-border bg-card p-6">
                   <h3 className="text-lg font-bold mb-4 pb-3 border-b text-foreground border-border">
@@ -390,6 +390,16 @@ const DestinationAttendantConfirm = () => {
                     </div>
                   </div>
                 </Card>
+              </div>
+              <div className="mt-6 pt-6 border-t border-border/70">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/contractor/portal")}
+                  className="w-full justify-center gap-2 py-5 text-base font-medium"
+                >
+                  <Home className="h-4 w-4" />
+                  Back to Home
+                </Button>
               </div>
 
               {/* Confirmation Details 
@@ -433,15 +443,6 @@ const DestinationAttendantConfirm = () => {
                 </div>
               </Card>
               */}
-
-              {/* Ticket Image Manager */}
-              <TicketImageManager
-                imageUrl={ticket.ticket_image_url}
-                ticketId={ticket.ticket_id}
-                onImageUpload={handleImageUpload}
-                onImageRemove={handleImageRemove}
-                isLoading={isUploadingImage}
-              />
             </div>
           ) : (
             // Confirmation Form View
@@ -494,34 +495,16 @@ const DestinationAttendantConfirm = () => {
                 </div>
               </Card>
 
-              {/* Ticket Image Section */}
-              <Card className="border border-border bg-card p-6 mb-8">
-                <div className="flex justify-center gap-3 mb-4">
-                  <FileText className="h-6 w-6 text-primary" />
-                  <h3 className="text-lg font-bold text-foreground">
-                    {t("destinationConfirm.ticketImage")}
-                  </h3>
-                </div>
-                {ticket?.ticket_image_url ? (
-                  <div className="flex justify-center space-y-3">
-                    <a
-                      href={ticket.ticket_image_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                    >
-                      <FileText className="h-4 w-4" />
-                      View Ticket Image
-                    </a>
-                  </div>
-                ) : (
-                  <div className="flex justify-center rounded-lg p-4 text-center bg-muted">
-                    <p className="text-sm text-muted-foreground">
-                      {t("destinationConfirm.noTicketImageYet")}
-                    </p>
-                  </div>
-                )}
-              </Card>
+              {/* Ticket Image Upload - Before Sign-off */}
+              <div className="mb-8">
+                <TicketImageManager
+                  imageUrl={ticket.ticket_image_url}
+                  ticketId={ticket.ticket_id}
+                  onImageUpload={handleImageUpload}
+                  onImageRemove={handleImageRemove}
+                  isLoading={isUploadingImage}
+                />
+              </div>
 
               {/* Tiles Grid */}
               <div className="grid grid-cols-1 gap-6 mb-8">
