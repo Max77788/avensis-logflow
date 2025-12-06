@@ -706,6 +706,70 @@ const Overview = () => {
               )}
             </div>
 
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Loads Delivered */}
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Loads Delivered
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {allTickets.filter((t) => t.status === "CLOSED").length}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Loads in Progress */}
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-500/10 rounded-lg">
+                    <Package className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Loads in Progress
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {allTickets.filter((t) => t.status === "VERIFIED").length}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Tons Delivered */}
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg">
+                    <TruckIcon className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Tons Delivered
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {(() => {
+                        // Calculate total tons from closed tickets
+                        // net_weight is already stored in tons
+                        const totalTons = allTickets
+                          .filter((t) => t.status === "CLOSED")
+                          .reduce((sum, ticket) => {
+                            const weight = ticket.net_weight || 0;
+                            return sum + weight;
+                          }, 0);
+                        return totalTons.toFixed(2);
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
             {/* Tickets Grid */}
             {ticketsLoading && allTickets.length === 0 ? (
               <div className="space-y-3">
