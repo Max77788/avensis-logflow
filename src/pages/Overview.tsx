@@ -101,6 +101,19 @@ const Overview = () => {
   const [trucksTotal, setTrucksTotal] = useState(0);
   const [trucksHasMore, setTrucksHasMore] = useState(true);
 
+  // Metrics state for async updates
+  const [ticketMetrics, setTicketMetrics] = useState({
+    loadsDelivered: 0,
+    loadsInProgress: 0,
+    tonsDelivered: 0,
+  });
+  const [truckMetrics, setTruckMetrics] = useState({
+    dailyTruckCount: 0,
+    trucksAvailableToday: 0,
+    trucksDeliveringNow: 0,
+  });
+  const [metricsLoading, setMetricsLoading] = useState(false);
+
   // Filters / UI
   const [ticketSearch, setTicketSearch] = useState("");
   const [truckSearch, setTruckSearch] = useState("");
@@ -231,6 +244,98 @@ const Overview = () => {
     });
   };
 
+  // Async function to fetch ticket metrics
+  const fetchTicketMetrics = async () => {
+    try {
+      setMetricsLoading(true);
+      const fromDate =
+        dateFilter === "today"
+          ? new Date().toISOString().slice(0, 10)
+          : undefined;
+
+      const res = await ticketService.getTicketsOverview({
+        limit: 3000, // Get all tickets for accurate metrics
+        fromDate,
+        page: 1,
+      });
+
+      const tickets = res.tickets;
+
+      // Calculate metrics
+      const loadsDelivered = tickets.filter(
+        (t) => t.status === "CLOSED"
+      ).length;
+      const loadsInProgress = tickets.filter(
+        (t) => t.status === "VERIFIED"
+      ).length;
+      const tonsDelivered = tickets
+        .filter((t) => t.status === "CLOSED")
+        .reduce((sum, ticket) => {
+          const weight = ticket.net_weight || 0;
+          return sum + weight;
+        }, 0);
+
+      setTicketMetrics({
+        loadsDelivered,
+        loadsInProgress,
+        tonsDelivered,
+      });
+    } catch (error) {
+      console.error("Error fetching ticket metrics:", error);
+    } finally {
+      setMetricsLoading(false);
+    }
+  };
+
+  // Async function to fetch truck metrics
+  const fetchTruckMetrics = async () => {
+    try {
+      setMetricsLoading(true);
+
+      // Fetch all tickets to calculate truck metrics
+      const fromDate = new Date().toISOString().slice(0, 10);
+      const res = await ticketService.getTicketsOverview({
+        limit: 3000,
+        fromDate,
+        page: 1,
+      });
+
+      const tickets = res.tickets;
+      const todayStr = new Date().toDateString();
+
+      // Daily Truck Count - unique trucks with tickets created today
+      const todayTickets = tickets.filter((ticket) => {
+        if (!ticket.created_at) return false;
+        const createdAtStr = new Date(ticket.created_at).toDateString();
+        return createdAtStr === todayStr;
+      });
+      const dailyTruckCount = new Set(
+        todayTickets.map((t) => t.truck_id).filter(Boolean)
+      ).size;
+
+      // Trucks Delivering Now - unique trucks with VERIFIED status
+      const verifiedTickets = tickets.filter(
+        (ticket) => ticket.status === "VERIFIED"
+      );
+      const trucksDeliveringNow = new Set(
+        verifiedTickets.map((t) => t.truck_id).filter(Boolean)
+      ).size;
+
+      // Trucks Available Today - will be calculated from filteredTrucks
+      // For now, we'll update this separately when trucks are loaded
+
+      setTruckMetrics((prev) => ({
+        ...prev,
+        dailyTruckCount,
+        trucksDeliveringNow,
+      }));
+    } catch (error) {
+      console.error("Error fetching truck metrics:", error);
+    } finally {
+      setMetricsLoading(false);
+    }
+  };
+
   // Initial tickets load (page 1)
   useEffect(() => {
     let isMounted = true;
@@ -275,12 +380,26 @@ const Overview = () => {
 
     // Always (re)load page 1 when dateFilter changes
     loadTicketsPage(1);
+    // Also fetch metrics when tickets are loaded
+    fetchTicketMetrics();
 
     return () => {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFilter]);
+
+  // Fetch ticket metrics periodically (every 30 seconds)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(() => {
+      fetchTicketMetrics();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, dateFilter]);
 
   const loadMoreTickets = async () => {
     if (ticketsLoading || !ticketsHasMore) return;
@@ -352,11 +471,28 @@ const Overview = () => {
     };
 
     loadTrucksPage(1);
+    // Also fetch truck metrics when trucks tab is opened
+    if (activeTab === "trucks") {
+      fetchTruckMetrics();
+    }
 
     return () => {
       isMounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, trucksLoaded]);
+
+  // Fetch truck metrics periodically when on trucks tab (every 30 seconds)
+  useEffect(() => {
+    if (!isAuthenticated || activeTab !== "trucks") return;
+
+    const interval = setInterval(() => {
+      fetchTruckMetrics();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, activeTab]);
 
   const loadMoreTrucks = async () => {
     if (trucksLoading || !trucksHasMore) return;
@@ -443,6 +579,14 @@ const Overview = () => {
       new Set(allTickets.map((t) => t.carrier).filter(Boolean))
     ).sort();
   }, [allTickets]);
+
+  // Update "Trucks Available Today" when filteredTrucks changes
+  useEffect(() => {
+    setTruckMetrics((prev) => ({
+      ...prev,
+      trucksAvailableToday: filteredTrucks.length,
+    }));
+  }, [filteredTrucks]);
 
   // Use backend totals for counts if available, otherwise fallback
   const ticketsCountLabel =
@@ -610,7 +754,11 @@ const Overview = () => {
                       Loads Delivered
                     </p>
                     <p className="text-2xl font-bold">
-                      {allTickets.filter((t) => t.status === "CLOSED").length}
+                      {metricsLoading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        ticketMetrics.loadsDelivered
+                      )}
                     </p>
                   </div>
                 </div>
@@ -627,7 +775,11 @@ const Overview = () => {
                       Loads in Progress
                     </p>
                     <p className="text-2xl font-bold">
-                      {allTickets.filter((t) => t.status === "VERIFIED").length}
+                      {metricsLoading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        ticketMetrics.loadsInProgress
+                      )}
                     </p>
                   </div>
                 </div>
@@ -644,17 +796,11 @@ const Overview = () => {
                       Tons Delivered
                     </p>
                     <p className="text-2xl font-bold">
-                      {(() => {
-                        // Calculate total tons from closed tickets
-                        // net_weight is already stored in tons
-                        const totalTons = allTickets
-                          .filter((t) => t.status === "CLOSED")
-                          .reduce((sum, ticket) => {
-                            const weight = ticket.net_weight || 0;
-                            return sum + weight;
-                          }, 0);
-                        return totalTons.toFixed(2);
-                      })()}
+                      {metricsLoading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        ticketMetrics.tonsDelivered.toFixed(2)
+                      )}
                     </p>
                   </div>
                 </div>
@@ -820,6 +966,17 @@ const Overview = () => {
                         ticket.status as keyof typeof statusColors
                       ] || statusColors.CREATED;
 
+                    // Status label mapping
+                    const statusLabels = {
+                      CREATED: "CREATED",
+                      VERIFIED: "In Progress",
+                      CLOSED: "Delivered",
+                    };
+                    const statusLabel =
+                      statusLabels[
+                        ticket.status as keyof typeof statusLabels
+                      ] || ticket.status;
+
                     return (
                       <Card
                         key={ticket.ticket_id}
@@ -866,7 +1023,7 @@ const Overview = () => {
                               <div
                                 className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${statusColor}`}
                               >
-                                {ticket.status}
+                                {statusLabel}
                               </div>
                               {/* Date and Time */}
                               <div className="flex flex-row gap-2 text-xs text-muted-foreground">
@@ -923,24 +1080,14 @@ const Overview = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">
-                      Daily Trucks Count
+                      Daily Truck Count
                     </p>
                     <p className="text-2xl font-bold">
-                      {(() => {
-                        // Get unique trucks that have tickets created today
-                        const todayStr = new Date().toDateString();
-                        const todayTickets = allTickets.filter((ticket) => {
-                          if (!ticket.created_at) return false;
-                          const createdAtStr = new Date(
-                            ticket.created_at
-                          ).toDateString();
-                          return createdAtStr === todayStr;
-                        });
-                        const uniqueTruckIds = new Set(
-                          todayTickets.map((t) => t.truck_id).filter(Boolean)
-                        );
-                        return uniqueTruckIds.size;
-                      })()}
+                      {metricsLoading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        truckMetrics.dailyTruckCount
+                      )}
                     </p>
                   </div>
                 </div>
@@ -954,31 +1101,10 @@ const Overview = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">
-                      Available Today
+                      Trucks Available Today
                     </p>
                     <p className="text-2xl font-bold">
-                      {(() => {
-                        // Trucks that came today and have been verified
-                        const todayStr = new Date().toDateString();
-                        const todayVerifiedTickets = allTickets.filter(
-                          (ticket) => {
-                            if (!ticket.created_at) return false;
-                            const createdAtStr = new Date(
-                              ticket.created_at
-                            ).toDateString();
-                            return (
-                              createdAtStr === todayStr &&
-                              ticket.status === "VERIFIED"
-                            );
-                          }
-                        );
-                        const uniqueTruckIds = new Set(
-                          todayVerifiedTickets
-                            .map((t) => t.truck_id)
-                            .filter(Boolean)
-                        );
-                        return uniqueTruckIds.size;
-                      })()}
+                      {truckMetrics.trucksAvailableToday}
                     </p>
                   </div>
                 </div>
@@ -992,19 +1118,14 @@ const Overview = () => {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">
-                      Load in Progress
+                      Trucks Delivering Now
                     </p>
                     <p className="text-2xl font-bold">
-                      {(() => {
-                        // Trucks with VERIFIED status tickets
-                        const verifiedTickets = allTickets.filter(
-                          (ticket) => ticket.status === "VERIFIED"
-                        );
-                        const uniqueTruckIds = new Set(
-                          verifiedTickets.map((t) => t.truck_id).filter(Boolean)
-                        );
-                        return uniqueTruckIds.size;
-                      })()}
+                      {metricsLoading ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        truckMetrics.trucksDeliveringNow
+                      )}
                     </p>
                   </div>
                 </div>
