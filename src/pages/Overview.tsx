@@ -862,6 +862,106 @@ const Overview = () => {
               </div>
             </div>
 
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Daily Trucks Count */}
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg">
+                    <TruckIcon className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Daily Trucks Count
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {(() => {
+                        // Get unique trucks that have tickets created today
+                        const todayStr = new Date().toDateString();
+                        const todayTickets = allTickets.filter((ticket) => {
+                          if (!ticket.created_at) return false;
+                          const createdAtStr = new Date(
+                            ticket.created_at
+                          ).toDateString();
+                          return createdAtStr === todayStr;
+                        });
+                        const uniqueTruckIds = new Set(
+                          todayTickets.map((t) => t.truck_id).filter(Boolean)
+                        );
+                        return uniqueTruckIds.size;
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Available Today */}
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Available Today
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {(() => {
+                        // Trucks that came today with CREATED status (not yet verified)
+                        const todayStr = new Date().toDateString();
+                        const todayCreatedTickets = allTickets.filter(
+                          (ticket) => {
+                            if (!ticket.created_at) return false;
+                            const createdAtStr = new Date(
+                              ticket.created_at
+                            ).toDateString();
+                            return (
+                              createdAtStr === todayStr &&
+                              ticket.status === "CREATED"
+                            );
+                          }
+                        );
+                        const uniqueTruckIds = new Set(
+                          todayCreatedTickets
+                            .map((t) => t.truck_id)
+                            .filter(Boolean)
+                        );
+                        return uniqueTruckIds.size;
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Load in Progress */}
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-500/10 rounded-lg">
+                    <Package className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Load in Progress
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {(() => {
+                        // Trucks with VERIFIED status tickets
+                        const verifiedTickets = allTickets.filter(
+                          (ticket) => ticket.status === "VERIFIED"
+                        );
+                        const uniqueTruckIds = new Set(
+                          verifiedTickets.map((t) => t.truck_id).filter(Boolean)
+                        );
+                        return uniqueTruckIds.size;
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <hr></hr>
+
             {/* Trucks List */}
             {trucksLoading && allTrucks.length === 0 ? (
               <div className="space-y-3">

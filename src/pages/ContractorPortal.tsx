@@ -12,13 +12,15 @@ import {
   FileText,
   Search,
   MapPin,
-  ExternalLink,
   CheckCircle,
   Clock,
+  Package,
+  Calendar,
+  Truck as TruckIcon,
+  User,
+  Weight,
 } from "lucide-react";
-import { ticketService } from "@/lib/ticketService";
 import type { Ticket } from "@/lib/types";
-import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -33,8 +35,10 @@ const ContractorPortal = () => {
   const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [contractorName, setContractorName] = useState("");
-  const [destinationSites, setDestinationSites] = useState<string[]>([]);
-  const [destinationSiteIds, setDestinationSiteIds] = useState<string[]>([]); // Store site IDs for filtering
+  const [selectedDestinationSiteId, setSelectedDestinationSiteId] =
+    useState("");
+  const [selectedDestinationSiteName, setSelectedDestinationSiteName] =
+    useState("");
 
   // Tickets state
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -42,7 +46,6 @@ const ContractorPortal = () => {
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSite, setSelectedSite] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
 
   // Redirect if not authenticated as attendant (only after loading is complete)
@@ -55,7 +58,7 @@ const ContractorPortal = () => {
     }
   }, [user, navigate, loading]);
 
-  // Load contractor data and destination sites
+  // Load contractor data and selected destination site
   useEffect(() => {
     const loadData = async () => {
       if (!user || user.role !== "attendant") {
@@ -65,6 +68,19 @@ const ContractorPortal = () => {
 
       setLoading(true);
       try {
+        // Get selected destination site from localStorage
+        const siteId = localStorage.getItem("selectedDestinationSiteId");
+        const siteName = localStorage.getItem("selectedDestinationSiteName");
+
+        if (!siteId || !siteName) {
+          // No site selected, redirect back to login
+          navigate("/contractor/login");
+          return;
+        }
+
+        setSelectedDestinationSiteId(siteId);
+        setSelectedDestinationSiteName(siteName);
+
         // Get contractor company data
         const { data: company, error: companyError } = await supabase
           .from("companies")
@@ -73,23 +89,10 @@ const ContractorPortal = () => {
           .single();
 
         if (companyError) throw companyError;
-        setContractorName(company.name);
+        setContractorName(company?.name || "");
 
-        // Get destination sites for this contractor
-        const { data: sites, error: sitesError } = await supabase
-          .from("destination_sites")
-          .select("id, name")
-          .eq("company_id", user.id);
-
-        if (sitesError) throw sitesError;
-
-        const siteNames = sites.map((site) => site.name);
-        const siteIds = sites.map((site) => site.id);
-        setDestinationSites(siteNames);
-        setDestinationSiteIds(siteIds);
-
-        // Load tickets with Supabase filtering
-        await loadTickets(siteIds);
+        // Load tickets for the selected destination site only
+        await loadTickets(siteId);
       } catch (error) {
         console.error("Error loading contractor data:", error);
         toast({
@@ -103,12 +106,12 @@ const ContractorPortal = () => {
     };
 
     loadData();
-  }, [user]);
+  }, [user, navigate]);
 
-  const loadTickets = async (siteIds: string[]) => {
+  const loadTickets = async (siteId: string) => {
     setIsLoadingTickets(true);
     try {
-      if (siteIds.length === 0) {
+      if (!siteId) {
         setTickets([]);
         setIsLoadingTickets(false);
         return;
@@ -120,7 +123,7 @@ const ContractorPortal = () => {
       const todayISO = today.toISOString();
 
       // Query tickets directly from Supabase with proper filtering
-      // Filter: destination_site_id IN (siteIds) AND (status = 'VERIFIED' OR (status = 'CLOSED' AND created_at >= today))
+      // Filter: destination_site_id = siteId AND (status = 'VERIFIED' OR (status = 'CLOSED' AND created_at >= today))
       const { data, error } = await supabase
         .from("tickets")
         .select(
@@ -152,7 +155,7 @@ const ContractorPortal = () => {
           )
         `
         )
-        .in("destination_site_id", siteIds)
+        .eq("destination_site_id", siteId)
         .or(
           `status.eq.VERIFIED,and(status.eq.CLOSED,created_at.gte.${todayISO})`
         )
@@ -212,44 +215,23 @@ const ContractorPortal = () => {
         ticket.manual_ticket_id
           ?.toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        ticket.truck_name?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesSite =
-        selectedSite === "all" || ticket.destination_site === selectedSite;
+        ticket.truck_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.driver_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ticket.carrier?.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesStatus =
         selectedStatus === "all" || ticket.status === selectedStatus;
 
-      return matchesSearch && matchesSite && matchesStatus;
+      return matchesSearch && matchesStatus;
     });
-  }, [tickets, searchQuery, selectedSite, selectedStatus]);
+  }, [tickets, searchQuery, selectedStatus]);
 
   const handleLogout = () => {
+    // Clear selected site from localStorage
+    localStorage.removeItem("selectedDestinationSiteId");
+    localStorage.removeItem("selectedDestinationSiteName");
     logout();
     navigate("/contractor/login");
-  };
-
-  const handleApproveTicket = async (ticketId: string) => {
-    try {
-      // Update ticket status to APPROVED or similar
-      // This would need to be implemented based on your workflow
-      toast({
-        title: "Success",
-        description: "Ticket approved successfully",
-      });
-
-      // Reload tickets
-      if (destinationSiteIds.length > 0) {
-        await loadTickets(destinationSiteIds);
-      }
-    } catch (error) {
-      console.error("Error approving ticket:", error);
-      toast({
-        title: "Error",
-        description: "Failed to approve ticket",
-        variant: "destructive",
-      });
-    }
   };
 
   if (loading) {
@@ -271,9 +253,13 @@ const ContractorPortal = () => {
             <h1 className="text-3xl font-bold text-foreground">
               Destination Attendant Portal
             </h1>
-            <p className="text-muted-foreground mt-1">
-              {contractorName} - Manage incoming tickets
-            </p>
+            <p className="text-muted-foreground mt-1">{contractorName}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              <p className="text-sm font-medium text-primary">
+                {selectedDestinationSiteName}
+              </p>
+            </div>
           </div>
           <Button variant="outline" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
@@ -282,7 +268,7 @@ const ContractorPortal = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/10 rounded-lg">
@@ -312,50 +298,20 @@ const ContractorPortal = () => {
               </div>
             </div>
           </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/10 rounded-lg">
-                <MapPin className="h-5 w-5 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Destination Sites
-                </p>
-                <p className="text-2xl font-bold">{destinationSites.length}</p>
-              </div>
-            </div>
-          </Card>
         </div>
 
         {/* Filters Section */}
         <Card className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by transaction ID or truck..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by transaction ID, truck, driver, or carrier..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-
-            <Select value={selectedSite} onValueChange={setSelectedSite}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Sites" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sites</SelectItem>
-                {destinationSites.map((site) => (
-                  <SelectItem key={site} value={site}>
-                    {site}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
 
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
               <SelectTrigger>
@@ -370,9 +326,9 @@ const ContractorPortal = () => {
           </div>
         </Card>
 
-        {/* Tickets Table */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
+        {/* Tickets Section */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-semibold">Incoming Tickets</h2>
@@ -393,75 +349,127 @@ const ContractorPortal = () => {
               <p className="text-muted-foreground">No tickets found</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                      Transaction ID
-                    </th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                      Date
-                    </th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                      Truck
-                    </th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                      Driver
-                    </th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                      Destination Site
-                    </th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                      Net Weight
-                    </th>
-                    <th className="text-left p-3 text-sm font-medium text-muted-foreground">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTickets.map((ticket) => (
-                    <tr
-                      key={ticket.ticket_id}
-                      onClick={() =>
-                        navigate(
-                          `/tickets/${ticket.ticket_id}/confirm-delivery`
-                        )
-                      }
-                      className="border-b border-border hover:bg-accent/10 transition-colors cursor-pointer"
-                    >
-                      <td className="p-3 text-sm font-medium">
-                        {ticket.manual_ticket_id || "-"}
-                      </td>
-                      <td className="p-3 text-sm">
-                        {new Date(ticket.created_at).toLocaleString()}
-                      </td>
-                      <td className="p-3 text-sm">
-                        {ticket.truck_name || "-"}
-                      </td>
-                      <td className="p-3 text-sm">
-                        {ticket.driver_name || "-"}
-                      </td>
-                      <td className="p-3 text-sm">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-muted-foreground" />
-                          {ticket.destination_site}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredTickets.map((ticket) => {
+                const createdDate = ticket.created_at
+                  ? new Date(ticket.created_at)
+                  : null;
+                const formattedDate = createdDate
+                  ? createdDate.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                  : "N/A";
+                const formattedTime = createdDate
+                  ? createdDate.toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "";
+
+                const statusColors: Record<string, string> = {
+                  VERIFIED:
+                    "bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/20",
+                  CLOSED:
+                    "bg-gray-500/10 text-gray-700 dark:text-gray-300 border-gray-500/20",
+                };
+
+                const statusColor =
+                  statusColors[ticket.status] ||
+                  "bg-gray-500/10 text-gray-700 dark:text-gray-300 border-gray-500/20";
+
+                return (
+                  <Card
+                    key={ticket.ticket_id}
+                    className="group cursor-pointer overflow-hidden transition-all duration-200 hover:shadow-lg hover:border-primary/50 border-border/50 relative"
+                    onClick={() =>
+                      navigate(`/tickets/${ticket.ticket_id}/confirm-delivery`)
+                    }
+                  >
+                    <div className="p-5">
+                      <div className="flex flex-col gap-4">
+                        {/* Header Section */}
+                        <div className="flex items-start gap-3">
+                          {/* Icon */}
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex-shrink-0 group-hover:from-primary/30 group-hover:to-primary/20 transition-colors">
+                            <Package className="h-6 w-6 text-primary" />
+                          </div>
+
+                          {/* Transaction ID and Carrier */}
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <h3 className="font-bold text-lg text-foreground truncate">
+                              {ticket.manual_ticket_id || "No Transaction ID"}
+                            </h3>
+
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <TruckIcon className="h-3 w-3" />
+                              <span className="truncate">
+                                {ticket.carrier || "Unknown Carrier"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </td>
-                      <td className="p-3 text-sm">
-                        {ticket.net_weight ? `${ticket.net_weight} lbs` : "-"}
-                      </td>
-                      <td className="p-3">
-                        <StatusBadge status={ticket.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+
+                        {/* Details Grid */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <TruckIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground truncate">
+                              {ticket.truck_name || "N/A"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground truncate">
+                              {ticket.driver_name || "N/A"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 col-span-2">
+                            <Weight className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">
+                              {ticket.net_weight
+                                ? `${ticket.net_weight} lbs`
+                                : "N/A"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="border-b border-border/50" />
+
+                        {/* Status and Date */}
+                        <div className="flex justify-between items-center gap-4">
+                          <div
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${statusColor}`}
+                          >
+                            {ticket.status}
+                          </div>
+
+                          <div className="flex flex-col gap-1 text-xs text-muted-foreground text-right">
+                            <div className="flex items-center gap-1.5 justify-end">
+                              <Calendar className="h-3.5 w-3.5" />
+                              <span>{formattedDate}</span>
+                            </div>
+                            {formattedTime && (
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>{formattedTime}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Hover Effect Indicator */}
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );
