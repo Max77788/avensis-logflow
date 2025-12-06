@@ -597,6 +597,70 @@ const Overview = () => {
         {/* Tickets Tab */}
         {activeTab === "tickets" && (
           <div className="space-y-4">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Loads Delivered */}
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Loads Delivered
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {allTickets.filter((t) => t.status === "CLOSED").length}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Loads in Progress */}
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-500/10 rounded-lg">
+                    <Package className="h-5 w-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Loads in Progress
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {allTickets.filter((t) => t.status === "VERIFIED").length}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Tons Delivered */}
+              <Card className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg">
+                    <TruckIcon className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Tons Delivered
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {(() => {
+                        // Calculate total tons from closed tickets
+                        // net_weight is already stored in tons
+                        const totalTons = allTickets
+                          .filter((t) => t.status === "CLOSED")
+                          .reduce((sum, ticket) => {
+                            const weight = ticket.net_weight || 0;
+                            return sum + weight;
+                          }, 0);
+                        return totalTons.toFixed(2);
+                      })()}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
             {/* Search + Filters */}
             <div className="space-y-3">
               <div className="flex gap-2">
@@ -704,70 +768,6 @@ const Overview = () => {
                   </div>
                 </Card>
               )}
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Loads Delivered */}
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-500/10 rounded-lg">
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Loads Delivered
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {allTickets.filter((t) => t.status === "CLOSED").length}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Loads in Progress */}
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-500/10 rounded-lg">
-                    <Package className="h-5 w-5 text-orange-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Loads in Progress
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {allTickets.filter((t) => t.status === "VERIFIED").length}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Tons Delivered */}
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-500/10 rounded-lg">
-                    <TruckIcon className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Tons Delivered
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {(() => {
-                        // Calculate total tons from closed tickets
-                        // net_weight is already stored in tons
-                        const totalTons = allTickets
-                          .filter((t) => t.status === "CLOSED")
-                          .reduce((sum, ticket) => {
-                            const weight = ticket.net_weight || 0;
-                            return sum + weight;
-                          }, 0);
-                        return totalTons.toFixed(2);
-                      })()}
-                    </p>
-                  </div>
-                </div>
-              </Card>
             </div>
 
             {/* Tickets Grid */}
@@ -913,19 +913,6 @@ const Overview = () => {
         {/* Trucks Tab */}
         {activeTab === "trucks" && (
           <div className="space-y-4">
-            {/* Search */}
-            <div className="flex gap-2">
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by truck ID, carrier, or driver..."
-                  value={truckSearch}
-                  onChange={(e) => setTruckSearch(e.target.value)}
-                  className="pl-10 text-xs md:text-sm"
-                />
-              </div>
-            </div>
-
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Daily Trucks Count */}
@@ -971,9 +958,9 @@ const Overview = () => {
                     </p>
                     <p className="text-2xl font-bold">
                       {(() => {
-                        // Trucks that came today with CREATED status (not yet verified)
+                        // Trucks that came today and have been verified
                         const todayStr = new Date().toDateString();
-                        const todayCreatedTickets = allTickets.filter(
+                        const todayVerifiedTickets = allTickets.filter(
                           (ticket) => {
                             if (!ticket.created_at) return false;
                             const createdAtStr = new Date(
@@ -981,12 +968,12 @@ const Overview = () => {
                             ).toDateString();
                             return (
                               createdAtStr === todayStr &&
-                              ticket.status === "CREATED"
+                              ticket.status === "VERIFIED"
                             );
                           }
                         );
                         const uniqueTruckIds = new Set(
-                          todayCreatedTickets
+                          todayVerifiedTickets
                             .map((t) => t.truck_id)
                             .filter(Boolean)
                         );
@@ -1024,7 +1011,18 @@ const Overview = () => {
               </Card>
             </div>
 
-            <hr></hr>
+            {/* Search */}
+            <div className="flex gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by truck ID, carrier, or driver..."
+                  value={truckSearch}
+                  onChange={(e) => setTruckSearch(e.target.value)}
+                  className="pl-10 text-xs md:text-sm"
+                />
+              </div>
+            </div>
 
             {/* Trucks List */}
             {trucksLoading && allTrucks.length === 0 ? (
