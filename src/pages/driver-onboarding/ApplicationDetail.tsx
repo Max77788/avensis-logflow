@@ -746,9 +746,9 @@ const ApplicationDetail = () => {
       case "overview":
         return true; // Always enabled
       case "verification":
-        return status !== "NEW"; // Enabled after initial contact
+        return true; // Always enabled - this is where users start
       case "documents":
-        // Enabled after verification call or when documents are being collected
+        // Enabled after verification is done (status changes from NEW)
         return status !== "NEW" && status !== "REJECTED";
       case "compliance":
         // Enabled after documents are verified
@@ -756,11 +756,24 @@ const ApplicationDetail = () => {
           status
         );
       case "orientation":
-        // Always enabled
-        return true;
+        // Enabled after compliance is cleared (MVR and Drug Test passed)
+        return [
+          "CLEARED_FOR_HIRE",
+          "ORIENTATION_SCHEDULED",
+          "ORIENTATION_COMPLETED",
+          "TRAINING_IN_PROGRESS",
+          "TRAINING_COMPLETED",
+          "HIRED",
+        ].includes(status);
       case "training":
-        // Always enabled
-        return true;
+        // Enabled after orientation is scheduled
+        return [
+          "ORIENTATION_SCHEDULED",
+          "ORIENTATION_COMPLETED",
+          "TRAINING_IN_PROGRESS",
+          "TRAINING_COMPLETED",
+          "HIRED",
+        ].includes(status);
       default:
         return false;
     }
