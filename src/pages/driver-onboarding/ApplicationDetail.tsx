@@ -17,6 +17,7 @@ import { Header } from "@/components/Header";
 import { ApplicationStatusBadge } from "@/components/driver-onboarding/ApplicationStatusBadge";
 import { ActivityLog } from "@/components/driver-onboarding/ActivityLog";
 import { DocumentUpload } from "@/components/driver-onboarding/DocumentUpload";
+import { DriverOnboardingRibbon } from "@/components/driver-onboarding/DriverOnboardingRibbon";
 import { driverOnboardingService } from "@/lib/driverOnboardingService";
 import type {
   ApplicationWithDetails,
@@ -735,6 +736,36 @@ const ApplicationDetail = () => {
     );
   }
 
+  // Helper function to determine which tabs should be enabled based on application status
+  const isTabEnabled = (tabName: string): boolean => {
+    if (!application) return false;
+
+    const status = application.application.status;
+
+    switch (tabName) {
+      case "overview":
+        return true; // Always enabled
+      case "verification":
+        return status !== "NEW"; // Enabled after initial contact
+      case "documents":
+        // Enabled after verification call or when documents are being collected
+        return status !== "NEW" && status !== "REJECTED";
+      case "compliance":
+        // Enabled after documents are verified
+        return !["NEW", "CONTACTED", "DOCS_PENDING", "REJECTED"].includes(
+          status
+        );
+      case "orientation":
+        // Always enabled
+        return true;
+      case "training":
+        // Always enabled
+        return true;
+      default:
+        return false;
+    }
+  };
+
   if (!application) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -781,13 +812,72 @@ const ApplicationDetail = () => {
           </div>
         </div>
 
+        {/* Onboarding Progress Ribbon */}
+        <DriverOnboardingRibbon application={application} />
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-4 gap-1">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="verification">Verification</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
-            <TabsTrigger value="compliance">Compliance</TabsTrigger>
-            <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
+            <TabsTrigger value="overview" disabled={!isTabEnabled("overview")}>
+              Overview
+            </TabsTrigger>
+            <TabsTrigger
+              value="verification"
+              disabled={!isTabEnabled("verification")}
+              className={
+                !isTabEnabled("verification")
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }
+            >
+              Verification
+              {!isTabEnabled("verification") && " 🔒"}
+            </TabsTrigger>
+            <TabsTrigger
+              value="documents"
+              disabled={!isTabEnabled("documents")}
+              className={
+                !isTabEnabled("documents")
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }
+            >
+              Documents
+              {!isTabEnabled("documents") && " 🔒"}
+            </TabsTrigger>
+            <TabsTrigger
+              value="compliance"
+              disabled={!isTabEnabled("compliance")}
+              className={
+                !isTabEnabled("compliance")
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }
+            >
+              Compliance
+              {!isTabEnabled("compliance") && " 🔒"}
+            </TabsTrigger>
+            <TabsTrigger
+              value="orientation"
+              disabled={!isTabEnabled("orientation")}
+              className={
+                !isTabEnabled("orientation")
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }
+            >
+              Orientation
+              {!isTabEnabled("orientation") && " 🔒"}
+            </TabsTrigger>
+            <TabsTrigger
+              value="training"
+              disabled={!isTabEnabled("training")}
+              className={
+                !isTabEnabled("training") ? "opacity-50 cursor-not-allowed" : ""
+              }
+            >
+              Training
+              {!isTabEnabled("training") && " 🔒"}
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -1408,9 +1498,9 @@ const ApplicationDetail = () => {
               </Card>
             </div>
           </TabsContent>
-          <TabsContent value="onboarding">
-            <div className="grid gap-6">
-              {/* Orientation Section */}
+          {/* Orientation Tab */}
+          <TabsContent value="orientation">
+            <div className="grid gap-6 max-w-2xl">
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Orientation</h3>
                 {application.onboarding?.orientation_completed_at ? (
@@ -1518,8 +1608,12 @@ const ApplicationDetail = () => {
                   </div>
                 )}
               </Card>
+            </div>
+          </TabsContent>
 
-              {/* Training Section */}
+          {/* Training Tab */}
+          <TabsContent value="training">
+            <div className="grid gap-6 max-w-2xl">
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Training</h3>
                 {application.onboarding?.training_completed_at ? (
@@ -1685,9 +1779,7 @@ const ApplicationDetail = () => {
               </Card>
 
               {/* Hire Button */}
-              {application.application.status === "CLEARED_FOR_HIRE" ||
-              application.application.status === "ORIENTATION_COMPLETED" ||
-              application.application.status === "TRAINING_COMPLETED" ? (
+              {application.application.status === "TRAINING_COMPLETED" ? (
                 <Card className="p-6 bg-green-50 dark:bg-green-950">
                   <h3 className="text-lg font-semibold mb-4 text-green-900 dark:text-green-100">
                     Ready to Hire

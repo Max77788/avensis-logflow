@@ -11,9 +11,12 @@ const DriverOnboarding = () => {
       <main className="container mx-auto px-4 py-8 flex-1 flex flex-col justify-center">
         <div className="max-w-2xl mx-auto space-y-6">
           <Card className="p-8 space-y-4 shadow-md">
-            <h1 className="text-3xl font-bold mb-2">Driver Assessment & Onboarding</h1>
+            <h1 className="text-3xl font-bold mb-2">
+              Driver Assessment & Onboarding
+            </h1>
             <p className="text-muted-foreground mb-2">
-              Take candidates from <b>lead</b> to <b>hired & ready to drive</b> in a structured pipeline.
+              Take candidates from <b>lead</b> to <b>hired & ready to drive</b>{" "}
+              in a structured pipeline.
             </p>
             <ul className="list-disc ml-4 space-y-1 text-muted-foreground text-sm">
               <li>Initial verification</li>
@@ -23,10 +26,14 @@ const DriverOnboarding = () => {
               <li>Supervisor handoff</li>
               <li>Orientation & ride-along training</li>
             </ul>
-            <p className="mt-4 text-foreground">For recruiters, supervisors, and admins.</p>
+            <p className="mt-4 text-foreground">
+              For recruiters, supervisors, and admins.
+            </p>
             <div className="flex flex-col gap-2 pt-4">
-              <Button onClick={() => navigate("/driver-onboarding/pipeline")}>Go to Pipeline Dashboard</Button>
-              <Button variant="outline" onClick={() => navigate("/driver-onboarding/supervisor")}>Supervisor View</Button>
+              <Button onClick={() => navigate("/driver-onboarding/pipeline")}>
+                Go to Pipeline Dashboard
+              </Button>
+              {/* <Button variant="outline" onClick={() => navigate("/driver-onboarding/supervisor")}>Supervisor View</Button> */}
             </div>
           </Card>
         </div>
