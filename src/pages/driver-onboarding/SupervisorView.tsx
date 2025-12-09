@@ -33,6 +33,10 @@ import {
   Award,
   Loader2,
   CheckCircle,
+  UserCheck,
+  Clock,
+  Search,
+  Eye,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -43,6 +47,7 @@ const SupervisorView = () => {
     []
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Orientation dialog state
   const [orientationDialogOpen, setOrientationDialogOpen] = useState(false);
@@ -74,7 +79,7 @@ const SupervisorView = () => {
     setIsLoading(true);
     const result = await driverOnboardingService.getApplications({
       status:
-        "CLEARED_FOR_HIRE,ORIENTATION_SCHEDULED,ORIENTATION_COMPLETED,TRAINING_IN_PROGRESS,TRAINING_COMPLETED",
+        "MVR_PASSED,DRUG_TEST_PASSED,CLEARED_FOR_HIRE,ORIENTATION_SCHEDULED,ORIENTATION_COMPLETED,TRAINING_IN_PROGRESS,TRAINING_COMPLETED,HIRED",
     });
     if (result.success && result.data) {
       setApplications(result.data);
@@ -239,38 +244,238 @@ const SupervisorView = () => {
     }
   };
 
-  const clearedCandidates = applications.filter(
+  // Filter applications based on search query
+  const filteredApplications = applications.filter((app) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      app.candidate.name.toLowerCase().includes(query) ||
+      app.candidate.phone.includes(query) ||
+      app.candidate.email?.toLowerCase().includes(query) ||
+      app.yard?.name.toLowerCase().includes(query)
+    );
+  });
+
+  const pendingClearanceCandidates = filteredApplications.filter(
+    (app) =>
+      app.application.status === "MVR_PASSED" ||
+      app.application.status === "DRUG_TEST_PASSED"
+  );
+  const clearedCandidates = filteredApplications.filter(
     (app) => app.application.status === "CLEARED_FOR_HIRE"
   );
-  const orientationCandidates = applications.filter(
-    (app) =>
-      app.application.status === "ORIENTATION_SCHEDULED" ||
-      app.application.status === "ORIENTATION_COMPLETED"
+  const orientationScheduledCandidates = filteredApplications.filter(
+    (app) => app.application.status === "ORIENTATION_SCHEDULED"
   );
-  const trainingCandidates = applications.filter(
-    (app) =>
-      app.application.status === "TRAINING_IN_PROGRESS" ||
-      app.application.status === "TRAINING_COMPLETED"
+  const orientationCompletedCandidates = filteredApplications.filter(
+    (app) => app.application.status === "ORIENTATION_COMPLETED"
+  );
+  const trainingInProgressCandidates = filteredApplications.filter(
+    (app) => app.application.status === "TRAINING_IN_PROGRESS"
+  );
+  const trainingCompletedCandidates = filteredApplications.filter(
+    (app) => app.application.status === "TRAINING_COMPLETED"
+  );
+  const hiredCandidates = filteredApplications.filter(
+    (app) => app.application.status === "HIRED"
   );
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header showHomeButton onHomeClick={() => navigate("/home")} />
+      <Header
+        showHomeButton
+        onHomeClick={() => navigate("/driver-onboarding")}
+      />
       <main className="container mx-auto px-4 py-8 flex-1">
-        <h2 className="text-2xl font-bold mb-6">Supervisor Portal</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Supervisor Portal</h2>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search candidates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
 
-        <Tabs defaultValue="cleared" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="cleared">
-              Cleared for Hire ({clearedCandidates.length})
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList className="mb-4 grid grid-cols-7 w-full">
+            <TabsTrigger value="all">
+              All ({filteredApplications.length})
             </TabsTrigger>
-            <TabsTrigger value="orientation">
-              Orientation ({orientationCandidates.length})
+            <TabsTrigger value="pending">
+              Pending ({pendingClearanceCandidates.length})
+            </TabsTrigger>
+            <TabsTrigger value="cleared">
+              Cleared ({clearedCandidates.length})
+            </TabsTrigger>
+            <TabsTrigger value="orientation-scheduled">
+              Scheduled ({orientationScheduledCandidates.length})
+            </TabsTrigger>
+            <TabsTrigger value="orientation-completed">
+              Oriented ({orientationCompletedCandidates.length})
             </TabsTrigger>
             <TabsTrigger value="training">
-              Training ({trainingCandidates.length})
+              Training (
+              {trainingInProgressCandidates.length +
+                trainingCompletedCandidates.length}
+              )
+            </TabsTrigger>
+            <TabsTrigger value="hired">
+              Hired ({hiredCandidates.length})
             </TabsTrigger>
           </TabsList>
+
+          {/* All Candidates Tab */}
+          <TabsContent value="all">
+            <Card className="p-0 overflow-hidden">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredApplications.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">
+                    {searchQuery ? "No candidates found" : "No candidates"}
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Candidate</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Yard</TableHead>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredApplications.map((app) => (
+                      <TableRow key={app.application.id}>
+                        <TableCell className="font-medium">
+                          {app.candidate.name}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <div>{app.candidate.phone}</div>
+                          {app.candidate.email && (
+                            <div className="text-muted-foreground">
+                              {app.candidate.email}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{app.yard?.name || "-"}</TableCell>
+                        <TableCell>
+                          {app.application.position_type || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <ApplicationStatusBadge
+                            status={app.application.status}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              navigate(
+                                `/driver-onboarding/application/${app.application.id}`
+                              )
+                            }
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* Pending Clearance Tab */}
+          <TabsContent value="pending">
+            <Card className="p-0 overflow-hidden">
+              {pendingClearanceCandidates.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">
+                    No candidates pending clearance
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Candidate</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Yard</TableHead>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Compliance</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingClearanceCandidates.map((app) => (
+                      <TableRow key={app.application.id}>
+                        <TableCell className="font-medium">
+                          {app.candidate.name}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {app.candidate.phone}
+                        </TableCell>
+                        <TableCell>{app.yard?.name || "-"}</TableCell>
+                        <TableCell>
+                          {app.application.position_type || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <ApplicationStatusBadge
+                            status={app.application.status}
+                          />
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <div className="space-y-1">
+                            {app.compliance?.mvr_eligible && (
+                              <div className="flex items-center gap-1 text-green-600">
+                                <CheckCircle className="h-3 w-3" />
+                                <span>MVR Passed</span>
+                              </div>
+                            )}
+                            {app.compliance?.drug_test_result ===
+                              "NEGATIVE" && (
+                              <div className="flex items-center gap-1 text-green-600">
+                                <CheckCircle className="h-3 w-3" />
+                                <span>Drug Test Passed</span>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              navigate(
+                                `/driver-onboarding/application/${app.application.id}`
+                              )
+                            }
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
+          </TabsContent>
 
           {/* Cleared Candidates Tab */}
           <TabsContent value="cleared">
@@ -288,6 +493,7 @@ const SupervisorView = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Candidate</TableHead>
+                      <TableHead>Contact</TableHead>
                       <TableHead>Yard</TableHead>
                       <TableHead>Position</TableHead>
                       <TableHead>Status</TableHead>
@@ -299,6 +505,9 @@ const SupervisorView = () => {
                       <TableRow key={app.application.id}>
                         <TableCell className="font-medium">
                           {app.candidate.name}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {app.candidate.phone}
                         </TableCell>
                         <TableCell>{app.yard?.name || "-"}</TableCell>
                         <TableCell>
@@ -314,7 +523,7 @@ const SupervisorView = () => {
                             size="sm"
                             onClick={() => handleScheduleOrientation(app)}
                           >
-                            <Users className="h-4 w-4 mr-1" />
+                            <Calendar className="h-4 w-4 mr-1" />
                             Schedule Orientation
                           </Button>
                         </TableCell>
@@ -326,13 +535,13 @@ const SupervisorView = () => {
             </Card>
           </TabsContent>
 
-          {/* Orientation Tab */}
-          <TabsContent value="orientation">
+          {/* Orientation Scheduled Tab */}
+          <TabsContent value="orientation-scheduled">
             <Card className="p-0 overflow-hidden">
-              {orientationCandidates.length === 0 ? (
+              {orientationScheduledCandidates.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">
-                    No candidates in orientation
+                    No scheduled orientations
                   </p>
                 </div>
               ) : (
@@ -340,55 +549,107 @@ const SupervisorView = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Candidate</TableHead>
+                      <TableHead>Contact</TableHead>
                       <TableHead>Yard</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Scheduled</TableHead>
+                      <TableHead>Scheduled For</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orientationCandidates.map((app) => (
+                    {orientationScheduledCandidates.map((app) => (
                       <TableRow key={app.application.id}>
                         <TableCell className="font-medium">
                           {app.candidate.name}
                         </TableCell>
+                        <TableCell className="text-sm">
+                          {app.candidate.phone}
+                        </TableCell>
                         <TableCell>{app.yard?.name || "-"}</TableCell>
                         <TableCell>
-                          <ApplicationStatusBadge
-                            status={app.application.status}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {app.onboarding?.orientation_scheduled_at
-                            ? format(
+                          {app.onboarding?.orientation_scheduled_at ? (
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              {format(
                                 new Date(
                                   app.onboarding.orientation_scheduled_at
                                 ),
-                                "MMM d, yyyy"
-                              )
-                            : "-"}
+                                "MMM d, yyyy 'at' h:mm a"
+                              )}
+                            </div>
+                          ) : (
+                            "-"
+                          )}
                         </TableCell>
                         <TableCell className="text-right space-x-2">
-                          {app.application.status ===
-                            "ORIENTATION_SCHEDULED" && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleCompleteOrientation(app)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Complete
-                            </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleCompleteOrientation(app)}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Mark Complete
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* Orientation Completed Tab */}
+          <TabsContent value="orientation-completed">
+            <Card className="p-0 overflow-hidden">
+              {orientationCompletedCandidates.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">
+                    No completed orientations
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Candidate</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Yard</TableHead>
+                      <TableHead>Completed On</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orientationCompletedCandidates.map((app) => (
+                      <TableRow key={app.application.id}>
+                        <TableCell className="font-medium">
+                          {app.candidate.name}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {app.candidate.phone}
+                        </TableCell>
+                        <TableCell>{app.yard?.name || "-"}</TableCell>
+                        <TableCell>
+                          {app.onboarding?.orientation_completed_at ? (
+                            <div className="flex items-center gap-2">
+                              <UserCheck className="h-4 w-4 text-green-600" />
+                              {format(
+                                new Date(
+                                  app.onboarding.orientation_completed_at
+                                ),
+                                "MMM d, yyyy"
+                              )}
+                            </div>
+                          ) : (
+                            "-"
                           )}
-                          {app.application.status ===
-                            "ORIENTATION_COMPLETED" && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleScheduleTraining(app)}
-                            >
-                              <GraduationCap className="h-4 w-4 mr-1" />
-                              Schedule Training
-                            </Button>
-                          )}
+                        </TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleScheduleTraining(app)}
+                          >
+                            <GraduationCap className="h-4 w-4 mr-1" />
+                            Schedule Training
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -401,7 +662,8 @@ const SupervisorView = () => {
           {/* Training Tab */}
           <TabsContent value="training">
             <Card className="p-0 overflow-hidden">
-              {trainingCandidates.length === 0 ? (
+              {trainingInProgressCandidates.length === 0 &&
+              trainingCompletedCandidates.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">
                     No candidates in training
@@ -412,17 +674,25 @@ const SupervisorView = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Candidate</TableHead>
+                      <TableHead>Contact</TableHead>
                       <TableHead>Yard</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Training Period</TableHead>
+                      <TableHead>Rating</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {trainingCandidates.map((app) => (
+                    {[
+                      ...trainingInProgressCandidates,
+                      ...trainingCompletedCandidates,
+                    ].map((app) => (
                       <TableRow key={app.application.id}>
                         <TableCell className="font-medium">
                           {app.candidate.name}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {app.candidate.phone}
                         </TableCell>
                         <TableCell>{app.yard?.name || "-"}</TableCell>
                         <TableCell>
@@ -444,6 +714,18 @@ const SupervisorView = () => {
                               )}`
                             : "-"}
                         </TableCell>
+                        <TableCell>
+                          {app.onboarding?.training_evaluation_rating ? (
+                            <div className="flex items-center gap-1">
+                              <Award className="h-4 w-4 text-yellow-600" />
+                              <span>
+                                {app.onboarding.training_evaluation_rating}/5
+                              </span>
+                            </div>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
                         <TableCell className="text-right space-x-2">
                           {app.application.status ===
                             "TRAINING_IN_PROGRESS" && (
@@ -452,7 +734,7 @@ const SupervisorView = () => {
                               onClick={() => handleOpenCompleteTraining(app)}
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
-                              Complete Training
+                              Complete
                             </Button>
                           )}
                           {app.application.status === "TRAINING_COMPLETED" && (
@@ -461,9 +743,94 @@ const SupervisorView = () => {
                               onClick={() => handleApproveAndHire(app)}
                             >
                               <Award className="h-4 w-4 mr-1" />
-                              Approve & Hire
+                              Hire
                             </Button>
                           )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* Hired Tab */}
+          <TabsContent value="hired">
+            <Card className="p-0 overflow-hidden">
+              {hiredCandidates.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No hired drivers yet</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Driver</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Yard</TableHead>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Hired On</TableHead>
+                      <TableHead>Training Rating</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {hiredCandidates.map((app) => (
+                      <TableRow key={app.application.id}>
+                        <TableCell className="font-medium">
+                          {app.candidate.name}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <div>{app.candidate.phone}</div>
+                          {app.candidate.email && (
+                            <div className="text-muted-foreground">
+                              {app.candidate.email}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{app.yard?.name || "-"}</TableCell>
+                        <TableCell>
+                          {app.application.position_type || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {app.onboarding?.hired_at ? (
+                            <div className="flex items-center gap-2">
+                              <UserCheck className="h-4 w-4 text-green-600" />
+                              {format(
+                                new Date(app.onboarding.hired_at),
+                                "MMM d, yyyy"
+                              )}
+                            </div>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {app.onboarding?.training_evaluation_rating ? (
+                            <div className="flex items-center gap-1">
+                              <Award className="h-4 w-4 text-yellow-600" />
+                              <span>
+                                {app.onboarding.training_evaluation_rating}/5
+                              </span>
+                            </div>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              navigate(
+                                `/driver-onboarding/application/${app.application.id}`
+                              )
+                            }
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

@@ -103,9 +103,14 @@ export interface DriverOnboarding {
   mentor_id?: string;
   training_scheduled_start?: string;
   training_scheduled_end?: string;
-  training_completed_at?: string;
-  training_rating?: number;
-  training_notes?: string;
+  training_actual_start_at?: string;
+  training_actual_end_at?: string;
+  training_evaluation_rating?: number;
+  training_evaluation_notes?: string;
+
+  // Final Hire
+  hired_at?: string;
+  hired_by_user_id?: string;
 
   created_at: string;
   updated_at: string;

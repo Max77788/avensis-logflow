@@ -117,7 +117,10 @@ const PipelineDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header showHomeButton onHomeClick={() => navigate("/home")} />
+      <Header
+        showHomeButton
+        onHomeClick={() => navigate("/driver-onboarding")}
+      />
       <main className="container mx-auto px-4 py-8 flex-1">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold">Driver Onboarding Pipeline</h2>
@@ -198,7 +201,9 @@ const PipelineDashboard = () => {
                   <TableHead>Status</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Age</TableHead>
+                  {/*
                   <TableHead className="text-right">Actions</TableHead>
+                  */}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -242,6 +247,7 @@ const PipelineDashboard = () => {
                     <TableCell className="text-sm text-muted-foreground">
                       {getAge(app.application.created_at)}
                     </TableCell>
+                    {/*
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
@@ -256,6 +262,7 @@ const PipelineDashboard = () => {
                         View
                       </Button>
                     </TableCell>
+                    */}
                   </TableRow>
                 ))}
               </TableBody>
