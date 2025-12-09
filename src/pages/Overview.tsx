@@ -244,98 +244,6 @@ const Overview = () => {
     });
   };
 
-  // Async function to fetch ticket metrics
-  const fetchTicketMetrics = async () => {
-    try {
-      setMetricsLoading(true);
-      const fromDate =
-        dateFilter === "today"
-          ? new Date().toISOString().slice(0, 10)
-          : undefined;
-
-      const res = await ticketService.getTicketsOverview({
-        limit: 3000, // Get all tickets for accurate metrics
-        fromDate,
-        page: 1,
-      });
-
-      const tickets = res.tickets;
-
-      // Calculate metrics
-      const loadsDelivered = tickets.filter(
-        (t) => t.status === "CLOSED"
-      ).length;
-      const loadsInProgress = tickets.filter(
-        (t) => t.status === "VERIFIED"
-      ).length;
-      const tonsDelivered = tickets
-        .filter((t) => t.status === "CLOSED")
-        .reduce((sum, ticket) => {
-          const weight = ticket.net_weight || 0;
-          return sum + weight;
-        }, 0);
-
-      setTicketMetrics({
-        loadsDelivered,
-        loadsInProgress,
-        tonsDelivered,
-      });
-    } catch (error) {
-      console.error("Error fetching ticket metrics:", error);
-    } finally {
-      setMetricsLoading(false);
-    }
-  };
-
-  // Async function to fetch truck metrics
-  const fetchTruckMetrics = async () => {
-    try {
-      setMetricsLoading(true);
-
-      // Fetch all tickets to calculate truck metrics
-      const fromDate = new Date().toISOString().slice(0, 10);
-      const res = await ticketService.getTicketsOverview({
-        limit: 3000,
-        fromDate,
-        page: 1,
-      });
-
-      const tickets = res.tickets;
-      const todayStr = new Date().toDateString();
-
-      // Daily Truck Count - unique trucks with tickets created today
-      const todayTickets = tickets.filter((ticket) => {
-        if (!ticket.created_at) return false;
-        const createdAtStr = new Date(ticket.created_at).toDateString();
-        return createdAtStr === todayStr;
-      });
-      const dailyTruckCount = new Set(
-        todayTickets.map((t) => t.truck_id).filter(Boolean)
-      ).size;
-
-      // Trucks Delivering Now - unique trucks with VERIFIED status
-      const verifiedTickets = tickets.filter(
-        (ticket) => ticket.status === "VERIFIED"
-      );
-      const trucksDeliveringNow = new Set(
-        verifiedTickets.map((t) => t.truck_id).filter(Boolean)
-      ).size;
-
-      // Trucks Available Today - will be calculated from filteredTrucks
-      // For now, we'll update this separately when trucks are loaded
-
-      setTruckMetrics((prev) => ({
-        ...prev,
-        dailyTruckCount,
-        trucksDeliveringNow,
-      }));
-    } catch (error) {
-      console.error("Error fetching truck metrics:", error);
-    } finally {
-      setMetricsLoading(false);
-    }
-  };
-
   // Initial tickets load (page 1)
   useEffect(() => {
     let isMounted = true;
@@ -380,26 +288,12 @@ const Overview = () => {
 
     // Always (re)load page 1 when dateFilter changes
     loadTicketsPage(1);
-    // Also fetch metrics when tickets are loaded
-    fetchTicketMetrics();
 
     return () => {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFilter]);
-
-  // Fetch ticket metrics periodically (every 30 seconds)
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const interval = setInterval(() => {
-      fetchTicketMetrics();
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, dateFilter]);
 
   const loadMoreTickets = async () => {
     if (ticketsLoading || !ticketsHasMore) return;
@@ -471,28 +365,12 @@ const Overview = () => {
     };
 
     loadTrucksPage(1);
-    // Also fetch truck metrics when trucks tab is opened
-    if (activeTab === "trucks") {
-      fetchTruckMetrics();
-    }
 
     return () => {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, trucksLoaded]);
-
-  // Fetch truck metrics periodically when on trucks tab (every 30 seconds)
-  useEffect(() => {
-    if (!isAuthenticated || activeTab !== "trucks") return;
-
-    const interval = setInterval(() => {
-      fetchTruckMetrics();
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, activeTab]);
 
   const loadMoreTrucks = async () => {
     if (trucksLoading || !trucksHasMore) return;
@@ -580,13 +458,59 @@ const Overview = () => {
     ).sort();
   }, [allTickets]);
 
-  // Update "Trucks Available Today" when filteredTrucks changes
+  // Calculate ticket metrics from FILTERED tickets (displayed to user)
   useEffect(() => {
-    setTruckMetrics((prev) => ({
-      ...prev,
-      trucksAvailableToday: filteredTrucks.length,
-    }));
-  }, [filteredTrucks]);
+    const loadsDelivered = filteredTickets.filter(
+      (t) => t.status === "CLOSED"
+    ).length;
+    const loadsInProgress = filteredTickets.filter(
+      (t) => t.status === "VERIFIED"
+    ).length;
+    const tonsDelivered = filteredTickets
+      .filter((t) => t.status === "CLOSED")
+      .reduce((sum, ticket) => {
+        const weight = ticket.net_weight || 0;
+        return sum + weight;
+      }, 0);
+
+    setTicketMetrics({
+      loadsDelivered,
+      loadsInProgress,
+      tonsDelivered,
+    });
+  }, [filteredTickets]);
+
+  // Calculate truck metrics from FILTERED tickets and trucks (displayed to user)
+  useEffect(() => {
+    const todayStr = new Date().toDateString();
+
+    // Daily Truck Count - unique trucks from filtered tickets created today
+    const todayTickets = filteredTickets.filter((ticket) => {
+      if (!ticket.created_at) return false;
+      const createdAtStr = new Date(ticket.created_at).toDateString();
+      return createdAtStr === todayStr;
+    });
+    const dailyTruckCount = new Set(
+      todayTickets.map((t) => t.truck_id).filter(Boolean)
+    ).size;
+
+    // Trucks Delivering Now - unique trucks from filtered tickets with VERIFIED status
+    const verifiedTickets = filteredTickets.filter(
+      (ticket) => ticket.status === "VERIFIED"
+    );
+    const trucksDeliveringNow = new Set(
+      verifiedTickets.map((t) => t.truck_id).filter(Boolean)
+    ).size;
+
+    // Trucks Available Today - count of filtered trucks being displayed
+    const trucksAvailableToday = filteredTrucks.length;
+
+    setTruckMetrics({
+      dailyTruckCount,
+      trucksDeliveringNow,
+      trucksAvailableToday,
+    });
+  }, [filteredTickets, filteredTrucks]);
 
   // Use backend totals for counts if available, otherwise fallback
   const ticketsCountLabel =
