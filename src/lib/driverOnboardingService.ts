@@ -501,6 +501,27 @@ export const driverOnboardingService = {
   },
 
   // =====================================================
+  // Delete Application
+  // =====================================================
+  async deleteApplication(
+    applicationId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Delete the application (cascade will handle related records)
+      const { error } = await supabase
+        .from("driver_applications")
+        .delete()
+        .eq("id", applicationId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error deleting application:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // =====================================================
   // Yards
   // =====================================================
   async getYards(): Promise<{

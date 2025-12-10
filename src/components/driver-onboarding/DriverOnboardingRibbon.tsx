@@ -1,13 +1,23 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Circle, Phone, FileText, Shield, GraduationCap, UserCheck } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  Phone,
+  FileText,
+  Shield,
+  GraduationCap,
+  UserCheck,
+} from "lucide-react";
 import type { ApplicationWithDetails } from "@/lib/driverOnboardingTypes";
 
 interface DriverOnboardingRibbonProps {
   application: ApplicationWithDetails;
 }
 
-export const DriverOnboardingRibbon = ({ application }: DriverOnboardingRibbonProps) => {
+export const DriverOnboardingRibbon = ({
+  application,
+}: DriverOnboardingRibbonProps) => {
   const getStatusBadge = (isComplete: boolean, inProgress: boolean) => {
     if (isComplete) {
       return <Badge className="bg-green-500 text-white">Complete</Badge>;
@@ -22,7 +32,7 @@ export const DriverOnboardingRibbon = ({ application }: DriverOnboardingRibbonPr
   const stages = [
     {
       id: "verification",
-      label: "Verification",
+      label: "Initial Connect",
       icon: Phone,
       isComplete: !!application.application.initial_verification_call_at,
       inProgress: application.application.status === "NEW",
@@ -34,44 +44,56 @@ export const DriverOnboardingRibbon = ({ application }: DriverOnboardingRibbonPr
       id: "documents",
       label: "Documents",
       icon: FileText,
-      isComplete: application.application.status !== "NEW" && 
-                  application.application.status !== "CONTACTED" &&
-                  application.application.status !== "REJECTED" &&
-                  application.application.status !== "DOCS_PENDING" &&
-                  application.compliance?.drivers_license_verified &&
-                  application.compliance?.medical_card_verified &&
-                  application.compliance?.ssn_verified,
-      inProgress: application.application.status === "DOCS_PENDING" ||
-                  (application.application.status === "CONTACTED" && 
-                   (application.compliance?.drivers_license_url || 
-                    application.compliance?.medical_card_url || 
-                    application.compliance?.ssn_url)),
-      subtitle: application.compliance?.drivers_license_verified &&
-                application.compliance?.medical_card_verified &&
-                application.compliance?.ssn_verified
-        ? "All verified"
-        : "Pending",
+      isComplete:
+        application.application.status !== "NEW" &&
+        application.application.status !== "CONTACTED" &&
+        application.application.status !== "REJECTED" &&
+        application.application.status !== "DOCS_PENDING" &&
+        application.compliance?.drivers_license_verified &&
+        application.compliance?.medical_card_verified &&
+        application.compliance?.ssn_verified,
+      inProgress:
+        application.application.status === "DOCS_PENDING" ||
+        (application.application.status === "CONTACTED" &&
+          (application.compliance?.drivers_license_url ||
+            application.compliance?.medical_card_url ||
+            application.compliance?.ssn_url)),
+      subtitle:
+        application.compliance?.drivers_license_verified &&
+        application.compliance?.medical_card_verified &&
+        application.compliance?.ssn_verified
+          ? "All verified"
+          : "Pending",
     },
     {
       id: "compliance",
       label: "Compliance",
       icon: Shield,
-      isComplete: application.compliance?.mvr_eligible === true &&
-                  application.compliance?.drug_test_result === "NEGATIVE",
-      inProgress: (application.compliance?.mvr_requested_at && !application.compliance?.mvr_completed_at) ||
-                  (application.compliance?.drug_test_ordered_at && !application.compliance?.drug_test_result),
-      subtitle: application.compliance?.mvr_eligible && application.compliance?.drug_test_result === "NEGATIVE"
-        ? "Cleared"
-        : application.compliance?.mvr_requested_at || application.compliance?.drug_test_ordered_at
-        ? "In progress"
-        : "Not started",
+      isComplete:
+        application.compliance?.mvr_eligible === true &&
+        application.compliance?.drug_test_result === "NEGATIVE",
+      inProgress:
+        (application.compliance?.mvr_requested_at &&
+          !application.compliance?.mvr_completed_at) ||
+        (application.compliance?.drug_test_ordered_at &&
+          !application.compliance?.drug_test_result),
+      subtitle:
+        application.compliance?.mvr_eligible &&
+        application.compliance?.drug_test_result === "NEGATIVE"
+          ? "Cleared"
+          : application.compliance?.mvr_requested_at ||
+            application.compliance?.drug_test_ordered_at
+          ? "In progress"
+          : "Not started",
     },
     {
       id: "orientation",
       label: "Orientation",
       icon: GraduationCap,
       isComplete: !!application.onboarding?.orientation_completed_at,
-      inProgress: !!application.onboarding?.orientation_scheduled_at && !application.onboarding?.orientation_completed_at,
+      inProgress:
+        !!application.onboarding?.orientation_scheduled_at &&
+        !application.onboarding?.orientation_completed_at,
       subtitle: application.onboarding?.orientation_completed_at
         ? "Completed"
         : application.onboarding?.orientation_scheduled_at
@@ -82,23 +104,17 @@ export const DriverOnboardingRibbon = ({ application }: DriverOnboardingRibbonPr
       id: "training",
       label: "Training",
       icon: GraduationCap,
-      isComplete: application.application.status === "TRAINING_COMPLETED" || application.application.status === "HIRED",
+      isComplete:
+        application.application.status === "TRAINING_COMPLETED" ||
+        application.application.status === "HIRED",
       inProgress: application.application.status === "TRAINING_IN_PROGRESS",
-      subtitle: application.application.status === "TRAINING_COMPLETED" || application.application.status === "HIRED"
-        ? "Completed"
-        : application.application.status === "TRAINING_IN_PROGRESS"
-        ? "In progress"
-        : "Not started",
-    },
-    {
-      id: "hired",
-      label: "Hired",
-      icon: UserCheck,
-      isComplete: application.application.status === "HIRED",
-      inProgress: false,
-      subtitle: application.onboarding?.hired_at
-        ? new Date(application.onboarding.hired_at).toLocaleDateString()
-        : "Not hired",
+      subtitle:
+        application.application.status === "TRAINING_COMPLETED" ||
+        application.application.status === "HIRED"
+          ? "Completed"
+          : application.application.status === "TRAINING_IN_PROGRESS"
+          ? "In progress"
+          : "Not started",
     },
   ];
 
@@ -179,4 +195,3 @@ export const DriverOnboardingRibbon = ({ application }: DriverOnboardingRibbonPr
     </Card>
   );
 };
-

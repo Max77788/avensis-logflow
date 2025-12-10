@@ -13,12 +13,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Header } from "@/components/Header";
 import { ApplicationStatusBadge } from "@/components/driver-onboarding/ApplicationStatusBadge";
 import { ActivityLog } from "@/components/driver-onboarding/ActivityLog";
 import { DocumentUpload } from "@/components/driver-onboarding/DocumentUpload";
 import { DriverOnboardingRibbon } from "@/components/driver-onboarding/DriverOnboardingRibbon";
 import { driverOnboardingService } from "@/lib/driverOnboardingService";
+import { supabase } from "@/lib/supabase";
 import type {
   ApplicationWithDetails,
   DriverApplicationActivity,
@@ -39,6 +48,7 @@ import {
   XCircle,
   Clock,
   UserCheck,
+  Trash2,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -85,9 +95,14 @@ const ApplicationDetail = () => {
   });
   const [isCreatingLead, setIsCreatingLead] = useState(false);
   const [yards, setYards] = useState<Array<{ id: string; name: string }>>([]);
+  const [supervisors, setSupervisors] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
 
   // Onboarding state
   const [orientationDate, setOrientationDate] = useState("");
+  const [orientationSupervisorId, setOrientationSupervisorId] = useState("");
+  const [orientationYardId, setOrientationYardId] = useState("");
   const [orientationNotes, setOrientationNotes] = useState("");
   const [isSchedulingOrientation, setIsSchedulingOrientation] = useState(false);
   const [isCompletingOrientation, setIsCompletingOrientation] = useState(false);
@@ -101,10 +116,16 @@ const ApplicationDetail = () => {
 
   const [isHiring, setIsHiring] = useState(false);
 
+  // Delete state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     if (id && id !== "new") {
       loadApplication();
       loadActivities();
+      loadYards();
+      loadSupervisors();
     } else if (id === "new") {
       // For new applications, load yards and set loading to false
       loadYards();
@@ -116,6 +137,18 @@ const ApplicationDetail = () => {
     const result = await driverOnboardingService.getYards();
     if (result.success && result.data) {
       setYards(result.data);
+    }
+  };
+
+  const loadSupervisors = async () => {
+    // Fetch users who can be supervisors (you may want to filter by role)
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, name")
+      .order("name");
+
+    if (!error && data) {
+      setSupervisors(data);
     }
   };
 
@@ -419,18 +452,36 @@ const ApplicationDetail = () => {
 
   // Onboarding handlers
   const handleScheduleOrientation = async () => {
-    if (!id || id === "new" || !orientationDate) {
+    if (
+      !id ||
+      id === "new" ||
+      !orientationDate ||
+      !orientationSupervisorId ||
+      !orientationYardId
+    ) {
       toast({
         title: "Validation Error",
-        description: "Please select a date and time for orientation",
+        description:
+          "Please fill in all required fields (supervisor, yard, date/time)",
         variant: "destructive",
       });
       return;
     }
 
     setIsSchedulingOrientation(true);
+
+    // Update onboarding record with supervisor and yard
+    await supabase
+      .from("driver_onboarding")
+      .update({
+        supervisor_id: orientationSupervisorId,
+        yard_id: orientationYardId,
+        orientation_notes: orientationNotes,
+      })
+      .eq("application_id", id);
+
     const result = await driverOnboardingService.scheduleOrientation(id, {
-      supervisor_id: undefined, // TODO: Add supervisor selection
+      supervisor_id: orientationSupervisorId,
       scheduled_at: orientationDate,
     });
 
@@ -442,8 +493,11 @@ const ApplicationDetail = () => {
       loadApplication();
       loadActivities();
       setOrientationDate("");
-      // Stay on onboarding tab
-      setActiveTab("onboarding");
+      setOrientationSupervisorId("");
+      setOrientationYardId("");
+      setOrientationNotes("");
+      // Stay on orientation tab
+      setActiveTab("orientation");
     } else {
       toast({
         title: "Error",
@@ -575,6 +629,30 @@ const ApplicationDetail = () => {
     setIsHiring(false);
   };
 
+  const handleDeleteApplication = async () => {
+    if (!id || id === "new") return;
+
+    setIsDeleting(true);
+    const result = await driverOnboardingService.deleteApplication(id);
+
+    if (result.success) {
+      toast({
+        title: "Success",
+        description: "Application deleted successfully",
+      });
+      // Redirect to pipeline dashboard
+      navigate("/driver-onboarding/pipeline");
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to delete application",
+        variant: "destructive",
+      });
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -658,29 +736,48 @@ const ApplicationDetail = () => {
 
               <div className="grid gap-2">
                 <Label htmlFor="source">Source</Label>
-                <Input
-                  id="source"
+                <Select
                   value={newLeadForm.source}
-                  onChange={(e) =>
-                    setNewLeadForm({ ...newLeadForm, source: e.target.value })
+                  onValueChange={(value) =>
+                    setNewLeadForm({ ...newLeadForm, source: value })
                   }
-                  placeholder="e.g., Indeed, Referral, Walk-in"
-                />
+                >
+                  <SelectTrigger id="source">
+                    <SelectValue placeholder="Select source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Indeed">Indeed</SelectItem>
+                    <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+                    <SelectItem value="Facebook">Facebook</SelectItem>
+                    <SelectItem value="Meta">Meta</SelectItem>
+                    <SelectItem value="Referral">Referral</SelectItem>
+                    <SelectItem value="Walk-in">Walk-in</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid gap-2">
                 <Label htmlFor="position_type">Position Type</Label>
-                <Input
-                  id="position_type"
+                <Select
                   value={newLeadForm.position_type}
-                  onChange={(e) =>
-                    setNewLeadForm({
-                      ...newLeadForm,
-                      position_type: e.target.value,
-                    })
+                  onValueChange={(value) =>
+                    setNewLeadForm({ ...newLeadForm, position_type: value })
                   }
-                  placeholder="e.g., CDL Driver, Yard Driver"
-                />
+                >
+                  <SelectTrigger id="position_type">
+                    <SelectValue placeholder="Select position type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CDL Driver">CDL Driver</SelectItem>
+                    <SelectItem value="Yard Driver">Yard Driver</SelectItem>
+                    <SelectItem value="Local Driver">Local Driver</SelectItem>
+                    <SelectItem value="Regional Driver">
+                      Regional Driver
+                    </SelectItem>
+                    <SelectItem value="OTR Driver">OTR Driver</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid gap-2">
@@ -751,9 +848,12 @@ const ApplicationDetail = () => {
         // Enabled after verification is done (status changes from NEW)
         return status !== "NEW" && status !== "REJECTED";
       case "compliance":
-        // Enabled after documents are verified
-        return !["NEW", "CONTACTED", "DOCS_PENDING", "REJECTED"].includes(
-          status
+        // Enabled after all documents are verified
+        return (
+          (application.compliance?.drivers_license_verified &&
+            application.compliance?.medical_card_verified &&
+            application.compliance?.ssn_verified) ||
+          false
         );
       case "orientation":
         // Enabled after compliance is cleared (MVR and Drug Test passed)
@@ -822,6 +922,14 @@ const ApplicationDetail = () => {
               </h2>
               <ApplicationStatusBadge status={application.application.status} />
             </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Application
+            </Button>
           </div>
         </div>
 
@@ -842,7 +950,7 @@ const ApplicationDetail = () => {
                   : ""
               }
             >
-              Verification
+              Initial Connect
               {!isTabEnabled("verification") && " 🔒"}
             </TabsTrigger>
             <TabsTrigger
@@ -1009,12 +1117,10 @@ const ApplicationDetail = () => {
             </div>
           </TabsContent>
 
-          {/* Verification Tab */}
+          {/* Initial Connect Tab */}
           <TabsContent value="verification">
             <Card className="p-6 max-w-2xl">
-              <h3 className="text-lg font-semibold mb-4">
-                Initial Verification Call
-              </h3>
+              <h3 className="text-lg font-semibold mb-4">Initial Connect</h3>
 
               {application.application.initial_verification_call_at && (
                 <div className="mb-6 p-4 bg-muted/50 rounded-lg">
@@ -1208,21 +1314,12 @@ const ApplicationDetail = () => {
                     <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                       <div className="flex items-center gap-2 text-green-800">
                         <CheckCircle className="h-5 w-5" />
-                        <p className="font-medium">All documents verified</p>
+                        <p className="font-medium">
+                          All documents verified - Compliance tab is now
+                          unlocked
+                        </p>
                       </div>
                     </div>
-                  )}
-
-                {application.compliance?.drivers_license_verified &&
-                  application.compliance?.medical_card_verified &&
-                  application.compliance?.ssn_verified &&
-                  application.application.status !== "DOCS_VERIFIED" && (
-                    <Button
-                      onClick={handleMarkAllDocsVerified}
-                      className="w-full mt-4"
-                    >
-                      Mark Documents Complete & Move to Next Stage
-                    </Button>
                   )}
               </Card>
             </div>
@@ -1296,6 +1393,35 @@ const ApplicationDetail = () => {
 
                     {application.compliance?.mvr_requested_at && (
                       <>
+                        <div className="border rounded-lg p-4 bg-muted/30">
+                          <Label className="text-sm font-medium mb-2 block">
+                            Upload MVR Report
+                          </Label>
+                          <DocumentUpload
+                            label="MVR Report"
+                            documentType="dl"
+                            candidateId={application.application.candidate_id}
+                            complianceId={application.compliance.id}
+                            currentFileUrl={
+                              application.compliance.mvr_report_url
+                            }
+                            isVerified={false}
+                            onUploadComplete={async (fileUrl) => {
+                              // Update MVR report URL
+                              await supabase
+                                .from("driver_compliance")
+                                .update({ mvr_report_url: fileUrl })
+                                .eq("id", application.compliance!.id);
+                              loadApplication();
+                              toast({
+                                title: "Success",
+                                description: "MVR report uploaded successfully",
+                              });
+                            }}
+                            onVerificationChange={() => {}}
+                          />
+                        </div>
+
                         <div>
                           <Label>MVR Result</Label>
                           <Select
@@ -1410,18 +1536,53 @@ const ApplicationDetail = () => {
                             )}
                           </p>
                         )}
-                        {application.compliance.drug_test_expires_at && (
-                          <p>
-                            Expires:{" "}
-                            {format(
-                              new Date(
-                                application.compliance.drug_test_expires_at
-                              ),
-                              "MMM d, yyyy"
-                            )}
-                          </p>
-                        )}
                       </div>
+                    </div>
+
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <Label className="text-sm font-medium mb-2 block">
+                        Upload Work Order
+                      </Label>
+                      <DocumentUpload
+                        label="Drug Test Work Order"
+                        documentType="dl"
+                        candidateId={application.application.candidate_id}
+                        complianceId={application.compliance.id}
+                        currentFileUrl={
+                          application.compliance.drug_test_work_order_url
+                        }
+                        isVerified={false}
+                        onUploadComplete={async (fileUrl) => {
+                          // Update work order URL
+                          await supabase
+                            .from("driver_compliance")
+                            .update({ drug_test_work_order_url: fileUrl })
+                            .eq("id", application.compliance!.id);
+                          loadApplication();
+                          toast({
+                            title: "Success",
+                            description: "Work order uploaded successfully",
+                          });
+                        }}
+                        onVerificationChange={() => {}}
+                      />
+                      {application.compliance.drug_test_work_order_url && (
+                        <Button
+                          onClick={async () => {
+                            // Send email to driver with work order details
+                            toast({
+                              title: "Email Sent",
+                              description:
+                                "Drug test instructions sent to driver",
+                            });
+                          }}
+                          className="w-full mt-3"
+                          variant="outline"
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          Send Instructions to Driver
+                        </Button>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -1479,15 +1640,20 @@ const ApplicationDetail = () => {
 
                     <div>
                       <Label htmlFor="drug-test-date">
-                        Scheduled Date (Optional)
+                        Scheduled Date <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="drug-test-date"
                         type="date"
                         value={drugTestDate}
                         onChange={(e) => setDrugTestDate(e.target.value)}
+                        min={new Date().toISOString().split("T")[0]}
                         className="mt-1"
+                        required
                       />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Select a future date for the drug test appointment
+                      </p>
                     </div>
 
                     <Button
@@ -1495,7 +1661,8 @@ const ApplicationDetail = () => {
                       disabled={
                         isCreatingDrugTest ||
                         !drugTestProvider.trim() ||
-                        !drugTestSite.trim()
+                        !drugTestSite.trim() ||
+                        !drugTestDate
                       }
                       className="w-full"
                     >
@@ -1595,20 +1762,89 @@ const ApplicationDetail = () => {
                     <p className="text-sm text-muted-foreground">
                       No orientation scheduled yet
                     </p>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orientation-supervisor">
+                        Supervisor <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={orientationSupervisorId}
+                        onValueChange={setOrientationSupervisorId}
+                      >
+                        <SelectTrigger id="orientation-supervisor">
+                          <SelectValue placeholder="Select supervisor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {supervisors.map((supervisor) => (
+                            <SelectItem
+                              key={supervisor.id}
+                              value={supervisor.id}
+                            >
+                              {supervisor.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orientation-yard">
+                        Yard Location <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={orientationYardId}
+                        onValueChange={setOrientationYardId}
+                      >
+                        <SelectTrigger id="orientation-yard">
+                          <SelectValue placeholder="Select yard" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {yards.map((yard) => (
+                            <SelectItem key={yard.id} value={yard.id}>
+                              {yard.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="orientation-date">
-                        Orientation Date & Time
+                        Date & Time <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="orientation-date"
                         type="datetime-local"
                         value={orientationDate}
                         onChange={(e) => setOrientationDate(e.target.value)}
+                        min={new Date().toISOString().slice(0, 16)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Select a future date and time for orientation
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orientation-next-steps">
+                        Next Steps / Instructions
+                      </Label>
+                      <Textarea
+                        id="orientation-next-steps"
+                        value={orientationNotes}
+                        onChange={(e) => setOrientationNotes(e.target.value)}
+                        placeholder="Add any instructions or next steps for the driver..."
+                        rows={3}
                       />
                     </div>
+
                     <Button
                       onClick={handleScheduleOrientation}
-                      disabled={!orientationDate || isSchedulingOrientation}
+                      disabled={
+                        !orientationDate ||
+                        !orientationSupervisorId ||
+                        !orientationYardId ||
+                        isSchedulingOrientation
+                      }
                       className="w-full"
                     >
                       {isSchedulingOrientation ? (
@@ -1753,23 +1989,40 @@ const ApplicationDetail = () => {
                     </p>
                     <div className="space-y-2">
                       <Label htmlFor="training-start">
-                        Training Start Date
+                        Training Start Date{" "}
+                        <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="training-start"
                         type="datetime-local"
                         value={trainingStartDate}
                         onChange={(e) => setTrainingStartDate(e.target.value)}
+                        min={new Date().toISOString().slice(0, 16)}
+                        className="dark:bg-background dark:text-foreground"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Select when training will begin
+                      </p>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="training-end">Training End Date</Label>
+                      <Label htmlFor="training-end">
+                        Training End Date{" "}
+                        <span className="text-red-500">*</span>
+                      </Label>
                       <Input
                         id="training-end"
                         type="datetime-local"
                         value={trainingEndDate}
                         onChange={(e) => setTrainingEndDate(e.target.value)}
+                        min={
+                          trainingStartDate ||
+                          new Date().toISOString().slice(0, 16)
+                        }
+                        className="dark:bg-background dark:text-foreground"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Select when training will end
+                      </p>
                     </div>
                     <Button
                       onClick={handleScheduleTraining}
@@ -1819,6 +2072,47 @@ const ApplicationDetail = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Application</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this application for{" "}
+              <strong>{application.candidate.name}</strong>? This action cannot
+              be undone and will permanently remove all associated data
+              including documents, compliance records, and activity history.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteApplication}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Application
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -152,10 +152,44 @@ const PipelineDashboard = () => {
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="NEW">New</SelectItem>
                 <SelectItem value="CONTACTED">Contacted</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="DOCS_PENDING">Docs Pending</SelectItem>
                 <SelectItem value="DOCS_VERIFIED">Docs Verified</SelectItem>
+                <SelectItem value="MVR_PENDING">MVR Pending</SelectItem>
                 <SelectItem value="MVR_PASSED">MVR Passed</SelectItem>
+                <SelectItem value="MVR_FAILED">MVR Failed</SelectItem>
+                <SelectItem value="DRUG_TEST_ORDERED">
+                  Drug Test Ordered
+                </SelectItem>
+                <SelectItem value="DRUG_TEST_PENDING">
+                  Drug Test Pending
+                </SelectItem>
+                <SelectItem value="DRUG_TEST_PASSED">
+                  Drug Test Passed
+                </SelectItem>
+                <SelectItem value="DRUG_TEST_FAILED">
+                  Drug Test Failed
+                </SelectItem>
+                <SelectItem value="DRUG_TEST_NO_SHOW">
+                  Drug Test No Show
+                </SelectItem>
+                <SelectItem value="DRUG_TEST_EXPIRED">
+                  Drug Test Expired
+                </SelectItem>
                 <SelectItem value="CLEARED_FOR_HIRE">
                   Cleared for Hire
+                </SelectItem>
+                <SelectItem value="ORIENTATION_SCHEDULED">
+                  Orientation Scheduled
+                </SelectItem>
+                <SelectItem value="ORIENTATION_COMPLETED">
+                  Orientation Completed
+                </SelectItem>
+                <SelectItem value="TRAINING_IN_PROGRESS">
+                  Training In Progress
+                </SelectItem>
+                <SelectItem value="TRAINING_COMPLETED">
+                  Training Completed
                 </SelectItem>
                 <SelectItem value="HIRED">Hired</SelectItem>
               </SelectContent>

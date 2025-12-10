@@ -75,6 +75,7 @@ export interface DriverCompliance {
   mvr_summary?: string;
   mvr_eligible?: boolean;
   mvr_completed_at?: string;
+  mvr_report_url?: string;
 
   // Drug Test
   drug_test_provider?: string;
@@ -84,6 +85,7 @@ export interface DriverCompliance {
   drug_test_expires_at?: string;
   drug_test_result?: string;
   drug_test_completed_at?: string;
+  drug_test_work_order_url?: string;
 
   created_at: string;
   updated_at: string;
@@ -95,6 +97,7 @@ export interface DriverOnboarding {
 
   // Orientation
   supervisor_id?: string;
+  yard_id?: string;
   orientation_scheduled_at?: string;
   orientation_completed_at?: string;
   orientation_notes?: string;
