@@ -8,6 +8,8 @@ import {
   Shield,
   GraduationCap,
   UserCheck,
+  ClipboardCheck,
+  Syringe,
 } from "lucide-react";
 import type { ApplicationWithDetails } from "@/lib/driverOnboardingTypes";
 
@@ -66,23 +68,39 @@ export const DriverOnboardingRibbon = ({
           : "Pending",
     },
     {
-      id: "compliance",
-      label: "Compliance",
-      icon: Shield,
-      isComplete:
-        application.compliance?.mvr_eligible === true &&
-        application.compliance?.drug_test_result === "NEGATIVE",
+      id: "mvr",
+      label: "MVR Record",
+      icon: ClipboardCheck,
+      isComplete: application.compliance?.mvr_eligible === true,
       inProgress:
-        (application.compliance?.mvr_requested_at &&
-          !application.compliance?.mvr_completed_at) ||
-        (application.compliance?.drug_test_ordered_at &&
-          !application.compliance?.drug_test_result),
+        application.compliance?.mvr_requested_at &&
+        !application.compliance?.mvr_completed_at,
+      subtitle: application.compliance?.mvr_eligible
+        ? "Passed"
+        : application.compliance?.mvr_completed_at
+        ? "Failed"
+        : application.compliance?.mvr_requested_at
+        ? "In progress"
+        : "Not started",
+    },
+    {
+      id: "drug_test",
+      label: "Drug Test",
+      icon: Syringe,
+      isComplete: application.compliance?.drug_test_result === "NEGATIVE",
+      inProgress:
+        application.compliance?.drug_test_ordered_at &&
+        !application.compliance?.drug_test_result,
       subtitle:
-        application.compliance?.mvr_eligible &&
         application.compliance?.drug_test_result === "NEGATIVE"
-          ? "Cleared"
-          : application.compliance?.mvr_requested_at ||
-            application.compliance?.drug_test_ordered_at
+          ? "Passed"
+          : application.compliance?.drug_test_result === "POSITIVE"
+          ? "Failed"
+          : application.compliance?.drug_test_result === "NO_SHOW"
+          ? "No Show"
+          : application.compliance?.drug_test_result === "EXPIRED"
+          ? "Expired"
+          : application.compliance?.drug_test_ordered_at
           ? "In progress"
           : "Not started",
     },

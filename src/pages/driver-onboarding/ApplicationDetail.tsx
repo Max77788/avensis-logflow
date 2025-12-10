@@ -152,6 +152,23 @@ const ApplicationDetail = () => {
     }
   };
 
+  // Helper function to determine the next tab after completing current stage
+  const getNextTab = (currentTab: string): string => {
+    const tabOrder = [
+      "verification",
+      "documents",
+      "mvr",
+      "drug_test",
+      "orientation",
+      "training",
+    ];
+    const currentIndex = tabOrder.indexOf(currentTab);
+    if (currentIndex >= 0 && currentIndex < tabOrder.length - 1) {
+      return tabOrder[currentIndex + 1];
+    }
+    return currentTab; // Stay on current tab if it's the last one
+  };
+
   const loadApplication = async () => {
     if (!id || id === "new") return;
 
@@ -216,11 +233,11 @@ const ApplicationDetail = () => {
         title: "Success",
         description: "Verification submitted successfully",
       });
-      loadApplication();
-      loadActivities();
+      await loadApplication();
+      await loadActivities();
       setVerificationNotes("");
-      // Stay on verification tab
-      setActiveTab("verification");
+      // Move to next tab
+      setActiveTab(getNextTab("verification"));
     } else {
       toast({
         title: "Error",
@@ -246,10 +263,9 @@ const ApplicationDetail = () => {
     );
 
     if (result.success) {
-      loadApplication();
-      loadActivities();
-      // Switch to documents tab after upload
-      setActiveTab("documents");
+      // Reload application data without refreshing the page or switching tabs
+      await loadApplication();
+      // Don't call loadActivities or switch tabs to prevent page refresh feeling
     } else {
       toast({
         title: "Error",
@@ -277,10 +293,25 @@ const ApplicationDetail = () => {
         title: "Success",
         description: `Document ${verified ? "verified" : "unverified"}`,
       });
-      loadApplication();
-      loadActivities();
-      // Stay on documents tab
-      setActiveTab("documents");
+      // Reload application data without refreshing the page
+      await loadApplication();
+
+      // Check if all documents are now verified
+      const updatedCompliance = {
+        ...application.compliance,
+        [`${documentType}_verified`]: verified,
+      };
+
+      const allDocsVerified =
+        updatedCompliance.drivers_license_verified &&
+        updatedCompliance.medical_card_verified &&
+        updatedCompliance.ssn_verified;
+
+      // Move to next tab if all documents are verified
+      if (allDocsVerified && verified) {
+        setActiveTab(getNextTab("documents"));
+      }
+      // Don't switch tabs otherwise - stay on documents tab
     } else {
       toast({
         title: "Error",
@@ -347,11 +378,11 @@ const ApplicationDetail = () => {
         title: "Success",
         description: `MVR marked as ${mvrEligible ? "passed" : "failed"}`,
       });
-      loadApplication();
-      loadActivities();
+      await loadApplication();
+      await loadActivities();
       setMvrSummary("");
-      // Stay on compliance tab
-      setActiveTab("compliance");
+      // Move to drug test tab
+      setActiveTab(getNextTab("mvr"));
     } else {
       toast({
         title: "Error",
@@ -437,10 +468,14 @@ const ApplicationDetail = () => {
         title: "Success",
         description: `Drug test result recorded: ${result}`,
       });
-      loadApplication();
-      loadActivities();
-      // Stay on compliance tab
-      setActiveTab("compliance");
+      await loadApplication();
+      await loadActivities();
+      // Move to next tab if drug test passed
+      if (result === "NEGATIVE") {
+        setActiveTab(getNextTab("drug_test"));
+      } else {
+        setActiveTab("drug_test");
+      }
     } else {
       toast({
         title: "Error",
@@ -490,13 +525,13 @@ const ApplicationDetail = () => {
         title: "Success",
         description: "Orientation scheduled successfully",
       });
-      loadApplication();
-      loadActivities();
+      await loadApplication();
+      await loadActivities();
       setOrientationDate("");
       setOrientationSupervisorId("");
       setOrientationYardId("");
       setOrientationNotes("");
-      // Stay on orientation tab
+      // Stay on orientation tab (user still needs to complete it)
       setActiveTab("orientation");
     } else {
       toast({
@@ -522,11 +557,11 @@ const ApplicationDetail = () => {
         title: "Success",
         description: "Orientation marked as completed",
       });
-      loadApplication();
-      loadActivities();
+      await loadApplication();
+      await loadActivities();
       setOrientationNotes("");
-      // Stay on onboarding tab
-      setActiveTab("onboarding");
+      // Move to next tab
+      setActiveTab(getNextTab("orientation"));
     } else {
       toast({
         title: "Error",
@@ -559,12 +594,12 @@ const ApplicationDetail = () => {
         title: "Success",
         description: "Training scheduled successfully",
       });
-      loadApplication();
-      loadActivities();
+      await loadApplication();
+      await loadActivities();
       setTrainingStartDate("");
       setTrainingEndDate("");
-      // Stay on onboarding tab
-      setActiveTab("onboarding");
+      // Stay on training tab (user still needs to complete it)
+      setActiveTab("training");
     } else {
       toast({
         title: "Error",
@@ -587,13 +622,13 @@ const ApplicationDetail = () => {
     if (result.success) {
       toast({
         title: "Success",
-        description: "Training marked as completed",
+        description: "Training marked as completed - Ready to hire!",
       });
-      loadApplication();
-      loadActivities();
+      await loadApplication();
+      await loadActivities();
       setTrainingCompletionNotes("");
-      // Stay on onboarding tab
-      setActiveTab("onboarding");
+      // Stay on training tab to show hire button
+      setActiveTab("training");
     } else {
       toast({
         title: "Error",
@@ -758,7 +793,7 @@ const ApplicationDetail = () => {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="position_type">Position Type</Label>
+                <Label htmlFor="position_type">Driver Type</Label>
                 <Select
                   value={newLeadForm.position_type}
                   onValueChange={(value) =>
@@ -766,16 +801,15 @@ const ApplicationDetail = () => {
                   }
                 >
                   <SelectTrigger id="position_type">
-                    <SelectValue placeholder="Select position type" />
+                    <SelectValue placeholder="Select driver type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CDL Driver">CDL Driver</SelectItem>
-                    <SelectItem value="Yard Driver">Yard Driver</SelectItem>
-                    <SelectItem value="Local Driver">Local Driver</SelectItem>
-                    <SelectItem value="Regional Driver">
-                      Regional Driver
+                    <SelectItem value="Owner Operator">
+                      Owner Operator
                     </SelectItem>
-                    <SelectItem value="OTR Driver">OTR Driver</SelectItem>
+                    <SelectItem value="Company Driver (Employee)">
+                      Company Driver (Employee)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -847,7 +881,7 @@ const ApplicationDetail = () => {
       case "documents":
         // Enabled after verification is done (status changes from NEW)
         return status !== "NEW" && status !== "REJECTED";
-      case "compliance":
+      case "mvr":
         // Enabled after all documents are verified
         return (
           (application.compliance?.drivers_license_verified &&
@@ -855,6 +889,9 @@ const ApplicationDetail = () => {
             application.compliance?.ssn_verified) ||
           false
         );
+      case "drug_test":
+        // Enabled after MVR is completed
+        return !!application.compliance?.mvr_completed_at;
       case "orientation":
         // Enabled after compliance is cleared (MVR and Drug Test passed)
         return [
@@ -937,73 +974,91 @@ const ApplicationDetail = () => {
         <DriverOnboardingRibbon application={application} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-4 gap-1">
-            <TabsTrigger value="overview" disabled={!isTabEnabled("overview")}>
+          <TabsList className="mb-4 w-full h-auto bg-transparent p-0 grid grid-cols-[auto_1fr] gap-2 border-b">
+            <TabsTrigger
+              value="overview"
+              disabled={!isTabEnabled("overview")}
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+            >
               Overview
             </TabsTrigger>
-            <TabsTrigger
-              value="verification"
-              disabled={!isTabEnabled("verification")}
-              className={
-                !isTabEnabled("verification")
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }
-            >
-              Initial Connect
-              {!isTabEnabled("verification") && " 🔒"}
-            </TabsTrigger>
-            <TabsTrigger
-              value="documents"
-              disabled={!isTabEnabled("documents")}
-              className={
-                !isTabEnabled("documents")
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }
-            >
-              Documents
-              {!isTabEnabled("documents") && " 🔒"}
-            </TabsTrigger>
-            <TabsTrigger
-              value="compliance"
-              disabled={!isTabEnabled("compliance")}
-              className={
-                !isTabEnabled("compliance")
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }
-            >
-              Compliance
-              {!isTabEnabled("compliance") && " 🔒"}
-            </TabsTrigger>
-            <TabsTrigger
-              value="orientation"
-              disabled={!isTabEnabled("orientation")}
-              className={
-                !isTabEnabled("orientation")
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }
-            >
-              Orientation
-              {!isTabEnabled("orientation") && " 🔒"}
-            </TabsTrigger>
-            <TabsTrigger
-              value="training"
-              disabled={!isTabEnabled("training")}
-              className={
-                !isTabEnabled("training") ? "opacity-50 cursor-not-allowed" : ""
-              }
-            >
-              Training
-              {!isTabEnabled("training") && " 🔒"}
-            </TabsTrigger>
+            <div className="grid grid-cols-6 gap-0">
+              <TabsTrigger
+                value="verification"
+                disabled={!isTabEnabled("verification")}
+                className={`rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent ${
+                  !isTabEnabled("verification")
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                Initial Connect
+                {!isTabEnabled("verification") && " 🔒"}
+              </TabsTrigger>
+              <TabsTrigger
+                value="documents"
+                disabled={!isTabEnabled("documents")}
+                className={`rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent ${
+                  !isTabEnabled("documents")
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                Applications
+                {!isTabEnabled("documents") && " 🔒"}
+              </TabsTrigger>
+              <TabsTrigger
+                value="mvr"
+                disabled={!isTabEnabled("mvr")}
+                className={`rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent ${
+                  !isTabEnabled("mvr") ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                MVR Record
+                {!isTabEnabled("mvr") && " 🔒"}
+              </TabsTrigger>
+              <TabsTrigger
+                value="drug_test"
+                disabled={!isTabEnabled("drug_test")}
+                className={`rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent ${
+                  !isTabEnabled("drug_test")
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                Drug Test
+                {!isTabEnabled("drug_test") && " 🔒"}
+              </TabsTrigger>
+              <TabsTrigger
+                value="orientation"
+                disabled={!isTabEnabled("orientation")}
+                className={`rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent ${
+                  !isTabEnabled("orientation")
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                Orientation
+                {!isTabEnabled("orientation") && " 🔒"}
+              </TabsTrigger>
+              <TabsTrigger
+                value="training"
+                disabled={!isTabEnabled("training")}
+                className={`rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent ${
+                  !isTabEnabled("training")
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                Training
+                {!isTabEnabled("training") && " 🔒"}
+              </TabsTrigger>
+            </div>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
               <div className="lg:col-span-2 space-y-6">
                 {/* Candidate Info */}
                 <Card className="p-6">
@@ -1119,7 +1174,7 @@ const ApplicationDetail = () => {
 
           {/* Initial Connect Tab */}
           <TabsContent value="verification">
-            <Card className="p-6 max-w-2xl">
+            <Card className="p-6 max-w-4xl mx-auto">
               <h3 className="text-lg font-semibold mb-4">Initial Connect</h3>
 
               {application.application.initial_verification_call_at && (
@@ -1250,12 +1305,12 @@ const ApplicationDetail = () => {
               </div>
             </Card>
           </TabsContent>
-          {/* Documents Tab */}
+          {/* Applications Tab */}
           <TabsContent value="documents">
-            <div className="max-w-2xl space-y-6">
+            <div className="max-w-4xl mx-auto space-y-6">
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">
-                  Required Documents
+                  Required Application Documents
                 </h3>
                 <div className="space-y-4">
                   <DocumentUpload
@@ -1324,10 +1379,9 @@ const ApplicationDetail = () => {
               </Card>
             </div>
           </TabsContent>
-          {/* Compliance Tab */}
-          <TabsContent value="compliance">
-            <div className="max-w-2xl space-y-6">
-              {/* MVR Section */}
+          {/* MVR Tab */}
+          <TabsContent value="mvr">
+            <div className="max-w-4xl mx-auto space-y-6">
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">
                   Motor Vehicle Record (MVR)
@@ -1478,8 +1532,12 @@ const ApplicationDetail = () => {
                   </div>
                 )}
               </Card>
+            </div>
+          </TabsContent>
 
-              {/* Drug Test Section */}
+          {/* Drug Test Tab */}
+          <TabsContent value="drug_test">
+            <div className="max-w-4xl mx-auto space-y-6">
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Drug Test</h3>
 
@@ -1648,7 +1706,7 @@ const ApplicationDetail = () => {
                         value={drugTestDate}
                         onChange={(e) => setDrugTestDate(e.target.value)}
                         min={new Date().toISOString().split("T")[0]}
-                        className="mt-1"
+                        className="mt-1 dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
                         required
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -1680,7 +1738,7 @@ const ApplicationDetail = () => {
           </TabsContent>
           {/* Orientation Tab */}
           <TabsContent value="orientation">
-            <div className="grid gap-6 max-w-2xl">
+            <div className="grid gap-6 max-w-4xl mx-auto">
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Orientation</h3>
                 {application.onboarding?.orientation_completed_at ? (
@@ -1764,6 +1822,27 @@ const ApplicationDetail = () => {
                     </p>
 
                     <div className="space-y-2">
+                      <Label htmlFor="orientation-yard">
+                        Yard Location <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={orientationYardId}
+                        onValueChange={setOrientationYardId}
+                      >
+                        <SelectTrigger id="orientation-yard">
+                          <SelectValue placeholder="Select yard" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {yards.map((yard) => (
+                            <SelectItem key={yard.id} value={yard.id}>
+                              {yard.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="orientation-supervisor">
                         Supervisor <span className="text-red-500">*</span>
                       </Label>
@@ -1788,27 +1867,6 @@ const ApplicationDetail = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="orientation-yard">
-                        Yard Location <span className="text-red-500">*</span>
-                      </Label>
-                      <Select
-                        value={orientationYardId}
-                        onValueChange={setOrientationYardId}
-                      >
-                        <SelectTrigger id="orientation-yard">
-                          <SelectValue placeholder="Select yard" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {yards.map((yard) => (
-                            <SelectItem key={yard.id} value={yard.id}>
-                              {yard.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
                       <Label htmlFor="orientation-date">
                         Date & Time <span className="text-red-500">*</span>
                       </Label>
@@ -1818,6 +1876,7 @@ const ApplicationDetail = () => {
                         value={orientationDate}
                         onChange={(e) => setOrientationDate(e.target.value)}
                         min={new Date().toISOString().slice(0, 16)}
+                        className="dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
                       />
                       <p className="text-xs text-muted-foreground">
                         Select a future date and time for orientation
@@ -1862,7 +1921,7 @@ const ApplicationDetail = () => {
 
           {/* Training Tab */}
           <TabsContent value="training">
-            <div className="grid gap-6 max-w-2xl">
+            <div className="grid gap-6 max-w-4xl mx-auto">
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Training</h3>
                 {application.onboarding?.training_completed_at ? (
@@ -1998,7 +2057,7 @@ const ApplicationDetail = () => {
                         value={trainingStartDate}
                         onChange={(e) => setTrainingStartDate(e.target.value)}
                         min={new Date().toISOString().slice(0, 16)}
-                        className="dark:bg-background dark:text-foreground"
+                        className="dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
                       />
                       <p className="text-xs text-muted-foreground">
                         Select when training will begin
@@ -2018,7 +2077,7 @@ const ApplicationDetail = () => {
                           trainingStartDate ||
                           new Date().toISOString().slice(0, 16)
                         }
-                        className="dark:bg-background dark:text-foreground"
+                        className="dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
                       />
                       <p className="text-xs text-muted-foreground">
                         Select when training will end
