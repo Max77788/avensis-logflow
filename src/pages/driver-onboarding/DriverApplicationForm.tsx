@@ -209,6 +209,8 @@ export default function DriverApplicationForm() {
   const [submitting, setSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [candidateId, setCandidateId] = useState<string | null>(null);
+  const [complianceId, setComplianceId] = useState<string | null>(null);
   const [formId, setFormId] = useState<string | null>(null);
   const [positionType, setPositionType] = useState<string>("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -271,16 +273,18 @@ export default function DriverApplicationForm() {
     try {
       setLoading(true);
 
-      // Get application by token with candidate data
+      // Get application by token with candidate data and compliance
       const { data: application, error: appError } = await supabase
         .from("driver_applications")
         .select(
           `
           id,
+          candidate_id,
           position_type,
           status,
           application_form_completed_at,
-          candidate:driver_candidates(name, phone)
+          candidate:driver_candidates(name, phone),
+          compliance:driver_compliance(id)
         `
         )
         .eq("application_form_token", token)
@@ -296,7 +300,22 @@ export default function DriverApplicationForm() {
       }
 
       setApplicationId(application.id);
+      setCandidateId(application.candidate_id);
       setPositionType(application.position_type || "");
+
+      // Set compliance ID if it exists
+      if (
+        application.compliance &&
+        Array.isArray(application.compliance) &&
+        application.compliance.length > 0
+      ) {
+        setComplianceId(application.compliance[0].id);
+      } else if (
+        application.compliance &&
+        !Array.isArray(application.compliance)
+      ) {
+        setComplianceId((application.compliance as any).id);
+      }
 
       // Check if already submitted
       if (application.application_form_completed_at) {
@@ -1714,9 +1733,11 @@ export default function DriverApplicationForm() {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold">Step 9 — Employment History</h2>
+        {/*
         <p className="text-sm text-muted-foreground">
-          DOT requires 10 years of employment history for CMV drivers.
+          DOT requires 10 years  of employment history for CMV drivers.
         </p>
+        */}
         <div className="flex items-start gap-3">
           <Checkbox
             id="no_previous_dot_employment"
@@ -1935,6 +1956,7 @@ export default function DriverApplicationForm() {
         <Button
           type="button"
           variant="outline"
+          disabled={formData.no_previous_dot_employment}
           onClick={() =>
             setFormData({
               ...formData,
@@ -1958,11 +1980,12 @@ export default function DriverApplicationForm() {
           Add Employment
         </Button>
 
-        {formData.employment_history.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No employment history added yet.
-          </p>
-        )}
+        {!formData.no_previous_dot_employment &&
+          formData.employment_history.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No employment history added yet.
+            </p>
+          )}
       </div>
     );
   }
@@ -2194,8 +2217,52 @@ export default function DriverApplicationForm() {
   }
 
   function renderDocumentUpload() {
-    if (!applicationId) return null;
+    if (!applicationId || !candidateId || !complianceId) {
+      return (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-bold">Step 13 — Document Upload</h2>
+          <p className="text-sm text-muted-foreground">
+            Loading document upload...
+          </p>
+        </div>
+      );
+    }
+
     const isOwnerOperator = positionType === "OWNER_OPERATOR";
+
+    const handleDocumentUpload = async (
+      documentType: "dl" | "medical_card" | "ssn",
+      fileUrl: string
+    ) => {
+      // Update the compliance record with the new file URL
+      const columnMap = {
+        dl: "drivers_license_url",
+        medical_card: "medical_card_url",
+        ssn: "ssn_url",
+      };
+
+      const { error } = await supabase
+        .from("driver_compliance")
+        .update({ [columnMap[documentType]]: fileUrl })
+        .eq("id", complianceId);
+
+      if (error) {
+        console.error("Error updating document:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save document",
+          variant: "destructive",
+        });
+      }
+    };
+
+    const handleVerificationChange = async (
+      documentType: "dl" | "medical_card" | "ssn",
+      verified: boolean
+    ) => {
+      // This is handled by HR, not by the driver
+      // We can leave this as a no-op for the driver form
+    };
 
     return (
       <div className="space-y-6">
@@ -2206,27 +2273,39 @@ export default function DriverApplicationForm() {
 
         <div className="space-y-4">
           <DocumentUpload
-            applicationId={applicationId}
-            documentType="driver_license"
+            candidateId={candidateId}
+            complianceId={complianceId}
+            documentType="dl"
             label="Driver License"
+            onUploadComplete={(url) => handleDocumentUpload("dl", url)}
+            onVerificationChange={(verified) =>
+              handleVerificationChange("dl", verified)
+            }
           />
           <DocumentUpload
-            applicationId={applicationId}
-            documentType="social_security_card"
+            candidateId={candidateId}
+            complianceId={complianceId}
+            documentType="ssn"
             label="Social Security Card"
+            onUploadComplete={(url) => handleDocumentUpload("ssn", url)}
+            onVerificationChange={(verified) =>
+              handleVerificationChange("ssn", verified)
+            }
           />
           {!isOwnerOperator && (
             <DocumentUpload
-              applicationId={applicationId}
+              candidateId={candidateId}
+              complianceId={complianceId}
               documentType="medical_card"
               label="Medical Card"
+              onUploadComplete={(url) =>
+                handleDocumentUpload("medical_card", url)
+              }
+              onVerificationChange={(verified) =>
+                handleVerificationChange("medical_card", verified)
+              }
             />
           )}
-          <DocumentUpload
-            applicationId={applicationId}
-            documentType="application_form"
-            label="Additional Documents (Optional)"
-          />
         </div>
       </div>
     );

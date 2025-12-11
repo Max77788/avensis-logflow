@@ -305,19 +305,24 @@ const ApplicationDetail = () => {
     );
 
     if (result.success) {
-      toast({
-        title: "Success",
-        description: `Document ${verified ? "verified" : "unverified"}`,
-      });
-      // Reload application data without refreshing the page
-      await loadApplication();
-
-      // Check if all documents are now verified
-      const updatedCompliance = {
-        ...application.compliance,
-        [`${documentType}_verified`]: verified,
+      // Update local state immediately without reloading from server
+      const columnMap = {
+        dl: "drivers_license_verified",
+        medical_card: "medical_card_verified",
+        ssn: "ssn_verified",
       };
 
+      const updatedCompliance = {
+        ...application.compliance,
+        [columnMap[documentType]]: verified,
+      };
+
+      setApplication({
+        ...application,
+        compliance: updatedCompliance,
+      });
+
+      // Check if all documents are now verified
       const allDocsVerified =
         updatedCompliance.drivers_license_verified &&
         updatedCompliance.medical_card_verified &&
@@ -326,6 +331,10 @@ const ApplicationDetail = () => {
       // Move to next tab if all documents are verified
       if (allDocsVerified && verified) {
         setActiveTab(getNextTab("documents"));
+        toast({
+          title: "Success",
+          description: "All documents verified - Compliance tab unlocked",
+        });
       }
       // Don't switch tabs otherwise - stay on documents tab
     } else {
@@ -1474,75 +1483,72 @@ const ApplicationDetail = () => {
                 )}
               </Card>
 
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">
-                  Required Application Documents
-                </h3>
-                <div className="space-y-4">
-                  <DocumentUpload
-                    label="Driver's License"
-                    documentType="dl"
-                    candidateId={application.candidate.id}
-                    complianceId={application.compliance?.id || ""}
-                    currentFileUrl={
-                      application.compliance?.drivers_license_url || undefined
-                    }
-                    isVerified={
-                      application.compliance?.drivers_license_verified || false
-                    }
-                    onUploadComplete={(url) => handleDocumentUpload("dl", url)}
-                    onVerificationChange={(verified) =>
-                      handleDocumentVerificationChange("dl", verified)
-                    }
-                  />
-                  <DocumentUpload
-                    label="Medical Card"
-                    documentType="medical_card"
-                    candidateId={application.candidate.id}
-                    complianceId={application.compliance?.id || ""}
-                    currentFileUrl={
-                      application.compliance?.medical_card_url || undefined
-                    }
-                    isVerified={
-                      application.compliance?.medical_card_verified || false
-                    }
-                    onUploadComplete={(url) =>
-                      handleDocumentUpload("medical_card", url)
-                    }
-                    onVerificationChange={(verified) =>
-                      handleDocumentVerificationChange("medical_card", verified)
-                    }
-                  />
-                  <DocumentUpload
-                    label="Social Security Card"
-                    documentType="ssn"
-                    candidateId={application.candidate.id}
-                    complianceId={application.compliance?.id || ""}
-                    currentFileUrl={
-                      application.compliance?.ssn_url || undefined
-                    }
-                    isVerified={application.compliance?.ssn_verified || false}
-                    onUploadComplete={(url) => handleDocumentUpload("ssn", url)}
-                    onVerificationChange={(verified) =>
-                      handleDocumentVerificationChange("ssn", verified)
-                    }
-                  />
-                </div>
-
-                {application.compliance?.drivers_license_verified &&
-                  application.compliance?.medical_card_verified &&
-                  application.compliance?.ssn_verified && (
-                    <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-green-800">
-                        <CheckCircle className="h-5 w-5" />
-                        <p className="font-medium">
-                          All documents verified - Compliance tab is now
-                          unlocked
-                        </p>
-                      </div>
-                    </div>
-                  )}
-              </Card>
+              {/* Hidden for now - Application Documents section */}
+              {true && (
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">
+                    Required Application Documents
+                  </h3>
+                  <div className="space-y-4">
+                    <DocumentUpload
+                      label="Driver's License"
+                      documentType="dl"
+                      candidateId={application.candidate.id}
+                      complianceId={application.compliance?.id || ""}
+                      currentFileUrl={
+                        application.compliance?.drivers_license_url || undefined
+                      }
+                      isVerified={
+                        application.compliance?.drivers_license_verified ||
+                        false
+                      }
+                      onUploadComplete={(url) =>
+                        handleDocumentUpload("dl", url)
+                      }
+                      onVerificationChange={(verified) =>
+                        handleDocumentVerificationChange("dl", verified)
+                      }
+                    />
+                    <DocumentUpload
+                      label="Medical Card"
+                      documentType="medical_card"
+                      candidateId={application.candidate.id}
+                      complianceId={application.compliance?.id || ""}
+                      currentFileUrl={
+                        application.compliance?.medical_card_url || undefined
+                      }
+                      isVerified={
+                        application.compliance?.medical_card_verified || false
+                      }
+                      onUploadComplete={(url) =>
+                        handleDocumentUpload("medical_card", url)
+                      }
+                      onVerificationChange={(verified) =>
+                        handleDocumentVerificationChange(
+                          "medical_card",
+                          verified
+                        )
+                      }
+                    />
+                    <DocumentUpload
+                      label="Social Security Card"
+                      documentType="ssn"
+                      candidateId={application.candidate.id}
+                      complianceId={application.compliance?.id || ""}
+                      currentFileUrl={
+                        application.compliance?.ssn_url || undefined
+                      }
+                      isVerified={application.compliance?.ssn_verified || false}
+                      onUploadComplete={(url) =>
+                        handleDocumentUpload("ssn", url)
+                      }
+                      onVerificationChange={(verified) =>
+                        handleDocumentVerificationChange("ssn", verified)
+                      }
+                    />
+                  </div>
+                </Card>
+              )}
             </div>
           </TabsContent>
           {/* MVR Tab */}

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/lib/supabase";
-import { Upload, FileText, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface DocumentUploadProps {
@@ -81,15 +81,21 @@ export const DocumentUpload = ({
     <div className="border rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-base font-medium">{label}</Label>
-        {isVerified ? (
-          <div className="flex items-center gap-1 text-green-600 text-sm">
-            <CheckCircle className="h-4 w-4" />
-            Verified
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 text-muted-foreground text-sm">
-            <XCircle className="h-4 w-4" />
-            Not Verified
+        {currentFileUrl && (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id={`verify-${documentType}`}
+              checked={isVerified}
+              onCheckedChange={(checked) =>
+                onVerificationChange(checked as boolean)
+              }
+            />
+            <label
+              htmlFor={`verify-${documentType}`}
+              className="text-sm font-medium cursor-pointer"
+            >
+              Verified
+            </label>
           </div>
         )}
       </div>
@@ -123,19 +129,6 @@ export const DocumentUpload = ({
           </div>
         )}
       </div>
-
-      {currentFileUrl && (
-        <div className="flex gap-2">
-          <Button
-            variant={isVerified ? "outline" : "default"}
-            size="sm"
-            onClick={() => onVerificationChange(!isVerified)}
-            className="flex-1"
-          >
-            {isVerified ? "Mark as Unverified" : "Mark as Verified"}
-          </Button>
-        </div>
-      )}
     </div>
   );
 };
