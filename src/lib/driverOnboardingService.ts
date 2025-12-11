@@ -24,6 +24,14 @@ export const driverOnboardingService = {
     data: CreateLeadFormData
   ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
+      // Ensure empty strings are converted to null for UUID fields
+      const yardId =
+        data.yard_id && data.yard_id.trim() !== "" ? data.yard_id : null;
+      const recruiterId =
+        data.recruiter_id && data.recruiter_id.trim() !== ""
+          ? data.recruiter_id
+          : null;
+
       const { data: result, error } = await supabase.rpc(
         "rpc_create_driver_lead",
         {
@@ -32,9 +40,9 @@ export const driverOnboardingService = {
           p_email: data.email || null,
           p_zip_code: data.zip_code || null,
           p_source: data.source || null,
-          p_yard_id: data.yard_id || null,
+          p_yard_id: yardId,
           p_position_type: data.position_type || null,
-          p_recruiter_id: data.recruiter_id || null,
+          p_recruiter_id: recruiterId,
         }
       );
 
@@ -67,7 +75,7 @@ export const driverOnboardingService = {
           candidate:driver_candidates(*),
           compliance:driver_compliance(*),
           onboarding:driver_onboarding(*),
-          yard:companies(id, name)
+          yard:yards(id, name)
         `
         )
         .order("created_at", { ascending: false });
@@ -122,7 +130,8 @@ export const driverOnboardingService = {
           *,
           candidate:driver_candidates(*),
           compliance:driver_compliance(*),
-          onboarding:driver_onboarding(*)
+          onboarding:driver_onboarding(*),
+          yard:yards(id, name)
         `
         )
         .eq("id", id)
@@ -141,6 +150,7 @@ export const driverOnboardingService = {
         onboarding: Array.isArray(data.onboarding)
           ? data.onboarding[0]
           : data.onboarding,
+        yard: Array.isArray(data.yard) ? data.yard[0] : data.yard,
       };
 
       return { success: true, data: application };
@@ -526,13 +536,19 @@ export const driverOnboardingService = {
   // =====================================================
   async getYards(): Promise<{
     success: boolean;
-    data?: Array<{ id: string; name: string }>;
+    data?: Array<{
+      id: string;
+      name: string;
+      address?: string;
+      supervisor_name?: string;
+      supervisor_phone?: string;
+    }>;
     error?: string;
   }> {
     try {
       const { data, error } = await supabase
         .from("yards")
-        .select("id, name")
+        .select("id, name, address, supervisor_name, supervisor_phone")
         .order("name");
 
       if (error) throw error;

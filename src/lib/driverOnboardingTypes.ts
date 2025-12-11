@@ -53,6 +53,9 @@ export interface DriverApplication {
   notes?: string;
   initial_verification_call_at?: string;
   initial_verification_notes?: string;
+  application_form_token?: string;
+  application_form_sent_at?: string;
+  application_form_completed_at?: string;
   created_at: string;
   updated_at: string;
 }

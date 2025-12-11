@@ -28,6 +28,10 @@ import { DocumentUpload } from "@/components/driver-onboarding/DocumentUpload";
 import { DriverOnboardingRibbon } from "@/components/driver-onboarding/DriverOnboardingRibbon";
 import { driverOnboardingService } from "@/lib/driverOnboardingService";
 import { supabase } from "@/lib/supabase";
+import {
+  sendEmail,
+  generateDriverApplicationFormEmailHTML,
+} from "@/lib/emailService";
 import type {
   ApplicationWithDetails,
   DriverApplicationActivity,
@@ -94,7 +98,15 @@ const ApplicationDetail = () => {
     yard_id: "",
   });
   const [isCreatingLead, setIsCreatingLead] = useState(false);
-  const [yards, setYards] = useState<Array<{ id: string; name: string }>>([]);
+  const [yards, setYards] = useState<
+    Array<{
+      id: string;
+      name: string;
+      address?: string;
+      supervisor_name?: string;
+      supervisor_phone?: string;
+    }>
+  >([]);
   const [supervisors, setSupervisors] = useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -119,6 +131,10 @@ const ApplicationDetail = () => {
   // Delete state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Application form state
+  const [isSendingApplicationForm, setIsSendingApplicationForm] =
+    useState(false);
 
   useEffect(() => {
     if (id && id !== "new") {
@@ -688,6 +704,83 @@ const ApplicationDetail = () => {
     }
   };
 
+  const handleSendApplicationForm = async () => {
+    if (!id || id === "new" || !application) return;
+
+    // Check if driver has email
+    if (!application.candidate?.email) {
+      toast({
+        title: "Error",
+        description: "Driver email is required to send the application form",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingApplicationForm(true);
+
+    try {
+      // Generate unique token
+      const token = crypto.randomUUID();
+
+      // Update application with token and sent timestamp
+      const { error: updateError } = await supabase
+        .from("driver_applications")
+        .update({
+          application_form_token: token,
+          application_form_sent_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (updateError) throw updateError;
+
+      // Generate form link
+      const formLink = `${window.location.origin}/driver-onboarding/form/${token}`;
+
+      // Format position type for display
+      const positionTypeDisplay = application.application.position_type
+        ? application.application.position_type
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase())
+        : "Driver";
+
+      // Generate email HTML
+      const emailHTML = generateDriverApplicationFormEmailHTML({
+        driverName: application.candidate.name,
+        formUrl: formLink,
+        positionType: positionTypeDisplay,
+      });
+
+      // Send email
+      const emailResult = await sendEmail({
+        to: application.candidate.email,
+        subject: "Complete Your Driver Application - Avensis Energy",
+        html: emailHTML,
+      });
+
+      if (!emailResult.success) {
+        throw new Error(emailResult.error || "Failed to send email");
+      }
+
+      toast({
+        title: "Application Form Sent",
+        description: `Email sent successfully to ${application.candidate.email}`,
+      });
+
+      // Reload application to show updated status
+      loadApplication();
+    } catch (error: any) {
+      console.error("Error sending application form:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send application form",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingApplicationForm(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -828,7 +921,21 @@ const ApplicationDetail = () => {
                   <SelectContent>
                     {yards.map((yard) => (
                       <SelectItem key={yard.id} value={yard.id}>
-                        {yard.name}
+                        <div className="flex flex-col">
+                          <span className="font-medium">{yard.name}</span>
+                          {yard.address && (
+                            <span className="text-xs text-muted-foreground">
+                              {yard.address}
+                            </span>
+                          )}
+                          {yard.supervisor_name && (
+                            <span className="text-xs text-muted-foreground">
+                              Supervisor: {yard.supervisor_name}
+                              {yard.supervisor_phone &&
+                                ` • ${yard.supervisor_phone}`}
+                            </span>
+                          )}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1140,29 +1247,6 @@ const ApplicationDetail = () => {
                     </div>
                   </div>
                 </Card>
-
-                {/* Notes */}
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Notes</h3>
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Add notes about this candidate..."
-                    className="min-h-[120px] mb-3"
-                  />
-                  <Button
-                    onClick={handleSaveNotes}
-                    disabled={isSavingNotes}
-                    size="sm"
-                  >
-                    {isSavingNotes ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4 mr-2" />
-                    )}
-                    Save Notes
-                  </Button>
-                </Card>
               </div>
 
               {/* Activity Log */}
@@ -1300,7 +1384,7 @@ const ApplicationDetail = () => {
                   ) : (
                     <Save className="h-4 w-4 mr-2" />
                   )}
-                  Submit Verification
+                  Submit
                 </Button>
               </div>
             </Card>
@@ -1308,6 +1392,88 @@ const ApplicationDetail = () => {
           {/* Applications Tab */}
           <TabsContent value="documents">
             <div className="max-w-4xl mx-auto space-y-6">
+              {/* Send Application Form Card */}
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">
+                  Driver Application Form
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Send the driver a link to complete their application form
+                  online. They will fill out all required information and upload
+                  documents.
+                </p>
+
+                {application.application.application_form_sent_at ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        ✉️ Application form sent on{" "}
+                        {format(
+                          new Date(
+                            application.application.application_form_sent_at
+                          ),
+                          "PPP 'at' p"
+                        )}
+                      </p>
+                      {application.application.application_form_token && (
+                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-2">
+                          Link: {window.location.origin}/driver-onboarding/form/
+                          {application.application.application_form_token}
+                        </p>
+                      )}
+                    </div>
+
+                    {application.application.application_form_completed_at ? (
+                      <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                        <div className="flex items-center gap-2 text-green-800 dark:text-green-200">
+                          <CheckCircle2 className="h-5 w-5" />
+                          <p className="font-medium">
+                            Form completed on{" "}
+                            {format(
+                              new Date(
+                                application.application.application_form_completed_at
+                              ),
+                              "PPP 'at' p"
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                          ⏳ Waiting for driver to complete the form...
+                        </p>
+                      </div>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      onClick={handleSendApplicationForm}
+                      disabled={isSendingApplicationForm}
+                    >
+                      {isSendingApplicationForm ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Mail className="h-4 w-4 mr-2" />
+                      )}
+                      Resend Application Form Link
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleSendApplicationForm}
+                    disabled={isSendingApplicationForm}
+                  >
+                    {isSendingApplicationForm ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Mail className="h-4 w-4 mr-2" />
+                    )}
+                    Send Application Form to Driver
+                  </Button>
+                )}
+              </Card>
+
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">
                   Required Application Documents
@@ -1835,7 +2001,21 @@ const ApplicationDetail = () => {
                         <SelectContent>
                           {yards.map((yard) => (
                             <SelectItem key={yard.id} value={yard.id}>
-                              {yard.name}
+                              <div className="flex flex-col">
+                                <span className="font-medium">{yard.name}</span>
+                                {yard.address && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {yard.address}
+                                  </span>
+                                )}
+                                {yard.supervisor_name && (
+                                  <span className="text-xs text-muted-foreground">
+                                    Supervisor: {yard.supervisor_name}
+                                    {yard.supervisor_phone &&
+                                      ` • ${yard.supervisor_phone}`}
+                                  </span>
+                                )}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>

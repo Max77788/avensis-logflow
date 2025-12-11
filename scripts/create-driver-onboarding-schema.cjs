@@ -1,11 +1,12 @@
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
+const { createClient } = require("@supabase/supabase-js");
+require("dotenv").config();
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase credentials in .env file');
+  console.error("Missing Supabase credentials in .env file");
   process.exit(1);
 }
 
@@ -13,7 +14,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function createDriverOnboardingSchema() {
   try {
-    console.log('Creating driver onboarding schema...\n');
+    console.log("Creating driver onboarding schema...\n");
 
     const sql = `
       -- =====================================================
@@ -39,7 +40,7 @@ async function createDriverOnboardingSchema() {
       CREATE TABLE IF NOT EXISTS driver_applications (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         candidate_id uuid NOT NULL REFERENCES driver_candidates(id) ON DELETE CASCADE,
-        yard_id uuid REFERENCES companies(id),
+        yard_id uuid REFERENCES yards(id),
         position_type text,
         status text NOT NULL DEFAULT 'NEW' CHECK (status IN (
           'NEW', 'CONTACTED', 'REJECTED', 'DOCS_PENDING', 'DOCS_VERIFIED',
@@ -135,21 +136,19 @@ async function createDriverOnboardingSchema() {
       CREATE INDEX IF NOT EXISTS idx_driver_onboarding_mentor_id ON driver_onboarding(mentor_id);
     `;
 
-    console.log('Executing SQL...');
-    const { error } = await supabase.rpc('exec_sql', { sql_query: sql });
+    console.log("Executing SQL...");
+    const { error } = await supabase.rpc("exec_sql", { sql_query: sql });
 
     if (error) {
-      console.error('Error creating schema:', error);
+      console.error("Error creating schema:", error);
       throw error;
     }
 
-    console.log('✅ Driver onboarding schema created successfully!\n');
-    
+    console.log("✅ Driver onboarding schema created successfully!\n");
   } catch (error) {
-    console.error('Failed to create driver onboarding schema:', error);
+    console.error("Failed to create driver onboarding schema:", error);
     process.exit(1);
   }
 }
 
 createDriverOnboardingSchema();
-

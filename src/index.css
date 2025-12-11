@@ -192,6 +192,17 @@ All colors MUST be HSL.
     @apply ring-2 ring-primary/50;
   }
 
+  /* Date input calendar icon visibility */
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.5);
+    cursor: pointer;
+  }
+
+  .dark input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+
   /* Smooth scale animation for active elements */
   @keyframes scaleIn {
     from {

@@ -247,3 +247,375 @@ export function generateOnboardingEmailHTML(params: {
 </html>
   `.trim();
 }
+
+/**
+ * Generate HTML template for driver application form email
+ */
+export function generateDriverApplicationFormEmailHTML(params: {
+  driverName: string;
+  formUrl: string;
+  positionType: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complete Your Driver Application - Avensis Energy</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; max-width: 650px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 35px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <div style="text-align: center; margin-bottom: 30px;">
+      <h1 style="color: #10b981; margin: 0; font-size: 28px;">🚛 Complete Your Driver Application</h1>
+    </div>
+
+    <p style="font-size: 16px; margin-bottom: 20px;">
+      Dear ${params.driverName},
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 20px;">
+      Thank you for your interest in joining our team at <strong>Avensis Energy</strong>! We're excited to move forward with your application for the <strong>${
+        params.positionType
+      }</strong> position.
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 20px;">
+      To continue with your application, please complete our online driver application form. This form will collect important information including:
+    </p>
+
+    <ul style="font-size: 16px; margin-bottom: 25px; line-height: 2;">
+      <li>Personal and contact information</li>
+      <li>Driver's license details</li>
+      <li>Driving experience and safety record</li>
+      <li>Employment history</li>
+      <li>Required document uploads</li>
+    </ul>
+
+    <div style="background-color: #f3f4f6; padding: 25px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #10b981; text-align: center;">
+      <p style="margin: 0 0 15px 0; font-size: 16px; font-weight: bold;">Click the button below to access your application form:</p>
+      <a href="${
+        params.formUrl
+      }" style="display: inline-block; background-color: #10b981; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; margin: 10px 0;">Complete Application Form</a>
+      <p style="margin: 15px 0 0 0; font-size: 13px; color: #666;">
+        Or copy and paste this link into your browser:<br>
+        <span style="word-break: break-all; color: #2563eb;">${
+          params.formUrl
+        }</span>
+      </p>
+    </div>
+
+    <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #3b82f6;">
+      <p style="margin: 0; font-size: 15px;">
+        <strong>⏱️ Important:</strong> Please complete this form at your earliest convenience. Your application will be reviewed once all information is submitted.
+      </p>
+    </div>
+
+    <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #f59e0b;">
+      <p style="margin: 0; font-size: 15px;">
+        <strong>📋 What You'll Need:</strong>
+      </p>
+      <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 15px;">
+        <li>Driver's License (for upload)</li>
+        <li>Social Security Card (for upload)</li>
+        <li>Medical Card (if applicable)</li>
+        <li>Employment history</li>
+        <li>Accident and violation history (past 3 years)</li>
+      </ul>
+    </div>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      The form will save your progress automatically, so you can complete it in multiple sessions if needed.
+    </p>
+
+    <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 25px 0;">
+      <p style="margin: 0; font-size: 15px;">
+        <strong>💡 Need Help?</strong> If you have any questions or need assistance, please contact us at <a href="mailto:support@avensisenergy.com" style="color: #2563eb; text-decoration: none;">support@avensisenergy.com</a>.
+      </p>
+    </div>
+
+    <p style="font-size: 16px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+      We look forward to reviewing your application!
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Best regards,<br>
+      <strong>HR Team</strong><br>
+      <strong>Avensis Energy</strong>
+    </p>
+  </div>
+
+  <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+    <p>© ${new Date().getFullYear()} Avensis Energy. All rights reserved.</p>
+    <p style="margin-top: 10px;">This is an automated message. Please do not reply to this email.</p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Generate HTML template for driver application received email (Stage 1 - Success)
+ */
+export function generateDriverApplicationReceivedEmailHTML(params: {
+  driverName: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Application Has Been Received</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #10b981; margin-bottom: 20px; font-size: 24px;">Your Application Has Been Received</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Hi ${params.driverName},</p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      We received your application and everything looks good on our end. You're now moving to the next step in the process.
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      We'll send you another update once that part is done.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Thank you,<br>
+      <strong>Primal Team</strong>
+    </p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Generate HTML template for MVR check completed email (Stage 2 - Success)
+ */
+export function generateDriverMVRCompletedEmailHTML(params: {
+  driverName: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MVR Check Completed</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #10b981; margin-bottom: 20px; font-size: 24px;">MVR Check Completed</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Hi ${params.driverName},</p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      Your MVR check is complete. Thank you for your patience. You're now cleared to move to the next step.
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      We'll update you again once the next stage is finished.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Thank you,<br>
+      <strong>Primal Team</strong>
+    </p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Generate HTML template for drug test completed email (Stage 3 - Success)
+ */
+export function generateDriverDrugTestCompletedEmailHTML(params: {
+  driverName: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drug Test Completed</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #10b981; margin-bottom: 20px; font-size: 24px;">Drug Test Completed</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Hi ${params.driverName},</p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      Your drug test results are in and everything is complete. You're now ready for the final step.
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      We'll reach out again once orientation is scheduled.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Thank you,<br>
+      <strong>Primal Team</strong>
+    </p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Generate HTML template for cleared for orientation email (Stage 4 - Success)
+ */
+export function generateDriverClearedForOrientationEmailHTML(params: {
+  driverName: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're Cleared for Orientation</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #10b981; margin-bottom: 20px; font-size: 24px;">You're Cleared for Orientation</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Hi ${params.driverName},</p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      You've completed all the required steps. Your final step is to meet our superintendent at the yard for orientation.
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      We'll send the time and address shortly.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Welcome aboard,<br>
+      <strong>Primal Team</strong>
+    </p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Generate HTML template for application not approved email (Stage 1 - Failure)
+ */
+export function generateDriverApplicationNotApprovedEmailHTML(params: {
+  driverName: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Update on Your Application</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #6b7280; margin-bottom: 20px; font-size: 24px;">Update on Your Application</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Hi ${params.driverName},</p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      Thanks for applying. After reviewing your information, we're not able to move forward at this time.
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      If anything changes in the future, you're welcome to apply again.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Thank you,<br>
+      <strong>Avensis Team</strong>
+    </p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Generate HTML template for MVR not cleared email (Stage 2 - Failure)
+ */
+export function generateDriverMVRNotClearedEmailHTML(params: {
+  driverName: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MVR Review Result</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #6b7280; margin-bottom: 20px; font-size: 24px;">MVR Review Result</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Hi ${params.driverName},</p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      We completed your MVR review. Based on the results, we're not able to move forward with your application at this time.
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      You're welcome to reapply in the future if your driving record improves.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Thank you,<br>
+      <strong>Avensis Team</strong>
+    </p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Generate HTML template for drug test not cleared email (Stage 3 - Failure)
+ */
+export function generateDriverDrugTestNotClearedEmailHTML(params: {
+  driverName: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drug Test Result</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #6b7280; margin-bottom: 20px; font-size: 24px;">Drug Test Result</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Hi ${params.driverName},</p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      We received your drug test results. At this time, we're not able to continue with the hiring process.
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      If you complete all required steps in the future and meet DOT standards, you may reapply.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Thank you,<br>
+      <strong>Avensis Team</strong>
+    </p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
