@@ -118,22 +118,6 @@ export const DriverOnboardingRibbon = ({
         ? "Scheduled"
         : "Not scheduled",
     },
-    {
-      id: "training",
-      label: "Training",
-      icon: GraduationCap,
-      isComplete:
-        application.application.status === "TRAINING_COMPLETED" ||
-        application.application.status === "HIRED",
-      inProgress: application.application.status === "TRAINING_IN_PROGRESS",
-      subtitle:
-        application.application.status === "TRAINING_COMPLETED" ||
-        application.application.status === "HIRED"
-          ? "Completed"
-          : application.application.status === "TRAINING_IN_PROGRESS"
-          ? "In progress"
-          : "Not started",
-    },
   ];
 
   return (

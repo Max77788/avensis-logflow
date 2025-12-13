@@ -15,9 +15,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+} from "lucide-react";
 import { DocumentUpload } from "@/components/driver-onboarding/DocumentUpload";
 import { min } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import {
+  isValidEmail,
+  isValidPhoneNumber,
+  formatPhoneNumber,
+  getEmailValidationError,
+  getPhoneValidationError,
+  getAddressValidationError,
+} from "@/lib/validationUtils";
 
 // Types
 interface DriverExperience {
@@ -201,6 +217,8 @@ const minDateToday = new Date().toISOString().split("T")[0];
 const dateToday = minDateToday;
 
 export default function DriverApplicationForm() {
+  console.log("🔄 DriverApplicationForm component rendered/re-rendered");
+
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -214,6 +232,17 @@ export default function DriverApplicationForm() {
   const [formId, setFormId] = useState<string | null>(null);
   const [positionType, setPositionType] = useState<string>("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Track uploaded documents
+  const [uploadedDocuments, setUploadedDocuments] = useState<{
+    dl: boolean;
+    ssn: boolean;
+    medical_card: boolean;
+  }>({
+    dl: false,
+    ssn: false,
+    medical_card: false,
+  });
 
   const [formData, setFormData] = useState<FormData>({
     first_name: "",
@@ -255,6 +284,15 @@ export default function DriverApplicationForm() {
     fcra_print_name: "",
   });
 
+  // Validation errors state
+  const [validationErrors, setValidationErrors] = useState<{
+    phone_number?: string;
+    emergency_contact_phone?: string;
+    current_address?: string;
+    emergency_contact_address?: string;
+    employer_phone?: { [key: number]: string };
+  }>({});
+
   // Load application data and existing form data if any
   useEffect(() => {
     loadApplicationData();
@@ -284,7 +322,7 @@ export default function DriverApplicationForm() {
           status,
           application_form_completed_at,
           candidate:driver_candidates(name, phone),
-          compliance:driver_compliance(id)
+          compliance:driver_compliance(id, drivers_license_url, ssn_url, medical_card_url)
         `
         )
         .eq("application_form_token", token)
@@ -303,18 +341,32 @@ export default function DriverApplicationForm() {
       setCandidateId(application.candidate_id);
       setPositionType(application.position_type || "");
 
-      // Set compliance ID if it exists
+      // Set compliance ID if it exists and load document status
       if (
         application.compliance &&
         Array.isArray(application.compliance) &&
         application.compliance.length > 0
       ) {
-        setComplianceId(application.compliance[0].id);
+        const compliance = application.compliance[0];
+        setComplianceId(compliance.id);
+        // Update uploaded documents state
+        setUploadedDocuments({
+          dl: !!compliance.drivers_license_url,
+          ssn: !!compliance.ssn_url,
+          medical_card: !!compliance.medical_card_url,
+        });
       } else if (
         application.compliance &&
         !Array.isArray(application.compliance)
       ) {
-        setComplianceId((application.compliance as any).id);
+        const compliance = application.compliance as any;
+        setComplianceId(compliance.id);
+        // Update uploaded documents state
+        setUploadedDocuments({
+          dl: !!compliance.drivers_license_url,
+          ssn: !!compliance.ssn_url,
+          medical_card: !!compliance.medical_card_url,
+        });
       }
 
       // Check if already submitted
@@ -342,9 +394,14 @@ export default function DriverApplicationForm() {
           setCurrentStep(existingForm.current_step);
         }
 
-        // Populate form data from existing record
-        setFormData((prev) => ({
-          ...prev,
+        // Load related data first to get array data
+        console.log("📥 Loading related data for form:", existingForm.id);
+        const relatedData = await loadRelatedData(existingForm.id);
+        console.log("📥 Related data loaded:", relatedData);
+
+        // Populate form data from existing record (including related data)
+        const newFormData = {
+          ...formData,
           first_name: existingForm.first_name || "",
           middle_name: existingForm.middle_name || "",
           last_name: existingForm.last_name || "",
@@ -353,6 +410,7 @@ export default function DriverApplicationForm() {
           previous_address_2: existingForm.previous_address_2 || "",
           phone_number: existingForm.phone_number || "",
           date_of_birth: existingForm.date_of_birth || "",
+          ssn: existingForm.ssn_encrypted || "",
           years_at_current_address: existingForm.years_at_current_address || 0,
           legally_authorized_to_work: existingForm.legally_authorized_to_work,
           emergency_contact_name: existingForm.emergency_contact_name || "",
@@ -365,14 +423,37 @@ export default function DriverApplicationForm() {
           dl_state: existingForm.dl_state || "",
           dl_type: existingForm.dl_type || "",
           dl_expiration_date: existingForm.dl_expiration_date || "",
+          no_previous_dot_employment:
+            existingForm.no_previous_dot_employment || false,
           applicant_signature: existingForm.applicant_signature || "",
           applicant_print_name: existingForm.applicant_print_name || "",
           fcra_signature: existingForm.fcra_signature || "",
           fcra_print_name: existingForm.fcra_print_name || "",
-        }));
+          // Include related array data
+          driver_experience: relatedData.driver_experience || [],
+          accident_history: relatedData.accident_history || [],
+          traffic_violations: relatedData.traffic_violations || [],
+          employment_history: relatedData.employment_history || [],
+          employment_gaps: relatedData.employment_gaps || [],
+          // Include safety questions
+          denied_license: relatedData.denied_license || false,
+          denied_license_details: relatedData.denied_license_details || "",
+          license_suspended: relatedData.license_suspended || false,
+          license_suspended_details:
+            relatedData.license_suspended_details || "",
+          convicted_cmv_crime: relatedData.convicted_cmv_crime || false,
+          convicted_cmv_crime_details:
+            relatedData.convicted_cmv_crime_details || "",
+          convicted_law_violation: relatedData.convicted_law_violation || false,
+          convicted_law_violation_details:
+            relatedData.convicted_law_violation_details || "",
+        };
 
-        // Load related data
-        await loadRelatedData(existingForm.id);
+        console.log(
+          "📥 Setting form data with driver_experience:",
+          newFormData.driver_experience
+        );
+        setFormData(newFormData);
       } else {
         // No existing form - prefill with candidate data from HR
         const candidate = Array.isArray(application.candidate)
@@ -410,75 +491,117 @@ export default function DriverApplicationForm() {
   };
 
   const loadRelatedData = async (formId: string) => {
+    console.log("🔍 Loading related data for form_id:", formId);
+
     // Load driver experience
-    const { data: experience } = await supabase
+    const { data: experience, error: expError } = await supabase
       .from("driver_experience")
       .select("*")
       .eq("form_id", formId);
-    if (experience) {
-      setFormData((prev) => ({ ...prev, driver_experience: experience }));
-    }
+
+    console.log(
+      "📊 Driver experience loaded:",
+      experience?.length || 0,
+      "records"
+    );
+    if (expError)
+      console.error("❌ Error loading driver experience:", expError);
 
     // Load safety questions
-    const { data: safety } = await supabase
+    const { data: safety, error: safetyError } = await supabase
       .from("driver_safety_questions")
       .select("*")
       .eq("form_id", formId)
       .single();
-    if (safety) {
-      setFormData((prev) => ({
-        ...prev,
-        denied_license: safety.denied_license || false,
-        denied_license_details: safety.denied_license_details || "",
-        license_suspended: safety.license_suspended || false,
-        license_suspended_details: safety.license_suspended_details || "",
-        convicted_cmv_crime: safety.convicted_cmv_crime || false,
-        convicted_cmv_crime_details: safety.convicted_cmv_crime_details || "",
-        convicted_law_violation: safety.convicted_law_violation || false,
-        convicted_law_violation_details:
-          safety.convicted_law_violation_details || "",
-      }));
+
+    if (safetyError && safetyError.code !== "PGRST116") {
+      console.error("❌ Error loading safety questions:", safetyError);
     }
 
     // Load accident history
-    const { data: accidents } = await supabase
+    const { data: accidents, error: accError } = await supabase
       .from("driver_accident_history")
       .select("*")
       .eq("form_id", formId);
-    if (accidents) {
-      setFormData((prev) => ({ ...prev, accident_history: accidents }));
-    }
+
+    console.log(
+      "📊 Accident history loaded:",
+      accidents?.length || 0,
+      "records"
+    );
+    if (accError) console.error("❌ Error loading accident history:", accError);
 
     // Load traffic violations
-    const { data: violations } = await supabase
+    const { data: violations, error: violError } = await supabase
       .from("driver_traffic_violations")
       .select("*")
       .eq("form_id", formId);
-    if (violations) {
-      setFormData((prev) => ({ ...prev, traffic_violations: violations }));
-    }
+
+    console.log(
+      "📊 Traffic violations loaded:",
+      violations?.length || 0,
+      "records"
+    );
+    if (violError)
+      console.error("❌ Error loading traffic violations:", violError);
 
     // Load employment history
-    const { data: employment } = await supabase
+    const { data: employment, error: empError } = await supabase
       .from("driver_employment_history")
       .select("*")
       .eq("form_id", formId);
-    if (employment) {
-      setFormData((prev) => ({ ...prev, employment_history: employment }));
-    }
+
+    console.log(
+      "📊 Employment history loaded:",
+      employment?.length || 0,
+      "records"
+    );
+    if (empError)
+      console.error("❌ Error loading employment history:", empError);
 
     // Load employment gaps
-    const { data: gaps } = await supabase
+    const { data: gaps, error: gapsError } = await supabase
       .from("driver_employment_gaps")
       .select("*")
       .eq("form_id", formId);
-    if (gaps) {
-      setFormData((prev) => ({ ...prev, employment_gaps: gaps }));
-    }
+
+    console.log("📊 Employment gaps loaded:", gaps?.length || 0, "records");
+    if (gapsError)
+      console.error("❌ Error loading employment gaps:", gapsError);
+
+    // Return all related data
+    const relatedData = {
+      driver_experience: experience || [],
+      accident_history: accidents || [],
+      traffic_violations: violations || [],
+      employment_history: employment || [],
+      employment_gaps: gaps || [],
+      denied_license: safety?.denied_license || false,
+      denied_license_details: safety?.denied_license_details || "",
+      license_suspended: safety?.license_suspended || false,
+      license_suspended_details: safety?.license_suspended_details || "",
+      convicted_cmv_crime: safety?.convicted_cmv_crime || false,
+      convicted_cmv_crime_details: safety?.convicted_cmv_crime_details || "",
+      convicted_law_violation: safety?.convicted_law_violation || false,
+      convicted_law_violation_details:
+        safety?.convicted_law_violation_details || "",
+    };
+
+    console.log("✅ Related data loaded successfully:", relatedData);
+    return relatedData;
   };
 
   const saveProgress = async (stepToSave?: number) => {
-    if (!applicationId) return;
+    console.log(
+      "💾 saveProgress called, stepToSave:",
+      stepToSave,
+      "formId:",
+      formId
+    );
+    if (!applicationId) {
+      console.warn("⚠️  No applicationId, cannot save progress");
+      return;
+    }
 
     try {
       // Upsert main form data
@@ -503,6 +626,7 @@ export default function DriverApplicationForm() {
         dl_state: formData.dl_state,
         dl_type: formData.dl_type,
         dl_expiration_date: formData.dl_expiration_date || null,
+        no_previous_dot_employment: formData.no_previous_dot_employment,
         applicant_signature: formData.applicant_signature,
         applicant_print_name: formData.applicant_print_name,
         fcra_signature: formData.fcra_signature,
@@ -512,14 +636,19 @@ export default function DriverApplicationForm() {
         updated_at: new Date().toISOString(),
       };
 
+      let currentFormId = formId;
+
       if (formId) {
         // Update existing
+        console.log("📝 Updating existing form:", formId);
         await supabase
           .from("driver_application_forms")
           .update(formPayload)
           .eq("id", formId);
+        console.log("✅ Form updated");
       } else {
         // Create new
+        console.log("📝 Creating new form");
         const { data: newForm, error } = await supabase
           .from("driver_application_forms")
           .insert(formPayload)
@@ -527,7 +656,23 @@ export default function DriverApplicationForm() {
           .single();
 
         if (error) throw error;
-        if (newForm) setFormId(newForm.id);
+        if (newForm) {
+          console.log("✅ New form created with ID:", newForm.id);
+          setFormId(newForm.id);
+          currentFormId = newForm.id;
+        }
+      }
+
+      // Save all related array data (employment, violations, etc.)
+      if (currentFormId) {
+        console.log(
+          "💾 Calling saveAllRelatedData with formId:",
+          currentFormId
+        );
+        await saveAllRelatedData(currentFormId);
+        console.log("✅ saveAllRelatedData completed");
+      } else {
+        console.warn("⚠️  No currentFormId, skipping saveAllRelatedData");
       }
     } catch (error: any) {
       console.error("Error saving progress:", error);
@@ -542,7 +687,7 @@ export default function DriverApplicationForm() {
           formData.first_name &&
           formData.last_name &&
           formData.current_address &&
-          formData.phone_number &&
+          isValidPhoneNumber(formData.phone_number) &&
           formData.date_of_birth &&
           formData.ssn &&
           formData.years_at_current_address !== undefined
@@ -554,7 +699,7 @@ export default function DriverApplicationForm() {
           formData.emergency_contact_name &&
           formData.emergency_contact_relation &&
           formData.emergency_contact_address &&
-          formData.emergency_contact_phone
+          isValidPhoneNumber(formData.emergency_contact_phone)
         );
       case 3: // Driver License
         return !!(
@@ -575,7 +720,25 @@ export default function DriverApplicationForm() {
             exp.approx_miles > 0
         );
       case 5: // Safety Questions
-        // All safety questions are boolean, so they're always valid
+        // If any question is answered "Yes", explanation must be provided
+        if (formData.denied_license && !formData.denied_license_details.trim())
+          return false;
+        if (
+          formData.license_suspended &&
+          !formData.license_suspended_details.trim()
+        )
+          return false;
+        if (
+          formData.convicted_cmv_crime &&
+          !formData.convicted_cmv_crime_details.trim()
+        )
+          return false;
+        if (
+          formData.convicted_law_violation &&
+          !formData.convicted_law_violation_details.trim()
+        )
+          return false;
+
         return true;
       case 6: // Accident History
         // Optional section, but if accidents are added, all fields must be filled
@@ -598,12 +761,20 @@ export default function DriverApplicationForm() {
         // Either has employment history or checked no previous DOT employment
         if (formData.no_previous_dot_employment) return true;
         if (formData.employment_history.length === 0) return false;
-        // All employment entries must have all required fields filled
+        // Check for validation errors
+        if (
+          validationErrors.employer_phone &&
+          Object.values(validationErrors.employer_phone).some((err) => err)
+        ) {
+          return false;
+        }
+        // All employment entries must have all required fields filled and valid
         return formData.employment_history.every(
           (emp) =>
             emp.employer_name &&
             emp.employer_address &&
             emp.employer_phone &&
+            isValidPhoneNumber(emp.employer_phone) &&
             emp.from_date &&
             emp.to_date &&
             emp.position &&
@@ -622,7 +793,17 @@ export default function DriverApplicationForm() {
       case 11: // FCRA Disclosure
         return !!(formData.fcra_signature && formData.fcra_print_name);
       case 12: // Document Upload
-        // Always valid, documents are optional
+        // All required documents must be uploaded
+        const isOwnerOp = positionType === "OWNER_OPERATOR";
+        // Driver License and SSN are always required
+        // Medical Card is required only for non-owner operators
+        if (!uploadedDocuments.dl || !uploadedDocuments.ssn) {
+          return false;
+        }
+        // If not owner operator, medical card is also required
+        if (!isOwnerOp && !uploadedDocuments.medical_card) {
+          return false;
+        }
         return true;
       default:
         return true;
@@ -630,6 +811,28 @@ export default function DriverApplicationForm() {
   };
 
   const handleNext = async () => {
+    console.log("➡️  handleNext called, current step:", currentStep);
+    console.log(
+      "📊 Current formData.driver_experience:",
+      formData.driver_experience
+    );
+    console.log(
+      "📊 Current formData.accident_history:",
+      formData.accident_history
+    );
+    console.log(
+      "📊 Current formData.traffic_violations:",
+      formData.traffic_violations
+    );
+    console.log(
+      "📊 Current formData.employment_history:",
+      formData.employment_history
+    );
+    console.log(
+      "📊 Current formData.employment_gaps:",
+      formData.employment_gaps
+    );
+
     if (!isStepValid(currentStep)) {
       toast({
         title: "Required Fields Missing",
@@ -645,10 +848,14 @@ export default function DriverApplicationForm() {
       window.scrollTo(0, 0);
 
       // Save progress with the new step
+      console.log("💾 Calling saveProgress with nextStep:", nextStep);
       await saveProgress(nextStep);
+      console.log("✅ saveProgress completed");
     } else {
       // Save progress on the current step
+      console.log("💾 Calling saveProgress with currentStep:", currentStep);
       await saveProgress(currentStep);
+      console.log("✅ saveProgress completed");
     }
   };
 
@@ -702,34 +909,83 @@ export default function DriverApplicationForm() {
     }
   };
 
-  const saveAllRelatedData = async () => {
-    if (!formId) return;
+  const saveAllRelatedData = async (targetFormId?: string) => {
+    const formIdToUse = targetFormId || formId;
+    if (!formIdToUse) {
+      console.warn("⚠️  No form ID available, skipping related data save");
+      return;
+    }
+
+    console.log("💾 Saving all related data for form_id:", formIdToUse);
 
     // Save safety questions
     await supabase
       .from("driver_safety_questions")
       .delete()
-      .eq("form_id", formId);
-    await supabase.from("driver_safety_questions").insert({
-      form_id: formId,
-      denied_license: formData.denied_license,
-      denied_license_details: formData.denied_license_details,
-      license_suspended: formData.license_suspended,
-      license_suspended_details: formData.license_suspended_details,
-      convicted_cmv_crime: formData.convicted_cmv_crime,
-      convicted_cmv_crime_details: formData.convicted_cmv_crime_details,
-      convicted_law_violation: formData.convicted_law_violation,
-      convicted_law_violation_details: formData.convicted_law_violation_details,
-    });
+      .eq("form_id", formIdToUse);
+    const { error: safetyError } = await supabase
+      .from("driver_safety_questions")
+      .insert({
+        form_id: formIdToUse,
+        denied_license: formData.denied_license,
+        denied_license_details: formData.denied_license_details,
+        license_suspended: formData.license_suspended,
+        license_suspended_details: formData.license_suspended_details,
+        convicted_cmv_crime: formData.convicted_cmv_crime,
+        convicted_cmv_crime_details: formData.convicted_cmv_crime_details,
+        convicted_law_violation: formData.convicted_law_violation,
+        convicted_law_violation_details:
+          formData.convicted_law_violation_details,
+      });
+
+    if (safetyError) {
+      console.error("❌ Error saving safety questions:", safetyError);
+    } else {
+      console.log("✅ Safety questions saved");
+    }
 
     // Save driver experience
     if (formData.driver_experience.length > 0) {
-      await supabase.from("driver_experience").delete().eq("form_id", formId);
+      console.log(
+        "💾 Saving",
+        formData.driver_experience.length,
+        "driver experience records"
+      );
+      console.log(
+        "💾 Driver experience data to save:",
+        formData.driver_experience
+      );
       await supabase
         .from("driver_experience")
+        .delete()
+        .eq("form_id", formIdToUse);
+      const { error: expError } = await supabase
+        .from("driver_experience")
         .insert(
-          formData.driver_experience.map((exp) => ({ ...exp, form_id: formId }))
+          formData.driver_experience.map((exp) => {
+            // Exclude id and created_at fields to let database generate new ones
+            const { id, created_at, ...expData } = exp as any;
+            return {
+              ...expData,
+              form_id: formIdToUse,
+            };
+          })
         );
+
+      if (expError) {
+        console.error("❌ Error saving driver experience:", expError);
+      } else {
+        console.log("✅ Driver experience saved");
+      }
+    } else {
+      console.log(
+        "🗑️  No driver experience to save, deleting existing records"
+      );
+      // Delete all if empty
+      await supabase
+        .from("driver_experience")
+        .delete()
+        .eq("form_id", formIdToUse);
     }
 
     // Save accident history
@@ -737,12 +993,22 @@ export default function DriverApplicationForm() {
       await supabase
         .from("driver_accident_history")
         .delete()
-        .eq("form_id", formId);
+        .eq("form_id", formIdToUse);
+      await supabase.from("driver_accident_history").insert(
+        formData.accident_history.map((acc) => {
+          const { id, created_at, ...accData } = acc as any;
+          return {
+            ...accData,
+            form_id: formIdToUse,
+          };
+        })
+      );
+    } else {
+      // Delete all if empty
       await supabase
         .from("driver_accident_history")
-        .insert(
-          formData.accident_history.map((acc) => ({ ...acc, form_id: formId }))
-        );
+        .delete()
+        .eq("form_id", formIdToUse);
     }
 
     // Save traffic violations
@@ -750,13 +1016,22 @@ export default function DriverApplicationForm() {
       await supabase
         .from("driver_traffic_violations")
         .delete()
-        .eq("form_id", formId);
+        .eq("form_id", formIdToUse);
       await supabase.from("driver_traffic_violations").insert(
-        formData.traffic_violations.map((vio) => ({
-          ...vio,
-          form_id: formId,
-        }))
+        formData.traffic_violations.map((vio) => {
+          const { id, created_at, ...vioData } = vio as any;
+          return {
+            ...vioData,
+            form_id: formIdToUse,
+          };
+        })
       );
+    } else {
+      // Delete all if empty
+      await supabase
+        .from("driver_traffic_violations")
+        .delete()
+        .eq("form_id", formIdToUse);
     }
 
     // Save employment history
@@ -764,13 +1039,22 @@ export default function DriverApplicationForm() {
       await supabase
         .from("driver_employment_history")
         .delete()
-        .eq("form_id", formId);
+        .eq("form_id", formIdToUse);
       await supabase.from("driver_employment_history").insert(
-        formData.employment_history.map((emp) => ({
-          ...emp,
-          form_id: formId,
-        }))
+        formData.employment_history.map((emp) => {
+          const { id, created_at, ...empData } = emp as any;
+          return {
+            ...empData,
+            form_id: formIdToUse,
+          };
+        })
       );
+    } else {
+      // Delete all if empty
+      await supabase
+        .from("driver_employment_history")
+        .delete()
+        .eq("form_id", formIdToUse);
     }
 
     // Save employment gaps
@@ -778,13 +1062,309 @@ export default function DriverApplicationForm() {
       await supabase
         .from("driver_employment_gaps")
         .delete()
-        .eq("form_id", formId);
+        .eq("form_id", formIdToUse);
+      await supabase.from("driver_employment_gaps").insert(
+        formData.employment_gaps.map((gap) => {
+          const { id, created_at, ...gapData } = gap as any;
+          return {
+            ...gapData,
+            form_id: formIdToUse,
+          };
+        })
+      );
+    } else {
+      // Delete all if empty
       await supabase
         .from("driver_employment_gaps")
-        .insert(
-          formData.employment_gaps.map((gap) => ({ ...gap, form_id: formId }))
-        );
+        .delete()
+        .eq("form_id", formIdToUse);
     }
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    let yPosition = 20;
+
+    // Helper function to format values
+    const formatValue = (value: any): string => {
+      if (value === null || value === undefined || value === "") {
+        return "N/A";
+      }
+      return String(value);
+    };
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Driver Application Form", 105, yPosition, { align: "center" });
+    yPosition += 15;
+
+    // Applicant Information
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Applicant Information", 14, yPosition);
+    yPosition += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const fullName =
+      [formData.first_name, formData.middle_name, formData.last_name]
+        .filter((n) => n)
+        .join(" ") || "N/A";
+
+    const applicantInfo = [
+      ["Name", fullName],
+      ["Address", formatValue(formData.current_address)],
+      ["Phone", formatValue(formData.phone_number)],
+      ["Date of Birth", formatValue(formData.date_of_birth)],
+      [
+        "Years at Current Address",
+        formatValue(formData.years_at_current_address || 0),
+      ],
+      [
+        "Legally Authorized to Work",
+        formData.legally_authorized_to_work ? "Yes" : "No",
+      ],
+    ];
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [],
+      body: applicantInfo,
+      theme: "plain",
+      styles: { fontSize: 10 },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 60 } },
+    });
+
+    yPosition = (doc as any).lastAutoTable.finalY + 10;
+
+    // Emergency Contact
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Emergency Contact", 14, yPosition);
+    yPosition += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const emergencyInfo = [
+      ["Name", formatValue(formData.emergency_contact_name)],
+      ["Relation", formatValue(formData.emergency_contact_relation)],
+      ["Address", formatValue(formData.emergency_contact_address)],
+      ["Phone", formatValue(formData.emergency_contact_phone)],
+    ];
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [],
+      body: emergencyInfo,
+      theme: "plain",
+      styles: { fontSize: 10 },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 60 } },
+    });
+
+    yPosition = (doc as any).lastAutoTable.finalY + 10;
+
+    // Driver License
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Driver License Information", 14, yPosition);
+    yPosition += 8;
+
+    const licenseInfo = [
+      ["License Number", formatValue(formData.dl_number)],
+      ["State", formatValue(formData.dl_state)],
+      ["Type", formatValue(formData.dl_type)],
+      ["Expiration Date", formatValue(formData.dl_expiration_date)],
+    ];
+
+    autoTable(doc, {
+      startY: yPosition,
+      head: [],
+      body: licenseInfo,
+      theme: "plain",
+      styles: { fontSize: 10 },
+      columnStyles: { 0: { fontStyle: "bold", cellWidth: 60 } },
+    });
+
+    yPosition = (doc as any).lastAutoTable.finalY + 10;
+
+    // Driver Experience
+    if (formData.driver_experience.length > 0) {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Driver Experience", 14, yPosition);
+      yPosition += 8;
+
+      const experienceData = formData.driver_experience.map((exp, index) => [
+        `#${index + 1}`,
+        formatValue(exp.equipment_type),
+        formatValue(exp.from_date),
+        formatValue(exp.to_date),
+        formatValue(exp.approx_miles),
+      ]);
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [["#", "Equipment Type", "From", "To", "Miles"]],
+        body: experienceData,
+        theme: "striped",
+        styles: { fontSize: 9 },
+      });
+
+      yPosition = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Accident History
+    if (formData.accident_history.length > 0) {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Accident History", 14, yPosition);
+      yPosition += 8;
+
+      const accidentData = formData.accident_history.map((acc, index) => [
+        `#${index + 1}`,
+        formatValue(acc.accident_date),
+        formatValue(acc.description),
+        formatValue(acc.fatalities),
+        formatValue(acc.injuries),
+      ]);
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [["#", "Date", "Description", "Fatalities", "Injuries"]],
+        body: accidentData,
+        theme: "striped",
+        styles: { fontSize: 9 },
+      });
+
+      yPosition = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Traffic Violations
+    if (formData.traffic_violations.length > 0) {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Traffic Violations", 14, yPosition);
+      yPosition += 8;
+
+      const violationData = formData.traffic_violations.map((vio, index) => [
+        `#${index + 1}`,
+        formatValue(vio.violation_date),
+        formatValue(vio.location),
+        formatValue(vio.charge),
+        formatValue(vio.penalty),
+      ]);
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [["#", "Date", "Location", "Charge", "Penalty"]],
+        body: violationData,
+        theme: "striped",
+        styles: { fontSize: 8 },
+      });
+
+      yPosition = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Employment History
+    if (formData.employment_history.length > 0) {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Employment History", 14, yPosition);
+      yPosition += 8;
+
+      formData.employment_history.forEach((emp, index) => {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        const empData = [
+          ["Employer", formatValue(emp.employer_name)],
+          ["Address", formatValue(emp.employer_address)],
+          ["Phone", formatValue(emp.employer_phone)],
+          ["Position", formatValue(emp.position)],
+          [
+            "From - To",
+            `${formatValue(emp.from_date)} to ${formatValue(emp.to_date)}`,
+          ],
+          ["Reason for Leaving", formatValue(emp.reason_for_leaving)],
+        ];
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [[`Employment #${index + 1}`, ""]],
+          body: empData,
+          theme: "plain",
+          styles: { fontSize: 9 },
+          columnStyles: { 0: { fontStyle: "bold", cellWidth: 60 } },
+        });
+
+        yPosition = (doc as any).lastAutoTable.finalY + 5;
+      });
+    }
+
+    // Employment Gaps
+    if (formData.employment_gaps.length > 0) {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Employment Gaps", 14, yPosition);
+      yPosition += 8;
+
+      const gapData = formData.employment_gaps.map((gap, index) => [
+        `#${index + 1}`,
+        formatValue(gap.from_date),
+        formatValue(gap.to_date),
+        formatValue(gap.activity_description),
+        gap.was_unemployed ? "Yes" : "No",
+      ]);
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [["#", "From", "To", "Activity", "Unemployed"]],
+        body: gapData,
+        theme: "striped",
+        styles: { fontSize: 8 },
+      });
+
+      yPosition = (doc as any).lastAutoTable.finalY + 10;
+    }
+
+    // Save the PDF
+    const firstName = formData.first_name || "Driver";
+    const lastName = formData.last_name || "Application";
+    const fileName = `Driver_Application_${firstName}_${lastName}.pdf`;
+    doc.save(fileName);
+
+    toast({
+      title: "PDF Downloaded",
+      description: "Your application has been downloaded successfully.",
+    });
   };
 
   if (loading) {
@@ -801,10 +1381,14 @@ export default function DriverApplicationForm() {
         <Card className="max-w-md w-full p-8 text-center">
           <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Application Submitted!</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mb-6">
             Thank you for completing your driver application. Our HR team will
             review your information and contact you soon.
           </p>
+          <Button onClick={exportToPDF} className="w-full" variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Download Application PDF
+          </Button>
         </Card>
       </div>
     );
@@ -978,12 +1562,38 @@ export default function DriverApplicationForm() {
           <Input
             id="current_address"
             value={formData.current_address}
-            onChange={(e) =>
-              setFormData({ ...formData, current_address: e.target.value })
-            }
+            onChange={(e) => {
+              setFormData({ ...formData, current_address: e.target.value });
+              // Clear validation error when user types
+              if (validationErrors.current_address) {
+                setValidationErrors({
+                  ...validationErrors,
+                  current_address: undefined,
+                });
+              }
+            }}
+            onBlur={(e) => {
+              // Validate address
+              if (
+                e.target.value &&
+                (e.target.value.length < 10 || !/\d/.test(e.target.value))
+              ) {
+                setValidationErrors({
+                  ...validationErrors,
+                  current_address:
+                    "Please enter a complete address with street number, city, state, and ZIP",
+                });
+              }
+            }}
             placeholder="123 Main St, City, State 12345"
             required
+            className={validationErrors.current_address ? "border-red-500" : ""}
           />
+          {validationErrors.current_address && (
+            <p className="text-sm text-red-500 mt-1">
+              {validationErrors.current_address}
+            </p>
+          )}
         </div>
 
         <div>
@@ -1046,12 +1656,37 @@ export default function DriverApplicationForm() {
               id="phone_number"
               type="tel"
               value={formData.phone_number}
-              onChange={(e) =>
-                setFormData({ ...formData, phone_number: e.target.value })
-              }
+              onChange={(e) => {
+                setFormData({ ...formData, phone_number: e.target.value });
+                // Clear validation error when user types
+                if (validationErrors.phone_number) {
+                  setValidationErrors({
+                    ...validationErrors,
+                    phone_number: undefined,
+                  });
+                }
+              }}
+              onBlur={(e) => {
+                // Format phone number on blur
+                const formatted = formatPhoneNumber(e.target.value);
+                setFormData({ ...formData, phone_number: formatted });
+                // Validate phone number
+                if (e.target.value && !isValidPhoneNumber(e.target.value)) {
+                  setValidationErrors({
+                    ...validationErrors,
+                    phone_number: "Please enter a valid 10-digit phone number",
+                  });
+                }
+              }}
               placeholder="(555) 123-4567"
               required
+              className={validationErrors.phone_number ? "border-red-500" : ""}
             />
+            {validationErrors.phone_number && (
+              <p className="text-sm text-red-500 mt-1">
+                {validationErrors.phone_number}
+              </p>
+            )}
           </div>
           <div>
             <Label htmlFor="date_of_birth">
@@ -1188,14 +1823,43 @@ export default function DriverApplicationForm() {
           <Input
             id="emergency_contact_address"
             value={formData.emergency_contact_address}
-            onChange={(e) =>
+            onChange={(e) => {
               setFormData({
                 ...formData,
                 emergency_contact_address: e.target.value,
-              })
-            }
+              });
+              // Clear validation error when user types
+              if (validationErrors.emergency_contact_address) {
+                setValidationErrors({
+                  ...validationErrors,
+                  emergency_contact_address: undefined,
+                });
+              }
+            }}
+            onBlur={(e) => {
+              // Validate address
+              if (
+                e.target.value &&
+                (e.target.value.length < 10 || !/\d/.test(e.target.value))
+              ) {
+                setValidationErrors({
+                  ...validationErrors,
+                  emergency_contact_address:
+                    "Please enter a complete address with street number, city, state, and ZIP",
+                });
+              }
+            }}
+            placeholder="123 Main St, City, State 12345"
             required
+            className={
+              validationErrors.emergency_contact_address ? "border-red-500" : ""
+            }
           />
+          {validationErrors.emergency_contact_address && (
+            <p className="text-sm text-red-500 mt-1">
+              {validationErrors.emergency_contact_address}
+            </p>
+          )}
         </div>
         <div>
           <Label htmlFor="emergency_contact_phone">
@@ -1205,14 +1869,45 @@ export default function DriverApplicationForm() {
             id="emergency_contact_phone"
             type="tel"
             value={formData.emergency_contact_phone}
-            onChange={(e) =>
+            onChange={(e) => {
               setFormData({
                 ...formData,
                 emergency_contact_phone: e.target.value,
-              })
-            }
+              });
+              // Clear validation error when user types
+              if (validationErrors.emergency_contact_phone) {
+                setValidationErrors({
+                  ...validationErrors,
+                  emergency_contact_phone: undefined,
+                });
+              }
+            }}
+            onBlur={(e) => {
+              // Format phone number on blur
+              const formatted = formatPhoneNumber(e.target.value);
+              setFormData({
+                ...formData,
+                emergency_contact_phone: formatted,
+              });
+              // Validate phone number
+              if (e.target.value && !isValidPhoneNumber(e.target.value)) {
+                setValidationErrors({
+                  ...validationErrors,
+                  emergency_contact_phone:
+                    "Please enter a valid 10-digit phone number",
+                });
+              }
+            }}
             required
+            className={
+              validationErrors.emergency_contact_phone ? "border-red-500" : ""
+            }
           />
+          {validationErrors.emergency_contact_phone && (
+            <p className="text-sm text-red-500 mt-1">
+              {validationErrors.emergency_contact_phone}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -1295,6 +1990,12 @@ export default function DriverApplicationForm() {
   }
 
   function renderDriverExperience() {
+    console.log(
+      "🎨 Rendering driver experience, count:",
+      formData.driver_experience.length
+    );
+    console.log("🎨 Driver experience data:", formData.driver_experience);
+
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold">Step 5 — Driver Experience</h2>
@@ -1433,23 +2134,52 @@ export default function DriverApplicationForm() {
         <h2 className="text-2xl font-bold">
           Step 6 — Required Safety Questions
         </h2>
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <Checkbox
-              id="denied_license"
-              checked={formData.denied_license}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, denied_license: checked as boolean })
-              }
-            />
-            <Label htmlFor="denied_license" className="font-normal">
-              Have you ever been denied a license, permit, or privilege to
-              operate a motor vehicle?
-            </Label>
+        <p className="text-sm text-muted-foreground">
+          Please answer all questions truthfully. If you answer "Yes" to any
+          question, you must provide a detailed explanation.
+        </p>
+
+        {/* Question 1: Denied License */}
+        <div className="space-y-3 p-4 border rounded-lg">
+          <Label className="text-base font-medium">
+            1. Have you ever been denied a license, permit or privilege to
+            operate a motor vehicle? <span className="text-red-500">*</span>
+          </Label>
+          <div className="flex gap-6">
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="denied_license_yes"
+                name="denied_license"
+                checked={formData.denied_license === true}
+                onChange={() =>
+                  setFormData({ ...formData, denied_license: true })
+                }
+                className="w-4 h-4"
+              />
+              <Label htmlFor="denied_license_yes" className="font-normal">
+                Yes
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="denied_license_no"
+                name="denied_license"
+                checked={formData.denied_license === false}
+                onChange={() =>
+                  setFormData({ ...formData, denied_license: false })
+                }
+                className="w-4 h-4"
+              />
+              <Label htmlFor="denied_license_no" className="font-normal">
+                No
+              </Label>
+            </div>
           </div>
           {formData.denied_license && (
             <Textarea
-              placeholder="Please explain..."
+              placeholder="Please provide a detailed explanation..."
               value={formData.denied_license_details}
               onChange={(e) =>
                 setFormData({
@@ -1457,8 +2187,187 @@ export default function DriverApplicationForm() {
                   denied_license_details: e.target.value,
                 })
               }
+              rows={3}
+              required
             />
           )}
+        </div>
+
+        {/* Question 2: License Suspended */}
+        <div className="space-y-3 p-4 border rounded-lg">
+          <Label className="text-base font-medium">
+            2. Has any license, permit or privilege ever been suspended or
+            revoked? <span className="text-red-500">*</span>
+          </Label>
+          <div className="flex gap-6">
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="license_suspended_yes"
+                name="license_suspended"
+                checked={formData.license_suspended === true}
+                onChange={() =>
+                  setFormData({ ...formData, license_suspended: true })
+                }
+                className="w-4 h-4"
+              />
+              <Label htmlFor="license_suspended_yes" className="font-normal">
+                Yes
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="license_suspended_no"
+                name="license_suspended"
+                checked={formData.license_suspended === false}
+                onChange={() =>
+                  setFormData({ ...formData, license_suspended: false })
+                }
+                className="w-4 h-4"
+              />
+              <Label htmlFor="license_suspended_no" className="font-normal">
+                No
+              </Label>
+            </div>
+          </div>
+          {formData.license_suspended && (
+            <Textarea
+              placeholder="Please provide a detailed explanation..."
+              value={formData.license_suspended_details}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  license_suspended_details: e.target.value,
+                })
+              }
+              rows={3}
+              required
+            />
+          )}
+        </div>
+
+        {/* Question 3: CMV Crime */}
+        <div className="space-y-3 p-4 border rounded-lg">
+          <Label className="text-base font-medium">
+            3. Have you ever been convicted of any criminal act involving the
+            use of a CMV or while driving a CMV?{" "}
+            <span className="text-red-500">*</span>
+          </Label>
+          <div className="flex gap-6">
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="convicted_cmv_crime_yes"
+                name="convicted_cmv_crime"
+                checked={formData.convicted_cmv_crime === true}
+                onChange={() =>
+                  setFormData({ ...formData, convicted_cmv_crime: true })
+                }
+                className="w-4 h-4"
+              />
+              <Label htmlFor="convicted_cmv_crime_yes" className="font-normal">
+                Yes
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="convicted_cmv_crime_no"
+                name="convicted_cmv_crime"
+                checked={formData.convicted_cmv_crime === false}
+                onChange={() =>
+                  setFormData({ ...formData, convicted_cmv_crime: false })
+                }
+                className="w-4 h-4"
+              />
+              <Label htmlFor="convicted_cmv_crime_no" className="font-normal">
+                No
+              </Label>
+            </div>
+          </div>
+          {formData.convicted_cmv_crime && (
+            <Textarea
+              placeholder="Please provide a detailed explanation..."
+              value={formData.convicted_cmv_crime_details}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  convicted_cmv_crime_details: e.target.value,
+                })
+              }
+              rows={3}
+              required
+            />
+          )}
+        </div>
+
+        {/* Question 4: Law Violation */}
+        <div className="space-y-3 p-4 border rounded-lg">
+          <Label className="text-base font-medium">
+            4. Have you ever been convicted of any law violation? (Include any
+            plea of "Guilty" or "No Contest" except for minor traffic violation){" "}
+            <span className="text-red-500">*</span>
+          </Label>
+          <div className="flex gap-6">
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="convicted_law_violation_yes"
+                name="convicted_law_violation"
+                checked={formData.convicted_law_violation === true}
+                onChange={() =>
+                  setFormData({ ...formData, convicted_law_violation: true })
+                }
+                className="w-4 h-4"
+              />
+              <Label
+                htmlFor="convicted_law_violation_yes"
+                className="font-normal"
+              >
+                Yes
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="convicted_law_violation_no"
+                name="convicted_law_violation"
+                checked={formData.convicted_law_violation === false}
+                onChange={() =>
+                  setFormData({ ...formData, convicted_law_violation: false })
+                }
+                className="w-4 h-4"
+              />
+              <Label
+                htmlFor="convicted_law_violation_no"
+                className="font-normal"
+              >
+                No
+              </Label>
+            </div>
+          </div>
+          {formData.convicted_law_violation && (
+            <Textarea
+              placeholder="Please provide a detailed explanation..."
+              value={formData.convicted_law_violation_details}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  convicted_law_violation_details: e.target.value,
+                })
+              }
+              rows={3}
+              required
+            />
+          )}
+        </div>
+
+        <div className="p-4 bg-muted rounded-lg">
+          <p className="text-sm text-muted-foreground">
+            <strong>Note:</strong> If you answered "Yes" to any of the above 4
+            questions, attach a statement of explanation.
+          </p>
         </div>
       </div>
     );
@@ -1816,15 +2725,57 @@ export default function DriverApplicationForm() {
                   </Label>
                   <Input
                     id={`employer_phone_${index}`}
+                    type="tel"
                     value={employment.employer_phone}
                     onChange={(e) => {
                       const updated = [...formData.employment_history];
                       updated[index].employer_phone = e.target.value;
                       setFormData({ ...formData, employment_history: updated });
+                      // Clear validation error when user types
+                      if (validationErrors.employer_phone?.[index]) {
+                        setValidationErrors({
+                          ...validationErrors,
+                          employer_phone: {
+                            ...validationErrors.employer_phone,
+                            [index]: undefined,
+                          },
+                        });
+                      }
+                    }}
+                    onBlur={(e) => {
+                      // Format phone number on blur
+                      const formatted = formatPhoneNumber(e.target.value);
+                      const updated = [...formData.employment_history];
+                      updated[index].employer_phone = formatted;
+                      setFormData({ ...formData, employment_history: updated });
+                      // Validate phone number
+                      if (
+                        e.target.value &&
+                        !isValidPhoneNumber(e.target.value)
+                      ) {
+                        setValidationErrors({
+                          ...validationErrors,
+                          employer_phone: {
+                            ...validationErrors.employer_phone,
+                            [index]:
+                              "Please enter a valid 10-digit phone number",
+                          },
+                        });
+                      }
                     }}
                     placeholder="(555) 123-4567"
                     required
+                    className={
+                      validationErrors.employer_phone?.[index]
+                        ? "border-red-500"
+                        : ""
+                    }
                   />
+                  {validationErrors.employer_phone?.[index] && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {validationErrors.employer_phone[index]}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2253,6 +3204,12 @@ export default function DriverApplicationForm() {
           description: "Failed to save document",
           variant: "destructive",
         });
+      } else {
+        // Update uploaded documents state
+        setUploadedDocuments((prev) => ({
+          ...prev,
+          [documentType]: true,
+        }));
       }
     };
 
@@ -2264,19 +3221,35 @@ export default function DriverApplicationForm() {
       // We can leave this as a no-op for the driver form
     };
 
+    const allRequiredDocsUploaded = isOwnerOperator
+      ? uploadedDocuments.dl && uploadedDocuments.ssn
+      : uploadedDocuments.dl &&
+        uploadedDocuments.ssn &&
+        uploadedDocuments.medical_card;
+
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-bold">Step 13 — Document Upload</h2>
-        <p className="text-sm text-muted-foreground">
-          Please upload all required documents.
-        </p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm font-medium text-blue-900">
+            📋 All documents must be uploaded before you can submit your
+            application.
+          </p>
+          <p className="text-sm text-blue-700 mt-1">
+            Required documents:{" "}
+            <span className="font-medium">
+              Driver License, Social Security Card
+              {!isOwnerOperator && ", Medical Card"}
+            </span>
+          </p>
+        </div>
 
         <div className="space-y-4">
           <DocumentUpload
             candidateId={candidateId}
             complianceId={complianceId}
             documentType="dl"
-            label="Driver License"
+            label="Driver License (Required)"
             onUploadComplete={(url) => handleDocumentUpload("dl", url)}
             onVerificationChange={(verified) =>
               handleVerificationChange("dl", verified)
@@ -2286,7 +3259,7 @@ export default function DriverApplicationForm() {
             candidateId={candidateId}
             complianceId={complianceId}
             documentType="ssn"
-            label="Social Security Card"
+            label="Social Security Card (Required)"
             onUploadComplete={(url) => handleDocumentUpload("ssn", url)}
             onVerificationChange={(verified) =>
               handleVerificationChange("ssn", verified)
@@ -2297,7 +3270,7 @@ export default function DriverApplicationForm() {
               candidateId={candidateId}
               complianceId={complianceId}
               documentType="medical_card"
-              label="Medical Card"
+              label="Medical Card (Required)"
               onUploadComplete={(url) =>
                 handleDocumentUpload("medical_card", url)
               }
@@ -2307,6 +3280,34 @@ export default function DriverApplicationForm() {
             />
           )}
         </div>
+
+        {!allRequiredDocsUploaded && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-sm font-medium text-yellow-900">
+              ⚠️ Missing Required Documents
+            </p>
+            <ul className="text-sm text-yellow-700 mt-2 space-y-1">
+              {!uploadedDocuments.dl && <li>• Driver License not uploaded</li>}
+              {!uploadedDocuments.ssn && (
+                <li>• Social Security Card not uploaded</li>
+              )}
+              {!isOwnerOperator && !uploadedDocuments.medical_card && (
+                <li>• Medical Card not uploaded</li>
+              )}
+            </ul>
+          </div>
+        )}
+
+        {allRequiredDocsUploaded && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p className="text-sm font-medium text-green-900">
+              ✅ All required documents uploaded!
+            </p>
+            <p className="text-sm text-green-700 mt-1">
+              You can now submit your application.
+            </p>
+          </div>
+        )}
       </div>
     );
   }

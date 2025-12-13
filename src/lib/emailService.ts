@@ -619,3 +619,98 @@ export function generateDriverDrugTestNotClearedEmailHTML(params: {
 </html>
   `.trim();
 }
+
+/**
+ * Generate HTML template for orientation scheduled email
+ */
+export function generateDriverOrientationScheduledEmailHTML(params: {
+  driverName: string;
+  orientationDate: string;
+  supervisorName: string;
+  yardName: string;
+  yardAddress?: string;
+  notes?: string;
+}): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orientation Scheduled - Avensis Energy</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #10b981; margin-bottom: 20px; font-size: 24px;">🎉 Your Orientation is Scheduled!</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">Hi ${
+      params.driverName
+    },</p>
+
+    <p style="font-size: 16px; margin-bottom: 20px;">
+      Great news! Your orientation has been scheduled. Please review the details below and make sure to arrive on time.
+    </p>
+
+    <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #10b981;">
+      <h2 style="color: #10b981; margin-top: 0; font-size: 18px; margin-bottom: 15px;">Orientation Details</h2>
+
+      <p style="margin: 10px 0; font-size: 16px;">
+        <strong>📅 Date & Time:</strong><br>
+        ${params.orientationDate}
+      </p>
+
+      <p style="margin: 10px 0; font-size: 16px;">
+        <strong>👤 Supervisor:</strong><br>
+        ${params.supervisorName}
+      </p>
+
+      <p style="margin: 10px 0; font-size: 16px;">
+        <strong>📍 Location:</strong><br>
+        ${params.yardName}${
+    params.yardAddress ? `<br>${params.yardAddress}` : ""
+  }
+      </p>
+
+      ${
+        params.notes
+          ? `
+      <p style="margin: 10px 0; font-size: 16px;">
+        <strong>📝 Additional Notes:</strong><br>
+        ${params.notes}
+      </p>
+      `
+          : ""
+      }
+    </div>
+
+    <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #3b82f6;">
+      <p style="margin: 0; font-size: 15px;">
+        <strong>📋 What to Bring:</strong>
+      </p>
+      <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 15px;">
+        <li>Valid Driver's License</li>
+        <li>Social Security Card</li>
+        <li>Medical Card (if applicable)</li>
+        <li>Any other documents requested</li>
+      </ul>
+    </div>
+
+    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #f59e0b;">
+      <p style="margin: 0; font-size: 15px;">
+        <strong>⏰ Important:</strong> Please arrive 10-15 minutes early to allow time for check-in.
+      </p>
+    </div>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      If you have any questions or need to reschedule, please contact us at <a href="mailto:support@avensisenergy.com" style="color: #2563eb; text-decoration: none;">support@avensisenergy.com</a>.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      We look forward to seeing you!<br>
+      <strong>Primal Team</strong>
+    </p>
+  </div>
+</body>
+</html>
+  `.trim();
+}

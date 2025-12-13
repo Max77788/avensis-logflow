@@ -417,6 +417,7 @@ export const driverOnboardingService = {
       const { error } = await supabase.rpc("rpc_schedule_orientation", {
         p_application_id: applicationId,
         p_supervisor_id: data.supervisor_id || null,
+        p_supervisor_name: data.supervisor_name || null,
         p_scheduled_at: data.scheduled_at,
         p_user_id: userId || null,
       });

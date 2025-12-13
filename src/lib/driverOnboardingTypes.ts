@@ -89,6 +89,7 @@ export interface DriverCompliance {
   drug_test_result?: string;
   drug_test_completed_at?: string;
   drug_test_work_order_url?: string;
+  drug_test_results_url?: string;
 
   created_at: string;
   updated_at: string;
@@ -100,6 +101,7 @@ export interface DriverOnboarding {
 
   // Orientation
   supervisor_id?: string;
+  supervisor_name?: string;
   yard_id?: string;
   orientation_scheduled_at?: string;
   orientation_completed_at?: string;
@@ -172,7 +174,8 @@ export interface DrugTestOrderFormData {
 }
 
 export interface OrientationFormData {
-  supervisor_id: string;
+  supervisor_id?: string;
+  supervisor_name?: string;
   scheduled_at: string;
 }
 

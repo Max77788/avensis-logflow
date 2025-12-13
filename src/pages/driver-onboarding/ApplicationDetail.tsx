@@ -31,7 +31,19 @@ import { supabase } from "@/lib/supabase";
 import {
   sendEmail,
   generateDriverApplicationFormEmailHTML,
+  generateDriverApplicationReceivedEmailHTML,
+  generateDriverMVRCompletedEmailHTML,
+  generateDriverMVRNotClearedEmailHTML,
+  generateDriverDrugTestCompletedEmailHTML,
+  generateDriverDrugTestNotClearedEmailHTML,
+  generateDriverClearedForOrientationEmailHTML,
+  generateDriverOrientationScheduledEmailHTML,
 } from "@/lib/emailService";
+import {
+  isValidEmail,
+  isValidPhoneNumber,
+  formatPhoneNumber,
+} from "@/lib/validationUtils";
 import type {
   ApplicationWithDetails,
   DriverApplicationActivity,
@@ -98,6 +110,10 @@ const ApplicationDetail = () => {
     yard_id: "",
   });
   const [isCreatingLead, setIsCreatingLead] = useState(false);
+  const [newLeadValidationErrors, setNewLeadValidationErrors] = useState<{
+    email?: string;
+    phone?: string;
+  }>({});
   const [yards, setYards] = useState<
     Array<{
       id: string;
@@ -113,18 +129,12 @@ const ApplicationDetail = () => {
 
   // Onboarding state
   const [orientationDate, setOrientationDate] = useState("");
-  const [orientationSupervisorId, setOrientationSupervisorId] = useState("");
+  const [orientationSupervisorName, setOrientationSupervisorName] =
+    useState("");
   const [orientationYardId, setOrientationYardId] = useState("");
   const [orientationNotes, setOrientationNotes] = useState("");
   const [isSchedulingOrientation, setIsSchedulingOrientation] = useState(false);
   const [isCompletingOrientation, setIsCompletingOrientation] = useState(false);
-
-  const [trainingStartDate, setTrainingStartDate] = useState("");
-  const [trainingEndDate, setTrainingEndDate] = useState("");
-  const [isSchedulingTraining, setIsSchedulingTraining] = useState(false);
-  const [trainingRating, setTrainingRating] = useState(5);
-  const [trainingCompletionNotes, setTrainingCompletionNotes] = useState("");
-  const [isCompletingTraining, setIsCompletingTraining] = useState(false);
 
   const [isHiring, setIsHiring] = useState(false);
 
@@ -176,7 +186,6 @@ const ApplicationDetail = () => {
       "mvr",
       "drug_test",
       "orientation",
-      "training",
     ];
     const currentIndex = tabOrder.indexOf(currentTab);
     if (currentIndex >= 0 && currentIndex < tabOrder.length - 1) {
@@ -193,6 +202,11 @@ const ApplicationDetail = () => {
     if (result.success && result.data) {
       setApplication(result.data);
       setNotes(result.data.application.notes || "");
+
+      // Auto-populate orientation yard from application yard if not already set
+      if (result.data.application.yard_id && !orientationYardId) {
+        setOrientationYardId(result.data.application.yard_id);
+      }
     } else {
       toast({
         title: "Error",
@@ -335,6 +349,29 @@ const ApplicationDetail = () => {
           title: "Success",
           description: "All documents verified - Compliance tab unlocked",
         });
+
+        // Send "Application Received" email to driver
+        if (application.candidate.email) {
+          const emailHTML = generateDriverApplicationReceivedEmailHTML({
+            driverName: application.candidate.name,
+          });
+
+          const emailResult = await sendEmail({
+            to: application.candidate.email,
+            subject: "Your Application Has Been Received - Avensis Energy",
+            html: emailHTML,
+          });
+
+          if (emailResult.success) {
+            console.log(
+              `✅ Application received email sent to ${application.candidate.email}`
+            );
+          } else {
+            console.error(
+              `❌ Failed to send application received email: ${emailResult.error}`
+            );
+          }
+        }
       }
       // Don't switch tabs otherwise - stay on documents tab
     } else {
@@ -406,6 +443,38 @@ const ApplicationDetail = () => {
       await loadApplication();
       await loadActivities();
       setMvrSummary("");
+
+      // Send email to driver based on MVR result
+      if (application?.candidate.email) {
+        const emailHTML = mvrEligible
+          ? generateDriverMVRCompletedEmailHTML({
+              driverName: application.candidate.name,
+            })
+          : generateDriverMVRNotClearedEmailHTML({
+              driverName: application.candidate.name,
+            });
+
+        const emailSubject = mvrEligible
+          ? "MVR Check Completed - Avensis Energy"
+          : "MVR Review Result - Avensis Energy";
+
+        const emailResult = await sendEmail({
+          to: application.candidate.email,
+          subject: emailSubject,
+          html: emailHTML,
+        });
+
+        if (emailResult.success) {
+          console.log(
+            `✅ MVR ${
+              mvrEligible ? "completed" : "not cleared"
+            } email sent to ${application.candidate.email}`
+          );
+        } else {
+          console.error(`❌ Failed to send MVR email: ${emailResult.error}`);
+        }
+      }
+
       // Move to drug test tab
       setActiveTab(getNextTab("mvr"));
     } else {
@@ -450,10 +519,31 @@ const ApplicationDetail = () => {
   };
 
   const handleCreateLead = async () => {
+    // Validate required fields
     if (!newLeadForm.name.trim() || !newLeadForm.phone.trim()) {
       toast({
         title: "Validation Error",
         description: "Name and phone are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate phone number format
+    if (!isValidPhoneNumber(newLeadForm.phone)) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid 10-digit phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate email format if provided
+    if (newLeadForm.email && !isValidEmail(newLeadForm.email)) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
       return;
@@ -495,6 +585,69 @@ const ApplicationDetail = () => {
       });
       await loadApplication();
       await loadActivities();
+
+      // Send email to driver based on drug test result
+      if (application?.candidate.email) {
+        if (result === "NEGATIVE") {
+          // Drug test passed - send success email and cleared for orientation email
+          const drugTestEmailHTML = generateDriverDrugTestCompletedEmailHTML({
+            driverName: application.candidate.name,
+          });
+
+          const drugTestEmailResult = await sendEmail({
+            to: application.candidate.email,
+            subject: "Drug Test Completed - Avensis Energy",
+            html: drugTestEmailHTML,
+          });
+
+          if (drugTestEmailResult.success) {
+            console.log(
+              `✅ Drug test completed email sent to ${application.candidate.email}`
+            );
+          }
+
+          // Also send "Cleared for Orientation" email
+          const clearedEmailHTML = generateDriverClearedForOrientationEmailHTML(
+            {
+              driverName: application.candidate.name,
+            }
+          );
+
+          const clearedEmailResult = await sendEmail({
+            to: application.candidate.email,
+            subject: "You're Cleared for Orientation - Avensis Energy",
+            html: clearedEmailHTML,
+          });
+
+          if (clearedEmailResult.success) {
+            console.log(
+              `✅ Cleared for orientation email sent to ${application.candidate.email}`
+            );
+          }
+        } else {
+          // Drug test failed or no-show - send failure email
+          const emailHTML = generateDriverDrugTestNotClearedEmailHTML({
+            driverName: application.candidate.name,
+          });
+
+          const emailResult = await sendEmail({
+            to: application.candidate.email,
+            subject: "Drug Test Result - Avensis Energy",
+            html: emailHTML,
+          });
+
+          if (emailResult.success) {
+            console.log(
+              `✅ Drug test not cleared email sent to ${application.candidate.email}`
+            );
+          } else {
+            console.error(
+              `❌ Failed to send drug test email: ${emailResult.error}`
+            );
+          }
+        }
+      }
+
       // Move to next tab if drug test passed
       if (result === "NEGATIVE") {
         setActiveTab(getNextTab("drug_test"));
@@ -516,7 +669,7 @@ const ApplicationDetail = () => {
       !id ||
       id === "new" ||
       !orientationDate ||
-      !orientationSupervisorId ||
+      !orientationSupervisorName ||
       !orientationYardId
     ) {
       toast({
@@ -530,18 +683,18 @@ const ApplicationDetail = () => {
 
     setIsSchedulingOrientation(true);
 
-    // Update onboarding record with supervisor and yard
+    // Update onboarding record with supervisor name and yard
     await supabase
       .from("driver_onboarding")
       .update({
-        supervisor_id: orientationSupervisorId,
+        supervisor_name: orientationSupervisorName,
         yard_id: orientationYardId,
         orientation_notes: orientationNotes,
       })
       .eq("application_id", id);
 
     const result = await driverOnboardingService.scheduleOrientation(id, {
-      supervisor_id: orientationSupervisorId,
+      supervisor_name: orientationSupervisorName,
       scheduled_at: orientationDate,
     });
 
@@ -552,8 +705,56 @@ const ApplicationDetail = () => {
       });
       await loadApplication();
       await loadActivities();
+
+      // Send orientation scheduled email to driver
+      if (application?.candidate.email) {
+        // Get yard details
+        const selectedYard = yards.find((y) => y.id === orientationYardId);
+        const yardName = selectedYard?.name || "Yard";
+        const yardAddress = selectedYard?.address || undefined;
+
+        // Format the orientation date
+        const formattedDate = new Date(orientationDate).toLocaleString(
+          "en-US",
+          {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          }
+        );
+
+        const emailHTML = generateDriverOrientationScheduledEmailHTML({
+          driverName: application.candidate.name,
+          orientationDate: formattedDate,
+          supervisorName: orientationSupervisorName,
+          yardName: yardName,
+          yardAddress: yardAddress,
+          notes: orientationNotes || undefined,
+        });
+
+        const emailResult = await sendEmail({
+          to: application.candidate.email,
+          subject: "Orientation Scheduled - Avensis Energy",
+          html: emailHTML,
+        });
+
+        if (emailResult.success) {
+          console.log(
+            `✅ Orientation scheduled email sent to ${application.candidate.email}`
+          );
+        } else {
+          console.error(
+            `❌ Failed to send orientation email: ${emailResult.error}`
+          );
+        }
+      }
+
       setOrientationDate("");
-      setOrientationSupervisorId("");
+      setOrientationSupervisorName("");
       setOrientationYardId("");
       setOrientationNotes("");
       // Stay on orientation tab (user still needs to complete it)
@@ -595,73 +796,6 @@ const ApplicationDetail = () => {
       });
     }
     setIsCompletingOrientation(false);
-  };
-
-  const handleScheduleTraining = async () => {
-    if (!id || id === "new" || !trainingStartDate || !trainingEndDate) {
-      toast({
-        title: "Validation Error",
-        description: "Please select start and end dates for training",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSchedulingTraining(true);
-    const result = await driverOnboardingService.scheduleTraining(id, {
-      mentor_id: undefined, // TODO: Add mentor selection
-      scheduled_start: trainingStartDate,
-      scheduled_end: trainingEndDate,
-    });
-
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: "Training scheduled successfully",
-      });
-      await loadApplication();
-      await loadActivities();
-      setTrainingStartDate("");
-      setTrainingEndDate("");
-      // Stay on training tab (user still needs to complete it)
-      setActiveTab("training");
-    } else {
-      toast({
-        title: "Error",
-        description: result.error || "Failed to schedule training",
-        variant: "destructive",
-      });
-    }
-    setIsSchedulingTraining(false);
-  };
-
-  const handleCompleteTraining = async () => {
-    if (!id || id === "new") return;
-
-    setIsCompletingTraining(true);
-    const result = await driverOnboardingService.completeTraining(id, {
-      rating: trainingRating,
-      notes: trainingCompletionNotes,
-    });
-
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: "Training marked as completed - Ready to hire!",
-      });
-      await loadApplication();
-      await loadActivities();
-      setTrainingCompletionNotes("");
-      // Stay on training tab to show hire button
-      setActiveTab("training");
-    } else {
-      toast({
-        title: "Error",
-        description: result.error || "Failed to complete training",
-        variant: "destructive",
-      });
-    }
-    setIsCompletingTraining(false);
   };
 
   const handleApproveAndHire = async () => {
@@ -838,12 +972,40 @@ const ApplicationDetail = () => {
                 <Label htmlFor="phone">Phone *</Label>
                 <Input
                   id="phone"
+                  type="tel"
                   value={newLeadForm.phone}
-                  onChange={(e) =>
-                    setNewLeadForm({ ...newLeadForm, phone: e.target.value })
+                  onChange={(e) => {
+                    setNewLeadForm({ ...newLeadForm, phone: e.target.value });
+                    // Clear validation error when user types
+                    if (newLeadValidationErrors.phone) {
+                      setNewLeadValidationErrors({
+                        ...newLeadValidationErrors,
+                        phone: undefined,
+                      });
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Format phone number on blur
+                    const formatted = formatPhoneNumber(e.target.value);
+                    setNewLeadForm({ ...newLeadForm, phone: formatted });
+                    // Validate phone number
+                    if (e.target.value && !isValidPhoneNumber(e.target.value)) {
+                      setNewLeadValidationErrors({
+                        ...newLeadValidationErrors,
+                        phone: "Please enter a valid 10-digit phone number",
+                      });
+                    }
+                  }}
+                  placeholder="(555) 123-4567"
+                  className={
+                    newLeadValidationErrors.phone ? "border-red-500" : ""
                   }
-                  placeholder="Enter phone number"
                 />
+                {newLeadValidationErrors.phone && (
+                  <p className="text-sm text-red-500">
+                    {newLeadValidationErrors.phone}
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-2">
@@ -852,11 +1014,35 @@ const ApplicationDetail = () => {
                   id="email"
                   type="email"
                   value={newLeadForm.email}
-                  onChange={(e) =>
-                    setNewLeadForm({ ...newLeadForm, email: e.target.value })
+                  onChange={(e) => {
+                    setNewLeadForm({ ...newLeadForm, email: e.target.value });
+                    // Clear validation error when user types
+                    if (newLeadValidationErrors.email) {
+                      setNewLeadValidationErrors({
+                        ...newLeadValidationErrors,
+                        email: undefined,
+                      });
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Validate email
+                    if (e.target.value && !isValidEmail(e.target.value)) {
+                      setNewLeadValidationErrors({
+                        ...newLeadValidationErrors,
+                        email: "Please enter a valid email address",
+                      });
+                    }
+                  }}
+                  placeholder="email@example.com"
+                  className={
+                    newLeadValidationErrors.email ? "border-red-500" : ""
                   }
-                  placeholder="Enter email address"
                 />
+                {newLeadValidationErrors.email && (
+                  <p className="text-sm text-red-500">
+                    {newLeadValidationErrors.email}
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-2">
@@ -1014,17 +1200,6 @@ const ApplicationDetail = () => {
           "CLEARED_FOR_HIRE",
           "ORIENTATION_SCHEDULED",
           "ORIENTATION_COMPLETED",
-          "TRAINING_IN_PROGRESS",
-          "TRAINING_COMPLETED",
-          "HIRED",
-        ].includes(status);
-      case "training":
-        // Enabled after orientation is scheduled
-        return [
-          "ORIENTATION_SCHEDULED",
-          "ORIENTATION_COMPLETED",
-          "TRAINING_IN_PROGRESS",
-          "TRAINING_COMPLETED",
           "HIRED",
         ].includes(status);
       default:
@@ -1156,18 +1331,6 @@ const ApplicationDetail = () => {
               >
                 Orientation
                 {!isTabEnabled("orientation") && " 🔒"}
-              </TabsTrigger>
-              <TabsTrigger
-                value="training"
-                disabled={!isTabEnabled("training")}
-                className={`rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent ${
-                  !isTabEnabled("training")
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                }`}
-              >
-                Training
-                {!isTabEnabled("training") && " 🔒"}
               </TabsTrigger>
             </div>
           </TabsList>
@@ -1815,6 +1978,39 @@ const ApplicationDetail = () => {
                       )}
                     </div>
 
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <Label className="text-sm font-medium mb-2 block">
+                        Upload Test Results (from Clinic)
+                      </Label>
+                      <DocumentUpload
+                        label="Drug Test Results"
+                        documentType="dl"
+                        candidateId={application.application.candidate_id}
+                        complianceId={application.compliance.id}
+                        currentFileUrl={
+                          application.compliance.drug_test_results_url
+                        }
+                        isVerified={false}
+                        onUploadComplete={async (fileUrl) => {
+                          // Update test results URL
+                          await supabase
+                            .from("driver_compliance")
+                            .update({ drug_test_results_url: fileUrl })
+                            .eq("id", application.compliance!.id);
+                          loadApplication();
+                          toast({
+                            title: "Success",
+                            description: "Test results uploaded successfully",
+                          });
+                        }}
+                        onVerificationChange={() => {}}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Upload the test results document received from the
+                        clinic
+                      </p>
+                    </div>
+
                     <div className="space-y-2">
                       <Label>Record Test Result</Label>
                       <div className="grid grid-cols-3 gap-2">
@@ -2030,26 +2226,16 @@ const ApplicationDetail = () => {
 
                     <div className="space-y-2">
                       <Label htmlFor="orientation-supervisor">
-                        Supervisor <span className="text-red-500">*</span>
+                        Supervisor Name <span className="text-red-500">*</span>
                       </Label>
-                      <Select
-                        value={orientationSupervisorId}
-                        onValueChange={setOrientationSupervisorId}
-                      >
-                        <SelectTrigger id="orientation-supervisor">
-                          <SelectValue placeholder="Select supervisor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {supervisors.map((supervisor) => (
-                            <SelectItem
-                              key={supervisor.id}
-                              value={supervisor.id}
-                            >
-                              {supervisor.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        id="orientation-supervisor"
+                        value={orientationSupervisorName}
+                        onChange={(e) =>
+                          setOrientationSupervisorName(e.target.value)
+                        }
+                        placeholder="Enter supervisor name"
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -2086,7 +2272,7 @@ const ApplicationDetail = () => {
                       onClick={handleScheduleOrientation}
                       disabled={
                         !orientationDate ||
-                        !orientationSupervisorId ||
+                        !orientationSupervisorName ||
                         !orientationYardId ||
                         isSchedulingOrientation
                       }
@@ -2102,217 +2288,6 @@ const ApplicationDetail = () => {
                   </div>
                 )}
               </Card>
-            </div>
-          </TabsContent>
-
-          {/* Training Tab */}
-          <TabsContent value="training">
-            <div className="grid gap-6 max-w-4xl mx-auto">
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Training</h3>
-                {application.onboarding?.training_completed_at ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle2 className="h-5 w-5" />
-                      <span className="font-medium">Training Completed</span>
-                    </div>
-                    <div className="grid gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">
-                          Completed:{" "}
-                        </span>
-                        <span>
-                          {format(
-                            new Date(
-                              application.onboarding.training_completed_at
-                            ),
-                            "PPP"
-                          )}
-                        </span>
-                      </div>
-                      {application.onboarding.training_rating && (
-                        <div>
-                          <span className="text-muted-foreground">
-                            Rating:{" "}
-                          </span>
-                          <span>
-                            {application.onboarding.training_rating}/5
-                          </span>
-                        </div>
-                      )}
-                      {application.onboarding.training_notes && (
-                        <div>
-                          <span className="text-muted-foreground">Notes: </span>
-                          <span>{application.onboarding.training_notes}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : application.onboarding?.training_scheduled_start ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <Clock className="h-5 w-5" />
-                      <span className="font-medium">Training Scheduled</span>
-                    </div>
-                    <div className="grid gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Start: </span>
-                        <span>
-                          {format(
-                            new Date(
-                              application.onboarding.training_scheduled_start
-                            ),
-                            "PPP"
-                          )}
-                        </span>
-                      </div>
-                      {application.onboarding.training_scheduled_end && (
-                        <div>
-                          <span className="text-muted-foreground">End: </span>
-                          <span>
-                            {format(
-                              new Date(
-                                application.onboarding.training_scheduled_end
-                              ),
-                              "PPP"
-                            )}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="training-rating">Rating (1-5)</Label>
-                      <Select
-                        value={trainingRating.toString()}
-                        onValueChange={(value) =>
-                          setTrainingRating(parseInt(value))
-                        }
-                      >
-                        <SelectTrigger id="training-rating">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 - Poor</SelectItem>
-                          <SelectItem value="2">2 - Below Average</SelectItem>
-                          <SelectItem value="3">3 - Average</SelectItem>
-                          <SelectItem value="4">4 - Good</SelectItem>
-                          <SelectItem value="5">5 - Excellent</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="training-notes">
-                        Completion Notes (Optional)
-                      </Label>
-                      <Textarea
-                        id="training-notes"
-                        value={trainingCompletionNotes}
-                        onChange={(e) =>
-                          setTrainingCompletionNotes(e.target.value)
-                        }
-                        placeholder="Add any notes about the training..."
-                        rows={3}
-                      />
-                    </div>
-                    <Button
-                      onClick={handleCompleteTraining}
-                      disabled={isCompletingTraining}
-                      className="w-full"
-                    >
-                      {isCompletingTraining ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                      )}
-                      Mark as Completed
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      No training scheduled yet
-                    </p>
-                    <div className="space-y-2">
-                      <Label htmlFor="training-start">
-                        Training Start Date{" "}
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="training-start"
-                        type="datetime-local"
-                        value={trainingStartDate}
-                        onChange={(e) => setTrainingStartDate(e.target.value)}
-                        min={new Date().toISOString().slice(0, 16)}
-                        className="dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Select when training will begin
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="training-end">
-                        Training End Date{" "}
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="training-end"
-                        type="datetime-local"
-                        value={trainingEndDate}
-                        onChange={(e) => setTrainingEndDate(e.target.value)}
-                        min={
-                          trainingStartDate ||
-                          new Date().toISOString().slice(0, 16)
-                        }
-                        className="dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Select when training will end
-                      </p>
-                    </div>
-                    <Button
-                      onClick={handleScheduleTraining}
-                      disabled={
-                        !trainingStartDate ||
-                        !trainingEndDate ||
-                        isSchedulingTraining
-                      }
-                      className="w-full"
-                    >
-                      {isSchedulingTraining ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Calendar className="h-4 w-4 mr-2" />
-                      )}
-                      Schedule Training
-                    </Button>
-                  </div>
-                )}
-              </Card>
-
-              {/* Hire Button */}
-              {application.application.status === "TRAINING_COMPLETED" ? (
-                <Card className="p-6 bg-green-50 dark:bg-green-950">
-                  <h3 className="text-lg font-semibold mb-4 text-green-900 dark:text-green-100">
-                    Ready to Hire
-                  </h3>
-                  <p className="text-sm text-green-700 dark:text-green-300 mb-4">
-                    This candidate has completed all requirements and is ready
-                    to be hired.
-                  </p>
-                  <Button
-                    onClick={handleApproveAndHire}
-                    disabled={isHiring}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    {isHiring ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <UserCheck className="h-4 w-4 mr-2" />
-                    )}
-                    Approve and Hire
-                  </Button>
-                </Card>
-              ) : null}
             </div>
           </TabsContent>
         </Tabs>
