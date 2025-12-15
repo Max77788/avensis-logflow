@@ -76,6 +76,8 @@ async function createDriverApplicationFormSchema() {
         submitted_at timestamptz,
         reviewed_at timestamptz,
         reviewed_by uuid,
+        rejection_reason text,
+        rejected_at timestamptz,
 
         created_at timestamptz DEFAULT now(),
         updated_at timestamptz DEFAULT now()

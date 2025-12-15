@@ -38,6 +38,7 @@ import {
   sendEmail,
   generateDriverApplicationFormEmailHTML,
   generateDriverApplicationReceivedEmailHTML,
+  generateDriverApplicationNotApprovedEmailHTML,
   generateDriverMVRCompletedEmailHTML,
   generateDriverMVRNotClearedEmailHTML,
   generateDriverDrugTestCompletedEmailHTML,
@@ -153,6 +154,9 @@ const ApplicationDetail = () => {
   // Application form state
   const [isSendingApplicationForm, setIsSendingApplicationForm] =
     useState(false);
+  const [isDisapprovingForm, setIsDisapprovingForm] = useState(false);
+  const [disapprovalReason, setDisapprovalReason] = useState("");
+  const [showDisapprovalDialog, setShowDisapprovalDialog] = useState(false);
 
   useEffect(() => {
     if (id && id !== "new") {
@@ -273,6 +277,33 @@ const ApplicationDetail = () => {
       });
       await loadApplication();
       await loadActivities();
+
+      // Send email to driver based on verification outcome
+      if (application?.candidate.email) {
+        if (verificationOutcome === "REJECTED") {
+          // Application not approved - send rejection email
+          const emailHTML = generateDriverApplicationNotApprovedEmailHTML({
+            driverName: application.candidate.name,
+          });
+
+          const emailResult = await sendEmail({
+            to: application.candidate.email,
+            subject: "Update on Your Application - Avensis Energy",
+            html: emailHTML,
+          });
+
+          if (emailResult.success) {
+            console.log(
+              `✅ Application not approved email sent to ${application.candidate.email}`
+            );
+          } else {
+            console.error(
+              `❌ Failed to send application not approved email: ${emailResult.error}`
+            );
+          }
+        }
+      }
+
       setVerificationNotes("");
       // Move to next tab
       setActiveTab(getNextTab("verification"));
@@ -929,6 +960,91 @@ const ApplicationDetail = () => {
       });
     } finally {
       setIsSendingApplicationForm(false);
+    }
+  };
+
+  const handleDisapproveForm = async () => {
+    if (!id || id === "new" || !application) return;
+
+    // Validate disapproval reason
+    if (!disapprovalReason.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please provide a reason for disapproving the form",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDisapprovingForm(true);
+
+    try {
+      // Get the form ID from the application
+      const { data: formData, error: formError } = await supabase
+        .from("driver_application_forms")
+        .select("id")
+        .eq("application_id", id)
+        .single();
+
+      if (formError || !formData) {
+        throw new Error("Application form not found");
+      }
+
+      // Update form status to REJECTED with reason
+      const { error: updateError } = await supabase
+        .from("driver_application_forms")
+        .update({
+          status: "REJECTED",
+          rejection_reason: disapprovalReason,
+          rejected_at: new Date().toISOString(),
+        })
+        .eq("id", formData.id);
+
+      if (updateError) throw updateError;
+
+      // Send disapproval email to driver
+      if (application.candidate.email) {
+        const emailHTML = generateDriverApplicationNotApprovedEmailHTML({
+          driverName: application.candidate.name,
+        });
+
+        const emailResult = await sendEmail({
+          to: application.candidate.email,
+          subject: "Update on Your Application - Avensis Energy",
+          html: emailHTML,
+        });
+
+        if (emailResult.success) {
+          console.log(
+            `✅ Application disapproval email sent to ${application.candidate.email}`
+          );
+        } else {
+          console.error(
+            `❌ Failed to send disapproval email: ${emailResult.error}`
+          );
+        }
+      }
+
+      toast({
+        title: "Form Disapproved",
+        description:
+          "The application form has been disapproved and the driver has been notified",
+      });
+
+      // Close dialog and reload
+      setShowDisapprovalDialog(false);
+      setDisapprovalReason("");
+      loadApplication();
+      loadActivities();
+    } catch (error: any) {
+      console.error("Error disapproving form:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to disapprove form",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDisapprovingForm(false);
     }
   };
 
@@ -1656,28 +1772,54 @@ const ApplicationDetail = () => {
 
               {/* Form Details Collapsible Section */}
               {application.application.application_form_completed_at && (
-                <Collapsible
-                  open={isFormDetailsOpen}
-                  onOpenChange={setIsFormDetailsOpen}
-                >
-                  <Card className="p-6">
-                    <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">
-                          Application Form Details
-                        </h3>
-                        <ChevronDown
-                          className={`h-5 w-5 transition-transform ${
-                            isFormDetailsOpen ? "rotate-180" : ""
-                          }`}
-                        />
-                      </div>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="mt-4">
-                      <DriverApplicationFormView applicationId={id!} />
-                    </CollapsibleContent>
+                <>
+                  <Collapsible
+                    open={isFormDetailsOpen}
+                    onOpenChange={setIsFormDetailsOpen}
+                  >
+                    <Card className="p-6">
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold">
+                            Application Form Details
+                          </h3>
+                          <ChevronDown
+                            className={`h-5 w-5 transition-transform ${
+                              isFormDetailsOpen ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-4">
+                        <DriverApplicationFormView applicationId={id!} />
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+
+                  {/* Disapprove Form Card */}
+                  <Card className="p-6 border-red-200 bg-red-50/50 dark:bg-red-900/10">
+                    <h3 className="text-lg font-semibold mb-4 text-red-900 dark:text-red-100">
+                      Disapprove Application Form
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      If the application form does not meet requirements or
+                      contains issues, you can disapprove it. The driver will be
+                      notified via email.
+                    </p>
+                    <Button
+                      variant="destructive"
+                      onClick={() => setShowDisapprovalDialog(true)}
+                      disabled={isDisapprovingForm}
+                    >
+                      {isDisapprovingForm ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <XCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Disapprove Form
+                    </Button>
                   </Card>
-                </Collapsible>
+                </>
               )}
 
               {/* Hidden for now - Application Documents section */}
@@ -2361,6 +2503,66 @@ const ApplicationDetail = () => {
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete Application
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disapprove Form Dialog */}
+      <Dialog
+        open={showDisapprovalDialog}
+        onOpenChange={setShowDisapprovalDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disapprove Application Form</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for disapproving the application form for{" "}
+              <strong>{application.candidate.name}</strong>. The driver will be
+              notified via email.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="disapproval-reason">
+                Reason for Disapproval *
+              </Label>
+              <Textarea
+                id="disapproval-reason"
+                value={disapprovalReason}
+                onChange={(e) => setDisapprovalReason(e.target.value)}
+                placeholder="Enter the reason for disapproving this application form..."
+                className="mt-2 min-h-[120px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDisapprovalDialog(false);
+                setDisapprovalReason("");
+              }}
+              disabled={isDisapprovingForm}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDisapproveForm}
+              disabled={isDisapprovingForm || !disapprovalReason.trim()}
+            >
+              {isDisapprovingForm ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Disapproving...
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Disapprove Form
                 </>
               )}
             </Button>

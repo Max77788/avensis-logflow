@@ -46,6 +46,8 @@ interface FormData {
   status: string;
   submitted_at: string;
   current_step: number;
+  rejection_reason: string | null;
+  rejected_at: string | null;
 }
 
 interface DriverExperience {
@@ -231,12 +233,21 @@ export const DriverApplicationFormView = ({
   return (
     <div className="space-y-6">
       {/* Form Status */}
-      <Card className="p-4 bg-muted/50">
+      <Card
+        className={`p-4 ${
+          formData.status === "REJECTED"
+            ? "bg-red-50 dark:bg-red-900/20 border-red-200"
+            : "bg-muted/50"
+        }`}
+      >
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">Form Status</p>
             <p className="font-medium">
-              {formData.status === "SUBMITTED" ? "✅ Submitted" : "📝 Draft"}
+              {formData.status === "SUBMITTED" && "✅ Submitted"}
+              {formData.status === "DRAFT" && "📝 Draft"}
+              {formData.status === "REJECTED" && "❌ Disapproved"}
+              {formData.status === "APPROVED" && "✅ Approved"}
             </p>
           </div>
           {formData.submitted_at && (
@@ -251,6 +262,25 @@ export const DriverApplicationFormView = ({
             </div>
           )}
         </div>
+        {formData.status === "REJECTED" && formData.rejection_reason && (
+          <div className="mt-4 pt-4 border-t border-red-200">
+            <p className="text-sm font-medium text-red-900 dark:text-red-100 mb-2">
+              Reason for Disapproval:
+            </p>
+            <p className="text-sm text-red-800 dark:text-red-200">
+              {formData.rejection_reason}
+            </p>
+            {formData.rejected_at && (
+              <p className="text-xs text-red-600 dark:text-red-300 mt-2">
+                Disapproved on{" "}
+                {format(
+                  new Date(formData.rejected_at),
+                  "MMM d, yyyy 'at' h:mm a"
+                )}
+              </p>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* Applicant Information */}

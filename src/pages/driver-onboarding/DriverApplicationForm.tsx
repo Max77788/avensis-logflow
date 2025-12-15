@@ -21,9 +21,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  AlertTriangle,
 } from "lucide-react";
 import { DocumentUpload } from "@/components/driver-onboarding/DocumentUpload";
-import { min } from "date-fns";
+import { format } from "date-fns";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -34,6 +35,10 @@ import {
   getPhoneValidationError,
   getAddressValidationError,
 } from "@/lib/validationUtils";
+import {
+  sendEmail,
+  generateDriverApplicationReceivedEmailHTML,
+} from "@/lib/emailService";
 
 // Types
 interface DriverExperience {
@@ -228,10 +233,15 @@ export default function DriverApplicationForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [candidateId, setCandidateId] = useState<string | null>(null);
+  const [candidateName, setCandidateName] = useState<string>("");
+  const [candidateEmail, setCandidateEmail] = useState<string>("");
   const [complianceId, setComplianceId] = useState<string | null>(null);
   const [formId, setFormId] = useState<string | null>(null);
   const [positionType, setPositionType] = useState<string>("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [formStatus, setFormStatus] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [rejectedAt, setRejectedAt] = useState<string | null>(null);
 
   // Track uploaded documents
   const [uploadedDocuments, setUploadedDocuments] = useState<{
@@ -321,7 +331,7 @@ export default function DriverApplicationForm() {
           position_type,
           status,
           application_form_completed_at,
-          candidate:driver_candidates(name, phone),
+          candidate:driver_candidates(name, phone, email),
           compliance:driver_compliance(id, drivers_license_url, ssn_url, medical_card_url)
         `
         )
@@ -340,6 +350,15 @@ export default function DriverApplicationForm() {
       setApplicationId(application.id);
       setCandidateId(application.candidate_id);
       setPositionType(application.position_type || "");
+
+      // Store candidate info for email
+      if (application.candidate) {
+        const candidate = Array.isArray(application.candidate)
+          ? application.candidate[0]
+          : application.candidate;
+        setCandidateName(candidate.name || "");
+        setCandidateEmail(candidate.email || "");
+      }
 
       // Set compliance ID if it exists and load document status
       if (
@@ -369,13 +388,6 @@ export default function DriverApplicationForm() {
         });
       }
 
-      // Check if already submitted
-      if (application.application_form_completed_at) {
-        setIsSubmitted(true);
-        setLoading(false);
-        return;
-      }
-
       // Load existing form data if any
       const { data: existingForm, error: formError } = await supabase
         .from("driver_application_forms")
@@ -385,6 +397,22 @@ export default function DriverApplicationForm() {
 
       if (existingForm && !formError) {
         setFormId(existingForm.id);
+
+        // Store form status and rejection info
+        setFormStatus(existingForm.status || null);
+        setRejectionReason(existingForm.rejection_reason || null);
+        setRejectedAt(existingForm.rejected_at || null);
+
+        // Check if already submitted and NOT rejected
+        // If rejected, allow the driver to edit and resubmit
+        if (
+          application.application_form_completed_at &&
+          existingForm.status !== "REJECTED"
+        ) {
+          setIsSubmitted(true);
+          setLoading(false);
+          return;
+        }
 
         // Restore the current step from saved progress
         if (
@@ -875,12 +903,14 @@ export default function DriverApplicationForm() {
       // Save all related data
       await saveAllRelatedData();
 
-      // Mark form as submitted
+      // Mark form as submitted and clear any rejection info
       await supabase
         .from("driver_application_forms")
         .update({
           status: "SUBMITTED",
           submitted_at: new Date().toISOString(),
+          rejection_reason: null,
+          rejected_at: null,
         })
         .eq("id", formId);
 
@@ -892,10 +922,49 @@ export default function DriverApplicationForm() {
         })
         .eq("id", applicationId);
 
+      // Send confirmation email to driver
+      if (candidateEmail) {
+        try {
+          const emailHTML = generateDriverApplicationReceivedEmailHTML({
+            driverName: candidateName || "Driver",
+          });
+
+          const emailResult = await sendEmail({
+            to: candidateEmail,
+            subject: "Your Application Has Been Received - Avensis Energy",
+            html: emailHTML,
+          });
+
+          if (emailResult.success) {
+            console.log(
+              `✅ Application received email sent to ${candidateEmail}`
+            );
+          } else {
+            console.error(
+              `❌ Failed to send application received email: ${emailResult.error}`
+            );
+          }
+        } catch (emailError) {
+          console.error("Error sending confirmation email:", emailError);
+          // Don't fail the submission if email fails
+        }
+      }
+
+      // Clear rejection state
+      setFormStatus("SUBMITTED");
+      setRejectionReason(null);
+      setRejectedAt(null);
+
       setIsSubmitted(true);
       toast({
-        title: "Application Submitted!",
-        description: "Your application has been submitted successfully.",
+        title:
+          formStatus === "REJECTED"
+            ? "Application Resubmitted!"
+            : "Application Submitted!",
+        description:
+          formStatus === "REJECTED"
+            ? "Your updated application has been resubmitted successfully. Our HR team will review it again."
+            : "Your application has been submitted successfully.",
       });
     } catch (error: any) {
       console.error("Error submitting application:", error);
@@ -1405,6 +1474,39 @@ export default function DriverApplicationForm() {
           </p>
         </div>
 
+        {/* Rejection Message Banner */}
+        {formStatus === "REJECTED" && rejectionReason && (
+          <Card className="mb-6 p-6 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+            <div className="flex items-start gap-4">
+              <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-2">
+                  Application Form Needs Revision
+                </h3>
+                <p className="text-sm text-red-800 dark:text-red-200 mb-3">
+                  Your application form was reviewed and requires changes before
+                  it can be approved. Please review the feedback below, make the
+                  necessary corrections, and resubmit your application.
+                </p>
+                <div className="bg-white dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-md p-4">
+                  <p className="text-sm font-medium text-red-900 dark:text-red-100 mb-2">
+                    Reason for Revision Request:
+                  </p>
+                  <p className="text-sm text-red-800 dark:text-red-200">
+                    {rejectionReason}
+                  </p>
+                  {rejectedAt && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-3">
+                      Reviewed on{" "}
+                      {format(new Date(rejectedAt), "MMM d, yyyy 'at' h:mm a")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Progress Indicator */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
@@ -1456,8 +1558,12 @@ export default function DriverApplicationForm() {
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Submitting...
+                  {formStatus === "REJECTED"
+                    ? "Resubmitting..."
+                    : "Submitting..."}
                 </>
+              ) : formStatus === "REJECTED" ? (
+                "Resubmit Application"
               ) : (
                 "Submit Application"
               )}
