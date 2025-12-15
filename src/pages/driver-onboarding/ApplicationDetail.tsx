@@ -7,6 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -66,6 +71,7 @@ import {
   Clock,
   UserCheck,
   Trash2,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -81,6 +87,7 @@ const ApplicationDetail = () => {
   const [notes, setNotes] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [isFormDetailsOpen, setIsFormDetailsOpen] = useState(false);
 
   // Verification tab state
   const [verificationOutcome, setVerificationOutcome] =
@@ -1184,9 +1191,6 @@ const ApplicationDetail = () => {
       case "documents":
         // Enabled after verification is done (status changes from NEW)
         return status !== "NEW" && status !== "REJECTED";
-      case "application_form":
-        // Enabled after verification is done (status changes from NEW)
-        return status !== "NEW" && status !== "REJECTED";
       case "mvr":
         // Enabled after all documents are verified
         return (
@@ -1277,7 +1281,7 @@ const ApplicationDetail = () => {
             >
               Overview
             </TabsTrigger>
-            <div className="grid grid-cols-7 gap-0">
+            <div className="grid grid-cols-6 gap-0">
               <TabsTrigger
                 value="verification"
                 disabled={!isTabEnabled("verification")}
@@ -1301,18 +1305,6 @@ const ApplicationDetail = () => {
               >
                 Applications
                 {!isTabEnabled("documents") && " 🔒"}
-              </TabsTrigger>
-              <TabsTrigger
-                value="application_form"
-                disabled={!isTabEnabled("application_form")}
-                className={`rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent ${
-                  !isTabEnabled("application_form")
-                    ? "opacity-50 cursor-not-allowed"
-                    : ""
-                }`}
-              >
-                Form Details
-                {!isTabEnabled("application_form") && " 🔒"}
               </TabsTrigger>
               <TabsTrigger
                 value="mvr"
@@ -1661,6 +1653,32 @@ const ApplicationDetail = () => {
                   </Button>
                 )}
               </Card>
+
+              {/* Form Details Collapsible Section */}
+              {application.application.application_form_completed_at && (
+                <Collapsible
+                  open={isFormDetailsOpen}
+                  onOpenChange={setIsFormDetailsOpen}
+                >
+                  <Card className="p-6">
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">
+                          Application Form Details
+                        </h3>
+                        <ChevronDown
+                          className={`h-5 w-5 transition-transform ${
+                            isFormDetailsOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-4">
+                      <DriverApplicationFormView applicationId={id!} />
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              )}
 
               {/* Hidden for now - Application Documents section */}
               {true && (
@@ -2304,13 +2322,6 @@ const ApplicationDetail = () => {
                   </div>
                 )}
               </Card>
-            </div>
-          </TabsContent>
-
-          {/* Application Form Tab */}
-          <TabsContent value="application_form">
-            <div className="max-w-6xl mx-auto">
-              <DriverApplicationFormView applicationId={id} />
             </div>
           </TabsContent>
         </Tabs>
