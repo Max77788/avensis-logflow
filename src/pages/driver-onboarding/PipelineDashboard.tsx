@@ -22,7 +22,16 @@ import {
 import { ApplicationStatusBadge } from "@/components/driver-onboarding/ApplicationStatusBadge";
 import { driverOnboardingService } from "@/lib/driverOnboardingService";
 import type { ApplicationWithDetails } from "@/lib/driverOnboardingTypes";
-import { Search, Plus, Phone, Mail, MapPin, Loader2 } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Phone,
+  Mail,
+  MapPin,
+  Loader2,
+  FileText,
+  CheckCircle2,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -233,6 +242,7 @@ const PipelineDashboard = () => {
                   <TableHead>Yard</TableHead>
                   <TableHead>Position</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-center">Form</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Age</TableHead>
                   {/*
@@ -274,6 +284,28 @@ const PipelineDashboard = () => {
                     </TableCell>
                     <TableCell>
                       <ApplicationStatusBadge status={app.application.status} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {app.application.application_form_completed_at ? (
+                        <div className="flex items-center justify-center gap-1 text-green-600">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-xs">
+                            {format(
+                              new Date(
+                                app.application.application_form_completed_at
+                              ),
+                              "MMM d"
+                            )}
+                          </span>
+                        </div>
+                      ) : app.application.application_form_sent_at ? (
+                        <div className="flex items-center justify-center gap-1 text-yellow-600">
+                          <FileText className="h-4 w-4" />
+                          <span className="text-xs">Sent</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {app.candidate.source || "-"}

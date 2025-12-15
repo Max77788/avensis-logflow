@@ -26,6 +26,7 @@ import { ApplicationStatusBadge } from "@/components/driver-onboarding/Applicati
 import { ActivityLog } from "@/components/driver-onboarding/ActivityLog";
 import { DocumentUpload } from "@/components/driver-onboarding/DocumentUpload";
 import { DriverOnboardingRibbon } from "@/components/driver-onboarding/DriverOnboardingRibbon";
+import { DriverApplicationFormView } from "@/components/driver-onboarding/DriverApplicationFormView";
 import { driverOnboardingService } from "@/lib/driverOnboardingService";
 import { supabase } from "@/lib/supabase";
 import {
@@ -1183,6 +1184,9 @@ const ApplicationDetail = () => {
       case "documents":
         // Enabled after verification is done (status changes from NEW)
         return status !== "NEW" && status !== "REJECTED";
+      case "application_form":
+        // Enabled after verification is done (status changes from NEW)
+        return status !== "NEW" && status !== "REJECTED";
       case "mvr":
         // Enabled after all documents are verified
         return (
@@ -1273,7 +1277,7 @@ const ApplicationDetail = () => {
             >
               Overview
             </TabsTrigger>
-            <div className="grid grid-cols-6 gap-0">
+            <div className="grid grid-cols-7 gap-0">
               <TabsTrigger
                 value="verification"
                 disabled={!isTabEnabled("verification")}
@@ -1297,6 +1301,18 @@ const ApplicationDetail = () => {
               >
                 Applications
                 {!isTabEnabled("documents") && " 🔒"}
+              </TabsTrigger>
+              <TabsTrigger
+                value="application_form"
+                disabled={!isTabEnabled("application_form")}
+                className={`rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent ${
+                  !isTabEnabled("application_form")
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                Form Details
+                {!isTabEnabled("application_form") && " 🔒"}
               </TabsTrigger>
               <TabsTrigger
                 value="mvr"
@@ -2288,6 +2304,13 @@ const ApplicationDetail = () => {
                   </div>
                 )}
               </Card>
+            </div>
+          </TabsContent>
+
+          {/* Application Form Tab */}
+          <TabsContent value="application_form">
+            <div className="max-w-6xl mx-auto">
+              <DriverApplicationFormView applicationId={id} />
             </div>
           </TabsContent>
         </Tabs>
