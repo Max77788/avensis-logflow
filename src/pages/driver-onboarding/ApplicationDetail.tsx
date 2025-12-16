@@ -1656,7 +1656,7 @@ const ApplicationDetail = () => {
                   disabled={
                     isSubmittingVerification || !verificationNotes.trim()
                   }
-                  className="w-full"
+                  className="w-full h-12 text-base"
                 >
                   {isSubmittingVerification ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1729,6 +1729,7 @@ const ApplicationDetail = () => {
                       variant="outline"
                       onClick={handleSendApplicationForm}
                       disabled={isSendingApplicationForm}
+                      className="h-12 text-base"
                     >
                       {isSendingApplicationForm ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1742,6 +1743,7 @@ const ApplicationDetail = () => {
                   <Button
                     onClick={handleSendApplicationForm}
                     disabled={isSendingApplicationForm}
+                    className="h-12 text-base"
                   >
                     {isSendingApplicationForm ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1793,6 +1795,7 @@ const ApplicationDetail = () => {
                       variant="destructive"
                       onClick={() => setShowDisapprovalDialog(true)}
                       disabled={isDisapprovingForm}
+                      className="h-12 text-base"
                     >
                       {isDisapprovingForm ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2002,7 +2005,7 @@ const ApplicationDetail = () => {
                     <Button
                       onClick={handleSubmitMVR}
                       disabled={isSubmittingMVR}
-                      className="w-full"
+                      className="w-full h-12 text-base"
                     >
                       {isSubmittingMVR ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2237,7 +2240,7 @@ const ApplicationDetail = () => {
                         !drugTestSite.trim() ||
                         !drugTestDate
                       }
-                      className="w-full"
+                      className="w-full h-12 text-base"
                     >
                       {isCreatingDrugTest ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2306,7 +2309,10 @@ const ApplicationDetail = () => {
                       </span>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="orientation-notes">
+                      <Label
+                        htmlFor="orientation-notes"
+                        className="text-base font-medium"
+                      >
                         Completion Notes (Optional)
                       </Label>
                       <Textarea
@@ -2315,12 +2321,13 @@ const ApplicationDetail = () => {
                         onChange={(e) => setOrientationNotes(e.target.value)}
                         placeholder="Add any notes about the orientation..."
                         rows={3}
+                        className="text-base"
                       />
                     </div>
                     <Button
                       onClick={handleCompleteOrientation}
                       disabled={isCompletingOrientation}
-                      className="w-full"
+                      className="w-full h-12 text-base"
                     >
                       {isCompletingOrientation ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -2337,7 +2344,10 @@ const ApplicationDetail = () => {
                     </p>
 
                     <div className="space-y-2">
-                      <Label htmlFor="orientation-yard">
+                      <Label
+                        htmlFor="orientation-yard"
+                        className="text-base font-medium"
+                      >
                         Yard Location <span className="text-red-500">*</span>
                       </Label>
                       <Select
@@ -2346,7 +2356,7 @@ const ApplicationDetail = () => {
                       >
                         <SelectTrigger
                           id="orientation-yard"
-                          className="h-auto min-h-[40px]"
+                          className="h-12 min-h-[48px] text-base"
                         >
                           <SelectValue placeholder="Select yard" />
                         </SelectTrigger>
@@ -2355,17 +2365,19 @@ const ApplicationDetail = () => {
                             <SelectItem
                               key={yard.id}
                               value={yard.id}
-                              className="h-auto py-3"
+                              className="h-auto py-4"
                             >
                               <div className="flex flex-col gap-1">
-                                <span className="font-medium">{yard.name}</span>
+                                <span className="font-semibold text-base">
+                                  {yard.name}
+                                </span>
                                 {yard.address && (
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-sm text-muted-foreground">
                                     {yard.address}
                                   </span>
                                 )}
                                 {yard.supervisor_name && (
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-sm text-muted-foreground">
                                     Supervisor: {yard.supervisor_name}
                                     {yard.supervisor_phone &&
                                       ` • ${yard.supervisor_phone}`}
@@ -2379,7 +2391,10 @@ const ApplicationDetail = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="orientation-supervisor">
+                      <Label
+                        htmlFor="orientation-supervisor"
+                        className="text-base font-medium"
+                      >
                         Supervisor Name <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -2389,11 +2404,15 @@ const ApplicationDetail = () => {
                           setOrientationSupervisorName(e.target.value)
                         }
                         placeholder="Enter supervisor name"
+                        className="h-12 text-base"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="orientation-date">
+                      <Label
+                        htmlFor="orientation-date"
+                        className="text-base font-medium"
+                      >
                         Date & Time <span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
@@ -2404,16 +2423,19 @@ const ApplicationDetail = () => {
                           value={orientationDate}
                           onChange={(e) => setOrientationDate(e.target.value)}
                           min={new Date().toISOString().slice(0, 16)}
-                          className="pl-10 dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
+                          className="pl-10 h-12 text-base dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         Select a future date and time for orientation
                       </p>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="orientation-next-steps">
+                      <Label
+                        htmlFor="orientation-next-steps"
+                        className="text-base font-medium"
+                      >
                         Next Steps / Instructions
                       </Label>
                       <Textarea
@@ -2422,6 +2444,7 @@ const ApplicationDetail = () => {
                         onChange={(e) => setOrientationNotes(e.target.value)}
                         placeholder="Add any instructions or next steps for the driver..."
                         rows={3}
+                        className="text-base"
                       />
                     </div>
 
@@ -2433,7 +2456,7 @@ const ApplicationDetail = () => {
                         !orientationYardId ||
                         isSchedulingOrientation
                       }
-                      className="w-full"
+                      className="w-full h-12 text-base"
                     >
                       {isSchedulingOrientation ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
