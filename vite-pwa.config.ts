@@ -3,6 +3,7 @@ import { VitePWA } from "vite-plugin-pwa";
 export const pwaConfig = VitePWA({
   registerType: "autoUpdate",
   includeAssets: ["favicon.ico"],
+
   manifest: {
     name: "Truck IT - Digital Ticketing",
     short_name: "Truck IT",
@@ -32,12 +33,34 @@ export const pwaConfig = VitePWA({
       },
     ],
   },
+
   workbox: {
     cleanupOutdatedCaches: true,
     skipWaiting: true,
     clientsClaim: true,
-    globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+
+    // ⛔ Exclude large JS bundles from precache
+    globPatterns: ["**/*.{css,html,ico,png,svg,woff2}"],
+    globIgnores: ["**/assets/index-*.js"],
+
     runtimeCaching: [
+      // ✅ Runtime cache for main JS bundle (Option 3)
+      {
+        urlPattern: /\/assets\/index-.*\.js$/,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "app-js-cache",
+          expiration: {
+            maxEntries: 5,
+            maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+          },
+          cacheableResponse: {
+            statuses: [0, 200],
+          },
+        },
+      },
+
+      // Google Fonts (unchanged)
       {
         urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
         handler: "CacheFirst",
@@ -45,7 +68,7 @@ export const pwaConfig = VitePWA({
           cacheName: "google-fonts-cache",
           expiration: {
             maxEntries: 10,
-            maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+            maxAgeSeconds: 60 * 60 * 24 * 365,
           },
           cacheableResponse: {
             statuses: [0, 200],
