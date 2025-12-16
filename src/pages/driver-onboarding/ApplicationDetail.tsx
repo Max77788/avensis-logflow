@@ -1402,7 +1402,7 @@ const ApplicationDetail = () => {
                     : ""
                 }`}
               >
-                Applications
+                Application
                 {!isTabEnabled("documents") && " 🔒"}
               </TabsTrigger>
               <TabsTrigger
@@ -1668,7 +1668,7 @@ const ApplicationDetail = () => {
               </div>
             </Card>
           </TabsContent>
-          {/* Applications Tab */}
+          {/* Application Tab */}
           <TabsContent value="documents">
             <div className="max-w-4xl mx-auto space-y-6">
               {/* Send Application Form Card */}
@@ -1716,6 +1716,27 @@ const ApplicationDetail = () => {
                             )}
                           </p>
                         </div>
+                      </div>
+                    ) : application.form?.status === "REJECTED" ? (
+                      <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                        <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
+                          <XCircle className="h-5 w-5" />
+                          <p className="font-medium">Form Disapproved</p>
+                        </div>
+                        {application.form.rejected_at && (
+                          <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                            Disapproved on{" "}
+                            {format(
+                              new Date(application.form.rejected_at),
+                              "PPP 'at' p"
+                            )}
+                          </p>
+                        )}
+                        {application.form.rejection_reason && (
+                          <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                            Reason: {application.form.rejection_reason}
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
