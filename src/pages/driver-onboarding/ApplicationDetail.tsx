@@ -444,28 +444,6 @@ const ApplicationDetail = () => {
     }
   };
 
-  const handleRequestMVR = async () => {
-    if (!id || id === "new") return;
-
-    const result = await driverOnboardingService.markMVRRequested(id);
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: "MVR requested successfully",
-      });
-      loadApplication();
-      loadActivities();
-      // Stay on compliance tab
-      setActiveTab("compliance");
-    } else {
-      toast({
-        title: "Error",
-        description: result.error || "Failed to request MVR",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleSubmitMVR = async () => {
     if (!id || id === "new") return;
 
@@ -745,6 +723,9 @@ const ApplicationDetail = () => {
       await loadApplication();
       await loadActivities();
 
+      // NOTE: Orientation email sending is disabled per user request
+      // The driver already has all necessary information from the application process
+      /*
       // Send orientation scheduled email to driver
       if (application?.candidate.email) {
         // Get yard details
@@ -791,6 +772,7 @@ const ApplicationDetail = () => {
           );
         }
       }
+      */
 
       setOrientationDate("");
       setOrientationSupervisorName("");
@@ -1195,7 +1177,6 @@ const ApplicationDetail = () => {
                   <SelectContent>
                     <SelectItem value="Indeed">Indeed</SelectItem>
                     <SelectItem value="LinkedIn">LinkedIn</SelectItem>
-                    <SelectItem value="Facebook">Facebook</SelectItem>
                     <SelectItem value="Meta">Meta</SelectItem>
                     <SelectItem value="Referral">Referral</SelectItem>
                     <SelectItem value="Walk-in">Walk-in</SelectItem>
@@ -1219,9 +1200,11 @@ const ApplicationDetail = () => {
                     <SelectItem value="Owner Operator">
                       Owner Operator
                     </SelectItem>
+                    {/*
                     <SelectItem value="Company Driver (Employee)">
                       Company Driver (Employee)
                     </SelectItem>
+                    */}
                   </SelectContent>
                 </Select>
               </div>
@@ -1950,96 +1933,84 @@ const ApplicationDetail = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {!application.compliance?.mvr_requested_at && (
-                      <Button onClick={handleRequestMVR} className="w-full">
-                        Request MVR
-                      </Button>
-                    )}
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <Label className="text-sm font-medium mb-2 block">
+                        Upload MVR Report
+                      </Label>
+                      <DocumentUpload
+                        label="MVR Report"
+                        documentType="dl"
+                        candidateId={application.application.candidate_id}
+                        complianceId={application.compliance.id}
+                        currentFileUrl={application.compliance.mvr_report_url}
+                        isVerified={false}
+                        onUploadComplete={async (fileUrl) => {
+                          // Update MVR report URL
+                          await supabase
+                            .from("driver_compliance")
+                            .update({ mvr_report_url: fileUrl })
+                            .eq("id", application.compliance!.id);
+                          loadApplication();
+                          toast({
+                            title: "Success",
+                            description: "MVR report uploaded successfully",
+                          });
+                        }}
+                        onVerificationChange={() => {}}
+                      />
+                    </div>
 
-                    {application.compliance?.mvr_requested_at && (
-                      <>
-                        <div className="border rounded-lg p-4 bg-muted/30">
-                          <Label className="text-sm font-medium mb-2 block">
-                            Upload MVR Report
-                          </Label>
-                          <DocumentUpload
-                            label="MVR Report"
-                            documentType="dl"
-                            candidateId={application.application.candidate_id}
-                            complianceId={application.compliance.id}
-                            currentFileUrl={
-                              application.compliance.mvr_report_url
-                            }
-                            isVerified={false}
-                            onUploadComplete={async (fileUrl) => {
-                              // Update MVR report URL
-                              await supabase
-                                .from("driver_compliance")
-                                .update({ mvr_report_url: fileUrl })
-                                .eq("id", application.compliance!.id);
-                              loadApplication();
-                              toast({
-                                title: "Success",
-                                description: "MVR report uploaded successfully",
-                              });
-                            }}
-                            onVerificationChange={() => {}}
-                          />
-                        </div>
+                    <div>
+                      <Label>MVR Result</Label>
+                      <Select
+                        value={mvrEligible ? "eligible" : "not_eligible"}
+                        onValueChange={(value) =>
+                          setMvrEligible(value === "eligible")
+                        }
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="eligible">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              Eligible / Passed
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="not_eligible">
+                            <div className="flex items-center gap-2">
+                              <XCircle className="h-4 w-4 text-red-600" />
+                              Not Eligible / Failed
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                        <div>
-                          <Label>MVR Result</Label>
-                          <Select
-                            value={mvrEligible ? "eligible" : "not_eligible"}
-                            onValueChange={(value) =>
-                              setMvrEligible(value === "eligible")
-                            }
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="eligible">
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                  Eligible / Passed
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="not_eligible">
-                                <div className="flex items-center gap-2">
-                                  <XCircle className="h-4 w-4 text-red-600" />
-                                  Not Eligible / Failed
-                                </div>
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                    <div>
+                      <Label htmlFor="mvr-summary">MVR Summary</Label>
+                      <Textarea
+                        id="mvr-summary"
+                        value={mvrSummary}
+                        onChange={(e) => setMvrSummary(e.target.value)}
+                        placeholder="Enter MVR summary or notes..."
+                        className="mt-1 min-h-[100px]"
+                      />
+                    </div>
 
-                        <div>
-                          <Label htmlFor="mvr-summary">MVR Summary</Label>
-                          <Textarea
-                            id="mvr-summary"
-                            value={mvrSummary}
-                            onChange={(e) => setMvrSummary(e.target.value)}
-                            placeholder="Enter MVR summary or notes..."
-                            className="mt-1 min-h-[100px]"
-                          />
-                        </div>
-
-                        <Button
-                          onClick={handleSubmitMVR}
-                          disabled={isSubmittingMVR}
-                          className="w-full"
-                        >
-                          {isSubmittingMVR ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Save className="h-4 w-4 mr-2" />
-                          )}
-                          Submit MVR Result
-                        </Button>
-                      </>
-                    )}
+                    <Button
+                      onClick={handleSubmitMVR}
+                      disabled={isSubmittingMVR}
+                      className="w-full"
+                    >
+                      {isSubmittingMVR ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      Submit MVR Result
+                    </Button>
                   </div>
                 )}
               </Card>
@@ -2373,13 +2344,20 @@ const ApplicationDetail = () => {
                         value={orientationYardId}
                         onValueChange={setOrientationYardId}
                       >
-                        <SelectTrigger id="orientation-yard">
+                        <SelectTrigger
+                          id="orientation-yard"
+                          className="h-auto min-h-[40px]"
+                        >
                           <SelectValue placeholder="Select yard" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-[300px]">
                           {yards.map((yard) => (
-                            <SelectItem key={yard.id} value={yard.id}>
-                              <div className="flex flex-col">
+                            <SelectItem
+                              key={yard.id}
+                              value={yard.id}
+                              className="h-auto py-3"
+                            >
+                              <div className="flex flex-col gap-1">
                                 <span className="font-medium">{yard.name}</span>
                                 {yard.address && (
                                   <span className="text-xs text-muted-foreground">
@@ -2418,14 +2396,17 @@ const ApplicationDetail = () => {
                       <Label htmlFor="orientation-date">
                         Date & Time <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="orientation-date"
-                        type="datetime-local"
-                        value={orientationDate}
-                        onChange={(e) => setOrientationDate(e.target.value)}
-                        min={new Date().toISOString().slice(0, 16)}
-                        className="dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
-                      />
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        <Input
+                          id="orientation-date"
+                          type="datetime-local"
+                          value={orientationDate}
+                          onChange={(e) => setOrientationDate(e.target.value)}
+                          min={new Date().toISOString().slice(0, 16)}
+                          className="pl-10 dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
+                        />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         Select a future date and time for orientation
                       </p>

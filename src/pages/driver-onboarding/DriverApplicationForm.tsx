@@ -1059,20 +1059,34 @@ export default function DriverApplicationForm() {
 
     // Save accident history
     if (formData.accident_history.length > 0) {
+      console.log(
+        "💾 Saving",
+        formData.accident_history.length,
+        "accident history records"
+      );
       await supabase
         .from("driver_accident_history")
         .delete()
         .eq("form_id", formIdToUse);
-      await supabase.from("driver_accident_history").insert(
-        formData.accident_history.map((acc) => {
-          const { id, created_at, ...accData } = acc as any;
-          return {
-            ...accData,
-            form_id: formIdToUse,
-          };
-        })
-      );
+      const { error: accError } = await supabase
+        .from("driver_accident_history")
+        .insert(
+          formData.accident_history.map((acc) => {
+            const { id, created_at, ...accData } = acc as any;
+            return {
+              ...accData,
+              form_id: formIdToUse,
+            };
+          })
+        );
+
+      if (accError) {
+        console.error("❌ Error saving accident history:", accError);
+      } else {
+        console.log("✅ Accident history saved");
+      }
     } else {
+      console.log("🗑️  No accident history to save, deleting existing records");
       // Delete all if empty
       await supabase
         .from("driver_accident_history")
@@ -1082,20 +1096,36 @@ export default function DriverApplicationForm() {
 
     // Save traffic violations
     if (formData.traffic_violations.length > 0) {
+      console.log(
+        "💾 Saving",
+        formData.traffic_violations.length,
+        "traffic violation records"
+      );
       await supabase
         .from("driver_traffic_violations")
         .delete()
         .eq("form_id", formIdToUse);
-      await supabase.from("driver_traffic_violations").insert(
-        formData.traffic_violations.map((vio) => {
-          const { id, created_at, ...vioData } = vio as any;
-          return {
-            ...vioData,
-            form_id: formIdToUse,
-          };
-        })
-      );
+      const { error: vioError } = await supabase
+        .from("driver_traffic_violations")
+        .insert(
+          formData.traffic_violations.map((vio) => {
+            const { id, created_at, ...vioData } = vio as any;
+            return {
+              ...vioData,
+              form_id: formIdToUse,
+            };
+          })
+        );
+
+      if (vioError) {
+        console.error("❌ Error saving traffic violations:", vioError);
+      } else {
+        console.log("✅ Traffic violations saved");
+      }
     } else {
+      console.log(
+        "🗑️  No traffic violations to save, deleting existing records"
+      );
       // Delete all if empty
       await supabase
         .from("driver_traffic_violations")
@@ -1105,20 +1135,36 @@ export default function DriverApplicationForm() {
 
     // Save employment history
     if (formData.employment_history.length > 0) {
+      console.log(
+        "💾 Saving",
+        formData.employment_history.length,
+        "employment history records"
+      );
       await supabase
         .from("driver_employment_history")
         .delete()
         .eq("form_id", formIdToUse);
-      await supabase.from("driver_employment_history").insert(
-        formData.employment_history.map((emp) => {
-          const { id, created_at, ...empData } = emp as any;
-          return {
-            ...empData,
-            form_id: formIdToUse,
-          };
-        })
-      );
+      const { error: empError } = await supabase
+        .from("driver_employment_history")
+        .insert(
+          formData.employment_history.map((emp) => {
+            const { id, created_at, ...empData } = emp as any;
+            return {
+              ...empData,
+              form_id: formIdToUse,
+            };
+          })
+        );
+
+      if (empError) {
+        console.error("❌ Error saving employment history:", empError);
+      } else {
+        console.log("✅ Employment history saved");
+      }
     } else {
+      console.log(
+        "🗑️  No employment history to save, deleting existing records"
+      );
       // Delete all if empty
       await supabase
         .from("driver_employment_history")
@@ -1128,20 +1174,35 @@ export default function DriverApplicationForm() {
 
     // Save employment gaps
     if (formData.employment_gaps.length > 0) {
+      console.log(
+        "💾 Saving",
+        formData.employment_gaps.length,
+        "employment gap records"
+      );
+      console.log("💾 Employment gaps data to save:", formData.employment_gaps);
       await supabase
         .from("driver_employment_gaps")
         .delete()
         .eq("form_id", formIdToUse);
-      await supabase.from("driver_employment_gaps").insert(
-        formData.employment_gaps.map((gap) => {
-          const { id, created_at, ...gapData } = gap as any;
-          return {
-            ...gapData,
-            form_id: formIdToUse,
-          };
-        })
-      );
+      const { error: gapError } = await supabase
+        .from("driver_employment_gaps")
+        .insert(
+          formData.employment_gaps.map((gap) => {
+            const { id, created_at, ...gapData } = gap as any;
+            return {
+              ...gapData,
+              form_id: formIdToUse,
+            };
+          })
+        );
+
+      if (gapError) {
+        console.error("❌ Error saving employment gaps:", gapError);
+      } else {
+        console.log("✅ Employment gaps saved");
+      }
     } else {
+      console.log("🗑️  No employment gaps to save, deleting existing records");
       // Delete all if empty
       await supabase
         .from("driver_employment_gaps")

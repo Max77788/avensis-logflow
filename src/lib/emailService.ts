@@ -262,7 +262,7 @@ export function generateDriverApplicationFormEmailHTML(params: {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Complete Your Driver Application - Avensis Energy</title>
+  <title>Complete Your Driver Application - Primal Materials</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.8; color: #333; max-width: 650px; margin: 0 auto; padding: 20px;">
   <div style="background-color: #ffffff; padding: 35px; border-radius: 10px; border: 1px solid #e5e7eb;">
@@ -275,7 +275,7 @@ export function generateDriverApplicationFormEmailHTML(params: {
     </p>
 
     <p style="font-size: 16px; margin-bottom: 20px;">
-      Thank you for your interest in joining our team at <strong>Avensis Energy</strong>! We're excited to move forward with your application for the <strong>${
+      Thank you for your interest in joining our team at <strong>Primal Materials</strong>! We're excited to move forward with your application for the <strong>${
         params.positionType
       }</strong> position.
     </p>
@@ -341,12 +341,12 @@ export function generateDriverApplicationFormEmailHTML(params: {
     <p style="font-size: 16px; margin-top: 25px;">
       Best regards,<br>
       <strong>HR Team</strong><br>
-      <strong>Avensis Energy</strong>
+      <strong>Primal Materials</strong>
     </p>
   </div>
 
   <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
-    <p>© ${new Date().getFullYear()} Avensis Energy. All rights reserved.</p>
+    <p>© ${new Date().getFullYear()} Primal Materials. All rights reserved.</p>
     <p style="margin-top: 10px;">This is an automated message. Please do not reply to this email.</p>
   </div>
 </body>
@@ -637,7 +637,7 @@ export function generateDriverOrientationScheduledEmailHTML(params: {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Orientation Scheduled - Avensis Energy</title>
+  <title>Orientation Scheduled - Primal Materials</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
@@ -681,18 +681,6 @@ export function generateDriverOrientationScheduledEmailHTML(params: {
       `
           : ""
       }
-    </div>
-
-    <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #3b82f6;">
-      <p style="margin: 0; font-size: 15px;">
-        <strong>📋 What to Bring:</strong>
-      </p>
-      <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 15px;">
-        <li>Valid Driver's License</li>
-        <li>Social Security Card</li>
-        <li>Medical Card (if applicable)</li>
-        <li>Any other documents requested</li>
-      </ul>
     </div>
 
     <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #f59e0b;">

@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, Camera, Upload } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface DocumentUploadProps {
@@ -29,6 +30,8 @@ export const DocumentUpload = ({
 }: DocumentUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useState<HTMLInputElement | null>(null)[0];
+  const cameraInputRef = useState<HTMLInputElement | null>(null)[0];
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -37,6 +40,20 @@ export const DocumentUpload = ({
       // Auto-upload immediately
       await handleUpload(selectedFile);
     }
+  };
+
+  const triggerFileInput = () => {
+    const input = document.getElementById(
+      `file-input-${documentType}`
+    ) as HTMLInputElement;
+    if (input) input.click();
+  };
+
+  const triggerCameraInput = () => {
+    const input = document.getElementById(
+      `camera-input-${documentType}`
+    ) as HTMLInputElement;
+    if (input) input.click();
   };
 
   const handleUpload = async (fileToUpload?: File) => {
@@ -114,16 +131,52 @@ export const DocumentUpload = ({
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Input
+      <div className="space-y-3">
+        {/* Hidden file inputs */}
+        <input
+          id={`file-input-${documentType}`}
           type="file"
           onChange={handleFileChange}
           accept="image/*,.pdf"
           disabled={isUploading}
-          className="flex-1"
+          className="hidden"
         />
+        <input
+          id={`camera-input-${documentType}`}
+          type="file"
+          onChange={handleFileChange}
+          accept="image/*"
+          capture="environment"
+          disabled={isUploading}
+          className="hidden"
+        />
+
+        {/* Upload buttons */}
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={triggerCameraInput}
+            disabled={isUploading}
+            className="w-full"
+          >
+            <Camera className="h-4 w-4 mr-2" />
+            Take Photo
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={triggerFileInput}
+            disabled={isUploading}
+            className="w-full"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Choose File
+          </Button>
+        </div>
+
         {isUploading && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Uploading...
           </div>
