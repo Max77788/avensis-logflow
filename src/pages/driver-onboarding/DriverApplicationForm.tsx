@@ -2194,17 +2194,22 @@ export default function DriverApplicationForm() {
                 <Label htmlFor={`equipment_type_${index}`}>
                   Equipment Type <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  id={`equipment_type_${index}`}
+                <Select
                   value={exp.equipment_type}
-                  onChange={(e) => {
+                  onValueChange={(value) => {
                     const updated = [...formData.driver_experience];
-                    updated[index].equipment_type = e.target.value;
+                    updated[index].equipment_type = value;
                     setFormData({ ...formData, driver_experience: updated });
                   }}
-                  placeholder="e.g., Tractor-Trailer, Straight Truck, etc."
-                  required
-                />
+                >
+                  <SelectTrigger id={`equipment_type_${index}`}>
+                    <SelectValue placeholder="Select equipment type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Truck">Truck</SelectItem>
+                    <SelectItem value="Tractor">Tractor</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

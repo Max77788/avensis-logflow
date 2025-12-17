@@ -45,6 +45,7 @@ import {
   generateDriverDrugTestNotClearedEmailHTML,
   generateDriverClearedForOrientationEmailHTML,
   generateDriverOrientationScheduledEmailHTML,
+  generateDriverDrugTestOrderEmailHTML,
 } from "@/lib/emailService";
 import {
   isValidEmail,
@@ -106,6 +107,7 @@ const ApplicationDetail = () => {
   const [drugTestProvider, setDrugTestProvider] = useState("");
   const [drugTestSite, setDrugTestSite] = useState("");
   const [drugTestDate, setDrugTestDate] = useState("");
+  const [drugTestWorkOrderUrl, setDrugTestWorkOrderUrl] = useState("");
   const [isCreatingDrugTest, setIsCreatingDrugTest] = useState(false);
 
   // New lead form state
@@ -144,6 +146,32 @@ const ApplicationDetail = () => {
   const [orientationNotes, setOrientationNotes] = useState("");
   const [isSchedulingOrientation, setIsSchedulingOrientation] = useState(false);
   const [isCompletingOrientation, setIsCompletingOrientation] = useState(false);
+
+  // Get filtered supervisors based on selected yard
+  const getFilteredSupervisors = () => {
+    if (!orientationYardId) return [];
+    
+    const selectedYard = yards.find((y) => y.id === orientationYardId);
+    if (!selectedYard || !selectedYard.supervisor_name) return [];
+    
+    // Filter supervisors to match the yard's supervisor name
+    const matchingSupervisors = supervisors.filter(
+      (supervisor) => supervisor.name === selectedYard.supervisor_name
+    );
+    
+    // If no matching supervisor found in users table, create a temporary entry
+    // This handles cases where the yard has a supervisor_name but it's not in the users table
+    if (matchingSupervisors.length === 0 && selectedYard.supervisor_name) {
+      return [
+        {
+          id: `temp-${selectedYard.id}`,
+          name: selectedYard.supervisor_name,
+        },
+      ];
+    }
+    
+    return matchingSupervisors;
+  };
 
   const [isHiring, setIsHiring] = useState(false);
 
@@ -508,6 +536,15 @@ const ApplicationDetail = () => {
     if (!id || id === "new") return;
 
     setIsCreatingDrugTest(true);
+    
+    // First, save the work order URL if uploaded
+    if (drugTestWorkOrderUrl && application?.compliance) {
+      await supabase
+        .from("driver_compliance")
+        .update({ drug_test_work_order_url: drugTestWorkOrderUrl })
+        .eq("id", application.compliance.id);
+    }
+
     const result = await driverOnboardingService.createDrugTestOrder(id, {
       provider: drugTestProvider,
       site: drugTestSite,
@@ -518,11 +555,47 @@ const ApplicationDetail = () => {
         title: "Success",
         description: "Drug test order created",
       });
+      
+      // Send email to driver with work order attachment
+      if (application?.candidate.email) {
+        try {
+          const emailHTML = generateDriverDrugTestOrderEmailHTML({
+            driverName: application.candidate.name,
+            provider: drugTestProvider,
+            site: drugTestSite,
+            scheduledDate: drugTestDate
+              ? format(new Date(drugTestDate), "PPP")
+              : "TBD",
+          });
+
+          const emailResult = await sendEmail({
+            to: application.candidate.email,
+            subject: "Drug Test Order Created - Avensis Energy",
+            html: emailHTML,
+            attachmentUrl: drugTestWorkOrderUrl || undefined,
+          });
+
+          if (emailResult.success) {
+            console.log(
+              `✅ Drug test order email sent to ${application.candidate.email}`
+            );
+          } else {
+            console.error(
+              `❌ Failed to send drug test order email: ${emailResult.error}`
+            );
+          }
+        } catch (emailError) {
+          console.error("Error sending drug test order email:", emailError);
+          // Don't fail the order creation if email fails
+        }
+      }
+
       loadApplication();
       loadActivities();
       setDrugTestProvider("");
       setDrugTestSite("");
       setDrugTestDate("");
+      setDrugTestWorkOrderUrl("");
       // Stay on compliance tab
       setActiveTab("compliance");
     } else {
@@ -1218,7 +1291,13 @@ const ApplicationDetail = () => {
                   }
                 >
                   <SelectTrigger id="yard">
-                    <SelectValue placeholder="Select a yard (optional)" />
+                    {newLeadForm.yard_id ? (
+                      <span className="text-sm">
+                        {yards.find((y) => y.id === newLeadForm.yard_id)?.name}
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="Select a yard (optional)" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
                     {yards.map((yard) => (
@@ -2103,51 +2182,6 @@ const ApplicationDetail = () => {
                       </div>
                     </div>
 
-                    <div className="border rounded-lg p-4 bg-muted/30">
-                      <Label className="text-sm font-medium mb-2 block">
-                        Upload Work Order
-                      </Label>
-                      <DocumentUpload
-                        label="Drug Test Work Order"
-                        documentType="dl"
-                        candidateId={application.application.candidate_id}
-                        complianceId={application.compliance.id}
-                        currentFileUrl={
-                          application.compliance.drug_test_work_order_url
-                        }
-                        isVerified={false}
-                        onUploadComplete={async (fileUrl) => {
-                          // Update work order URL
-                          await supabase
-                            .from("driver_compliance")
-                            .update({ drug_test_work_order_url: fileUrl })
-                            .eq("id", application.compliance!.id);
-                          loadApplication();
-                          toast({
-                            title: "Success",
-                            description: "Work order uploaded successfully",
-                          });
-                        }}
-                        onVerificationChange={() => {}}
-                      />
-                      {application.compliance.drug_test_work_order_url && (
-                        <Button
-                          onClick={async () => {
-                            // Send email to driver with work order details
-                            toast({
-                              title: "Email Sent",
-                              description:
-                                "Drug test instructions sent to driver",
-                            });
-                          }}
-                          className="w-full mt-3"
-                          variant="outline"
-                        >
-                          <Mail className="h-4 w-4 mr-2" />
-                          Send Instructions to Driver
-                        </Button>
-                      )}
-                    </div>
 
                     <div className="border rounded-lg p-4 bg-muted/30">
                       <Label className="text-sm font-medium mb-2 block">
@@ -2250,6 +2284,31 @@ const ApplicationDetail = () => {
                       />
                       <p className="text-xs text-muted-foreground mt-1">
                         Select a future date for the drug test appointment
+                      </p>
+                    </div>
+
+                    <div className="border rounded-lg p-4 bg-muted/30">
+                      <Label className="text-sm font-medium mb-2 block">
+                        Upload Work Order (Optional)
+                      </Label>
+                      <DocumentUpload
+                        label="Drug Test Work Order"
+                        documentType="dl"
+                        candidateId={application.application.candidate_id}
+                        complianceId={application.compliance?.id || ""}
+                        currentFileUrl={drugTestWorkOrderUrl}
+                        isVerified={false}
+                        onUploadComplete={async (fileUrl) => {
+                          setDrugTestWorkOrderUrl(fileUrl);
+                          toast({
+                            title: "Success",
+                            description: "Work order uploaded successfully",
+                          });
+                        }}
+                        onVerificationChange={() => {}}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Upload the work order document. This will be attached to the email sent to the driver.
                       </p>
                     </div>
 
@@ -2373,13 +2432,23 @@ const ApplicationDetail = () => {
                       </Label>
                       <Select
                         value={orientationYardId}
-                        onValueChange={setOrientationYardId}
+                        onValueChange={(value) => {
+                          setOrientationYardId(value);
+                          // Clear supervisor when yard changes
+                          setOrientationSupervisorName("");
+                        }}
                       >
                         <SelectTrigger
                           id="orientation-yard"
                           className="h-12 min-h-[48px] text-base"
                         >
-                          <SelectValue placeholder="Select yard" />
+                          {orientationYardId ? (
+                            <span className="text-sm">
+                              {yards.find((y) => y.id === orientationYardId)?.name}
+                            </span>
+                          ) : (
+                            <SelectValue placeholder="Select yard" />
+                          )}
                         </SelectTrigger>
                         <SelectContent className="max-h-[300px]">
                           {yards.map((yard) => (
@@ -2416,17 +2485,53 @@ const ApplicationDetail = () => {
                         htmlFor="orientation-supervisor"
                         className="text-base font-medium"
                       >
-                        Supervisor Name <span className="text-red-500">*</span>
+                        Supervisor <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="orientation-supervisor"
+                      <Select
                         value={orientationSupervisorName}
-                        onChange={(e) =>
-                          setOrientationSupervisorName(e.target.value)
-                        }
-                        placeholder="Enter supervisor name"
-                        className="h-12 text-base"
-                      />
+                        onValueChange={setOrientationSupervisorName}
+                        disabled={!orientationYardId}
+                      >
+                        <SelectTrigger
+                          id="orientation-supervisor"
+                          className="h-12 text-base"
+                          disabled={!orientationYardId}
+                        >
+                          <SelectValue 
+                            placeholder={
+                              !orientationYardId
+                                ? "Select a yard first"
+                                : "Select a supervisor"
+                            } 
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getFilteredSupervisors().length > 0 ? (
+                            getFilteredSupervisors().map((supervisor) => (
+                              <SelectItem
+                                key={supervisor.id}
+                                value={supervisor.name}
+                                className="text-base"
+                              >
+                                {supervisor.name}
+                              </SelectItem>
+                            ))
+                          ) : orientationYardId ? (
+                            <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                              No supervisor found for this yard
+                            </div>
+                          ) : (
+                            <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                              Please select a yard first
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {!orientationYardId && (
+                        <p className="text-xs text-muted-foreground">
+                          Please select a yard location first to see available supervisors
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -2437,7 +2542,7 @@ const ApplicationDetail = () => {
                         Date & Time <span className="text-red-500">*</span>
                       </Label>
                       <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground dark:text-foreground pointer-events-none" />
                         <Input
                           id="orientation-date"
                           type="datetime-local"

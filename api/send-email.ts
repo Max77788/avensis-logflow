@@ -17,7 +17,7 @@ export default async function handler(
   }
 
   // Get email parameters from request body
-  const { to, subject, html, from } = req.body;
+  const { to, subject, html, from, attachmentUrl } = req.body;
 
   // Validate required fields
   if (!to || !subject || !html) {
@@ -42,6 +42,45 @@ export default async function handler(
 
     console.log(`📧 Sending email to: ${to}`);
     console.log(`📝 Subject: ${subject}`);
+    if (attachmentUrl) {
+      console.log(`📎 Attachment URL: ${attachmentUrl}`);
+    }
+
+    // Prepare email payload
+    const emailPayload: any = {
+      from: fromEmail,
+      to: [to],
+      subject,
+      html,
+    };
+
+    // Add attachment if provided
+    if (attachmentUrl) {
+      try {
+        // Fetch the file from the URL
+        const fileResponse = await fetch(attachmentUrl);
+        if (!fileResponse.ok) {
+          throw new Error(`Failed to fetch attachment: ${fileResponse.status}`);
+        }
+        
+        const fileBuffer = await fileResponse.arrayBuffer();
+        const fileBase64 = Buffer.from(fileBuffer).toString('base64');
+        
+        // Extract filename from URL or use default
+        const urlParts = attachmentUrl.split('/');
+        const filename = urlParts[urlParts.length - 1].split('?')[0] || 'work-order.pdf';
+        
+        emailPayload.attachments = [
+          {
+            filename: filename,
+            content: fileBase64,
+          },
+        ];
+      } catch (attachmentError: any) {
+        console.error('❌ Error processing attachment:', attachmentError);
+        // Continue without attachment rather than failing the email
+      }
+    }
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -49,12 +88,7 @@ export default async function handler(
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [to],
-        subject,
-        html,
-      }),
+      body: JSON.stringify(emailPayload),
     });
 
     const data = await response.json();
