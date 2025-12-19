@@ -497,7 +497,8 @@ export const driverOnboardingService = {
   // Supervisor Orientation Management
   // =====================================================
   async getOrientationScheduleForDate(
-    date: string, // ISO date string (YYYY-MM-DD)
+    startDate: string, // ISO date string (YYYY-MM-DD)
+    endDate: string, // ISO date string (YYYY-MM-DD)
     yardId?: string
   ): Promise<{
     success: boolean;
@@ -505,18 +506,18 @@ export const driverOnboardingService = {
     error?: string;
   }> {
     try {
-      // Get start and end of the day in UTC
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Get start of first day and end of last day in UTC
+      const startOfRange = new Date(startDate);
+      startOfRange.setHours(0, 0, 0, 0);
+      const endOfRange = new Date(endDate);
+      endOfRange.setHours(23, 59, 59, 999);
 
       // Query driver_onboarding first to get scheduled orientations
       let onboardingQuery = supabase
         .from("driver_onboarding")
         .select("application_id, orientation_scheduled_at, yard_id")
-        .gte("orientation_scheduled_at", startOfDay.toISOString())
-        .lte("orientation_scheduled_at", endOfDay.toISOString())
+        .gte("orientation_scheduled_at", startOfRange.toISOString())
+        .lte("orientation_scheduled_at", endOfRange.toISOString())
         .is("orientation_completed_at", null);
 
       const { data: onboardingData, error: onboardingError } =

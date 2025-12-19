@@ -192,15 +192,17 @@ All colors MUST be HSL.
     @apply ring-2 ring-primary/50;
   }
 
-  /* Date input calendar icon visibility */
+  /* Date input calendar icon visibility - white in light mode, normal in dark mode */
   input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.5);
+    filter: invert(1);
     cursor: pointer;
+    opacity: 1;
   }
 
   .dark input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
+    filter: invert(0);
     cursor: pointer;
+    opacity: 1;
   }
 
   /* Smooth scale animation for active elements */

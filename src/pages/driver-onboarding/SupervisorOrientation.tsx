@@ -34,7 +34,10 @@ import type { ApplicationWithDetails } from "@/lib/driverOnboardingTypes";
 const SupervisorOrientation = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [selectedDate, setSelectedDate] = useState(
+  const [startDate, setStartDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [endDate, setEndDate] = useState(
     new Date().toISOString().split("T")[0]
   );
   const [applications, setApplications] = useState<ApplicationWithDetails[]>(
@@ -60,7 +63,7 @@ const SupervisorOrientation = () => {
   useEffect(() => {
     loadYards();
     loadOrientationSchedule();
-  }, [selectedDate, selectedYardId]);
+  }, [startDate, endDate, selectedYardId]);
 
   const loadYards = async () => {
     const result = await driverOnboardingService.getYards();
@@ -72,7 +75,8 @@ const SupervisorOrientation = () => {
   const loadOrientationSchedule = async () => {
     setIsLoading(true);
     const result = await driverOnboardingService.getOrientationScheduleForDate(
-      selectedDate,
+      startDate,
+      endDate,
       selectedYardId || undefined
     );
     if (result.success && result.data) {
@@ -142,20 +146,45 @@ const SupervisorOrientation = () => {
         </div>
 
         {/* Filters */}
-        <Card className="p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-6 mb-6 border-2 shadow-lg bg-card">
+          <h3 className="text-lg font-bold mb-4 text-foreground">Filters</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label htmlFor="date">Date</Label>
+              <Label htmlFor="start-date" className="text-base font-semibold">
+                Start Date
+              </Label>
               <input
-                id="date"
+                id="start-date"
                 type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                max={endDate}
                 className="mt-1 w-full px-3 py-2 border rounded-md dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
+                style={{
+                  colorScheme: 'dark',
+                }}
               />
             </div>
             <div>
-              <Label htmlFor="yard">Yard (Optional)</Label>
+              <Label htmlFor="end-date" className="text-base font-semibold">
+                End Date
+              </Label>
+              <input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate}
+                className="mt-1 w-full px-3 py-2 border rounded-md dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
+                style={{
+                  colorScheme: 'dark',
+                }}
+              />
+            </div>
+            <div>
+              <Label htmlFor="yard" className="text-base font-semibold">
+                Yard (Optional)
+              </Label>
               <select
                 id="yard"
                 value={selectedYardId}
@@ -195,8 +224,15 @@ const SupervisorOrientation = () => {
         ) : applications.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">
-              No drivers scheduled for orientation on{" "}
-              {format(new Date(selectedDate), "MMMM d, yyyy")}
+              No drivers scheduled for orientation{" "}
+              {startDate === endDate ? (
+                <>on {format(new Date(startDate), "MMMM d, yyyy")}</>
+              ) : (
+                <>
+                  from {format(new Date(startDate), "MMMM d, yyyy")} to{" "}
+                  {format(new Date(endDate), "MMMM d, yyyy")}
+                </>
+              )}
             </p>
           </Card>
         ) : (
