@@ -31,6 +31,7 @@ import {
   Loader2,
   FileText,
   CheckCircle2,
+  Calendar,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -133,12 +134,23 @@ const PipelineDashboard = () => {
       <main className="container mx-auto px-4 py-8 flex-1">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold">Driver Onboarding Pipeline</h2>
-          <Button
-            onClick={() => navigate("/driver-onboarding/application/new")}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Lead
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() =>
+                navigate("/driver-onboarding/supervisor/orientation")
+              }
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Orientation Schedule
+            </Button>
+            <Button
+              onClick={() => navigate("/driver-onboarding/application/new")}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Lead
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}

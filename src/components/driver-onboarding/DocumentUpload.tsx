@@ -16,6 +16,7 @@ interface DocumentUploadProps {
   isVerified?: boolean;
   onUploadComplete: (fileUrl: string) => void;
   onVerificationChange: (verified: boolean) => void;
+  showVerification?: boolean; // Optional prop to hide verification checkbox
 }
 
 export const DocumentUpload = ({
@@ -27,6 +28,7 @@ export const DocumentUpload = ({
   isVerified = false,
   onUploadComplete,
   onVerificationChange,
+  showVerification = true, // Default to showing verification
 }: DocumentUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
@@ -196,7 +198,7 @@ export const DocumentUpload = ({
       <div className="border rounded-lg p-4 space-y-3">
         <div className="flex items-center justify-between">
           <Label className="text-base font-medium">{label}</Label>
-          {currentFileUrl && (
+          {currentFileUrl && showVerification && (
             <div className="flex items-center gap-2">
               <Checkbox
                 id={`verify-${documentType}`}

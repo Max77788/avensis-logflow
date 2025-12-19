@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
@@ -41,7 +42,6 @@ import {
   generateDriverApplicationNotApprovedEmailHTML,
   generateDriverMVRCompletedEmailHTML,
   generateDriverMVRNotClearedEmailHTML,
-  generateDriverDrugTestCompletedEmailHTML,
   generateDriverDrugTestNotClearedEmailHTML,
   generateDriverClearedForOrientationEmailHTML,
   generateDriverOrientationScheduledEmailHTML,
@@ -74,6 +74,8 @@ import {
   UserCheck,
   Trash2,
   ChevronDown,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -102,6 +104,7 @@ const ApplicationDetail = () => {
   const [mvrEligible, setMvrEligible] = useState(true);
   const [mvrSummary, setMvrSummary] = useState("");
   const [isSubmittingMVR, setIsSubmittingMVR] = useState(false);
+  const [mvrVerified, setMvrVerified] = useState(false);
 
   // Drug test tab state
   const [drugTestProvider, setDrugTestProvider] = useState("");
@@ -246,6 +249,15 @@ const ApplicationDetail = () => {
       // Auto-populate orientation yard from application yard if not already set
       if (result.data.application.yard_id && !orientationYardId) {
         setOrientationYardId(result.data.application.yard_id);
+      }
+
+      // Load MVR verified status if available
+      if (result.data.compliance) {
+        // Check if mvr_verified exists, otherwise use mvr_status === 'VERIFIED' as fallback
+        const verified = (result.data.compliance as any).mvr_verified ?? 
+                        (result.data.compliance as any).mvr_status === 'VERIFIED' ?? 
+                        false;
+        setMvrVerified(verified);
       }
     } else {
       toast({
@@ -450,6 +462,43 @@ const ApplicationDetail = () => {
     }
   };
 
+  const handleMVRVerificationChange = async (verified: boolean) => {
+    if (!application?.compliance || !id || id === "new") return;
+
+    try {
+      // Update MVR verified status in database
+      const { error } = await supabase
+        .from("driver_compliance")
+        .update({ mvr_verified: verified })
+        .eq("id", application.compliance.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setMvrVerified(verified);
+      const updatedCompliance = {
+        ...application.compliance,
+        mvr_verified: verified,
+      };
+      setApplication({
+        ...application,
+        compliance: updatedCompliance,
+      });
+
+      toast({
+        title: "Success",
+        description: `MVR ${verified ? "verified" : "unverified"}`,
+      });
+    } catch (error: any) {
+      console.error("Error updating MVR verification:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update MVR verification",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleMarkAllDocsVerified = async () => {
     if (!id || id === "new") return;
 
@@ -559,6 +608,20 @@ const ApplicationDetail = () => {
       // Send email to driver with work order attachment
       if (application?.candidate.email) {
         try {
+          // Get work order URL - use state variable if available, otherwise check database
+          let workOrderUrl = drugTestWorkOrderUrl;
+          
+          // If no work order in state, check if it exists in database
+          if (!workOrderUrl && application?.compliance?.id) {
+            const { data: complianceData } = await supabase
+              .from("driver_compliance")
+              .select("drug_test_work_order_url")
+              .eq("id", application.compliance.id)
+              .single();
+            
+            workOrderUrl = complianceData?.drug_test_work_order_url || undefined;
+          }
+          
           const emailHTML = generateDriverDrugTestOrderEmailHTML({
             driverName: application.candidate.name,
             provider: drugTestProvider,
@@ -572,7 +635,7 @@ const ApplicationDetail = () => {
             to: application.candidate.email,
             subject: "Drug Test Order Created - Avensis Energy",
             html: emailHTML,
-            attachmentUrl: drugTestWorkOrderUrl || undefined,
+            attachmentUrl: workOrderUrl,
           });
 
           if (emailResult.success) {
@@ -590,14 +653,16 @@ const ApplicationDetail = () => {
         }
       }
 
-      loadApplication();
-      loadActivities();
+      // Clear form fields
       setDrugTestProvider("");
       setDrugTestSite("");
       setDrugTestDate("");
       setDrugTestWorkOrderUrl("");
-      // Stay on compliance tab
-      setActiveTab("compliance");
+      
+      // Reload application data and stay on drug test tab
+      await loadApplication();
+      await loadActivities();
+      setActiveTab("drug_test");
     } else {
       toast({
         title: "Error",
@@ -677,26 +742,11 @@ const ApplicationDetail = () => {
       await loadActivities();
 
       // Send email to driver based on drug test result
+      // NOTE: Drug test results are NOT shared with drivers per company policy
       if (application?.candidate.email) {
         if (result === "NEGATIVE") {
-          // Drug test passed - send success email and cleared for orientation email
-          const drugTestEmailHTML = generateDriverDrugTestCompletedEmailHTML({
-            driverName: application.candidate.name,
-          });
-
-          const drugTestEmailResult = await sendEmail({
-            to: application.candidate.email,
-            subject: "Drug Test Completed - Avensis Energy",
-            html: drugTestEmailHTML,
-          });
-
-          if (drugTestEmailResult.success) {
-            console.log(
-              `✅ Drug test completed email sent to ${application.candidate.email}`
-            );
-          }
-
-          // Also send "Cleared for Orientation" email
+          // Drug test passed - only send "Cleared for Orientation" email
+          // Do NOT send drug test completed email as results are not shared
           const clearedEmailHTML = generateDriverClearedForOrientationEmailHTML(
             {
               driverName: application.candidate.name,
@@ -796,56 +846,58 @@ const ApplicationDetail = () => {
       await loadApplication();
       await loadActivities();
 
-      // NOTE: Orientation email sending is disabled per user request
-      // The driver already has all necessary information from the application process
-      /*
       // Send orientation scheduled email to driver
       if (application?.candidate.email) {
-        // Get yard details
-        const selectedYard = yards.find((y) => y.id === orientationYardId);
-        const yardName = selectedYard?.name || "Yard";
-        const yardAddress = selectedYard?.address || undefined;
+        try {
+          // Get yard details
+          const selectedYard = yards.find((y) => y.id === orientationYardId);
+          const yardName = selectedYard?.name || "Yard";
+          const yardAddress = selectedYard?.address || undefined;
 
-        // Format the orientation date
-        const formattedDate = new Date(orientationDate).toLocaleString(
-          "en-US",
-          {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
+          // Format the orientation date with time
+          // orientationDate is in datetime-local format (YYYY-MM-DDTHH:mm)
+          const formattedDate = new Date(orientationDate).toLocaleString(
+            "en-US",
+            {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            }
+          );
+
+          const emailHTML = generateDriverOrientationScheduledEmailHTML({
+            driverName: application.candidate.name,
+            orientationDate: formattedDate,
+            supervisorName: orientationSupervisorName,
+            yardName: yardName,
+            yardAddress: yardAddress,
+            notes: orientationNotes || undefined,
+          });
+
+          const emailResult = await sendEmail({
+            to: application.candidate.email,
+            subject: "Orientation Scheduled - Avensis Energy",
+            html: emailHTML,
+          });
+
+          if (emailResult.success) {
+            console.log(
+              `✅ Orientation scheduled email sent to ${application.candidate.email}`
+            );
+          } else {
+            console.error(
+              `❌ Failed to send orientation email: ${emailResult.error}`
+            );
           }
-        );
-
-        const emailHTML = generateDriverOrientationScheduledEmailHTML({
-          driverName: application.candidate.name,
-          orientationDate: formattedDate,
-          supervisorName: orientationSupervisorName,
-          yardName: yardName,
-          yardAddress: yardAddress,
-          notes: orientationNotes || undefined,
-        });
-
-        const emailResult = await sendEmail({
-          to: application.candidate.email,
-          subject: "Orientation Scheduled - Avensis Energy",
-          html: emailHTML,
-        });
-
-        if (emailResult.success) {
-          console.log(
-            `✅ Orientation scheduled email sent to ${application.candidate.email}`
-          );
-        } else {
-          console.error(
-            `❌ Failed to send orientation email: ${emailResult.error}`
-          );
+        } catch (emailError) {
+          console.error("Error sending orientation email:", emailError);
+          // Don't fail the orientation scheduling if email fails
         }
       }
-      */
 
       setOrientationDate("");
       setOrientationSupervisorName("");
@@ -2005,17 +2057,34 @@ const ApplicationDetail = () => {
                           : "bg-red-50 border-red-200"
                       }`}
                     >
-                      <div className="flex items-center gap-2 mb-2">
-                        {application.compliance.mvr_eligible ? (
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-red-600" />
-                        )}
-                        <p className="font-medium text-black">
-                          {application.compliance.mvr_eligible
-                            ? "MVR Passed"
-                            : "MVR Failed"}
-                        </p>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {application.compliance.mvr_eligible ? (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-red-600" />
+                          )}
+                          <p className="font-medium text-black">
+                            {application.compliance.mvr_eligible
+                              ? "MVR Passed"
+                              : "MVR Failed"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="mvr-verified"
+                            checked={mvrVerified}
+                            onCheckedChange={(checked) =>
+                              handleMVRVerificationChange(checked as boolean)
+                            }
+                          />
+                          <label
+                            htmlFor="mvr-verified"
+                            className="text-sm font-medium cursor-pointer"
+                          >
+                            Verified
+                          </label>
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Completed on{" "}
@@ -2146,7 +2215,7 @@ const ApplicationDetail = () => {
                       </p>
                     </div>
                     {application.compliance.drug_test_completed_at && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mb-2">
                         Completed on{" "}
                         {format(
                           new Date(
@@ -2155,6 +2224,20 @@ const ApplicationDetail = () => {
                           "MMM d, yyyy"
                         )}
                       </p>
+                    )}
+                    {application.compliance.drug_test_results_url && (
+                      <div className="mt-3 pt-3 border-t">
+                        <a
+                          href={application.compliance.drug_test_results_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-primary hover:underline"
+                        >
+                          <FileText className="h-4 w-4" />
+                          <span>View Test Results Document</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
                     )}
                   </div>
                 ) : application.compliance?.drug_test_ordered_at ? (
@@ -2180,6 +2263,20 @@ const ApplicationDetail = () => {
                           </p>
                         )}
                       </div>
+                      {application.compliance.drug_test_results_url && (
+                        <div className="mt-3 pt-3 border-t border-blue-200">
+                          <a
+                            href={application.compliance.drug_test_results_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-blue-800 hover:underline font-medium"
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span>View Test Results Document</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
                     </div>
 
 
@@ -2280,8 +2377,23 @@ const ApplicationDetail = () => {
                         onChange={(e) => setDrugTestDate(e.target.value)}
                         min={new Date().toISOString().split("T")[0]}
                         className="mt-1 dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
+                        style={{
+                          colorScheme: 'dark',
+                        }}
                         required
                       />
+                      <style dangerouslySetInnerHTML={{
+                        __html: `
+                          #drug-test-date::-webkit-calendar-picker-indicator {
+                            filter: invert(1);
+                            cursor: pointer;
+                            opacity: 1;
+                          }
+                          .dark #drug-test-date::-webkit-calendar-picker-indicator {
+                            filter: invert(0);
+                          }
+                        `
+                      }} />
                       <p className="text-xs text-muted-foreground mt-1">
                         Select a future date for the drug test appointment
                       </p>
@@ -2297,7 +2409,7 @@ const ApplicationDetail = () => {
                         candidateId={application.application.candidate_id}
                         complianceId={application.compliance?.id || ""}
                         currentFileUrl={drugTestWorkOrderUrl}
-                        isVerified={false}
+                        showVerification={false}
                         onUploadComplete={async (fileUrl) => {
                           setDrugTestWorkOrderUrl(fileUrl);
                           toast({

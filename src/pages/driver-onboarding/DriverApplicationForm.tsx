@@ -254,6 +254,13 @@ export default function DriverApplicationForm() {
     medical_card: false,
   });
 
+  // Store document URLs for display
+  const [documentUrls, setDocumentUrls] = useState<{
+    dl?: string;
+    ssn?: string;
+    medical_card?: string;
+  }>({});
+
   const [formData, setFormData] = useState<FormData>({
     first_name: "",
     middle_name: "",
@@ -374,6 +381,12 @@ export default function DriverApplicationForm() {
           ssn: !!compliance.ssn_url,
           medical_card: !!compliance.medical_card_url,
         });
+        // Store document URLs for display
+        setDocumentUrls({
+          dl: compliance.drivers_license_url || undefined,
+          ssn: compliance.ssn_url || undefined,
+          medical_card: compliance.medical_card_url || undefined,
+        });
       } else if (
         application.compliance &&
         !Array.isArray(application.compliance)
@@ -385,6 +398,12 @@ export default function DriverApplicationForm() {
           dl: !!compliance.drivers_license_url,
           ssn: !!compliance.ssn_url,
           medical_card: !!compliance.medical_card_url,
+        });
+        // Store document URLs for display
+        setDocumentUrls({
+          dl: compliance.drivers_license_url || undefined,
+          ssn: compliance.ssn_url || undefined,
+          medical_card: compliance.medical_card_url || undefined,
         });
       }
 
@@ -1211,51 +1230,123 @@ export default function DriverApplicationForm() {
     }
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    let yPosition = 20;
+  const exportToPDF = async () => {
+    // Reload form data from database to ensure all data is available
+    if (!formId) {
+      toast({
+        title: "Error",
+        description: "Form data not available. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // Helper function to format values
-    const formatValue = (value: any): string => {
-      if (value === null || value === undefined || value === "") {
-        return "N/A";
+    try {
+      // Reload all related data
+      const relatedData = await loadRelatedData(formId);
+      
+      // Get the latest form data
+      const { data: latestForm, error: formError } = await supabase
+        .from("driver_application_forms")
+        .select("*")
+        .eq("id", formId)
+        .single();
+
+      if (formError || !latestForm) {
+        toast({
+          title: "Error",
+          description: "Failed to load form data for PDF export.",
+          variant: "destructive",
+        });
+        return;
       }
-      return String(value);
-    };
 
-    // Title
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("Driver Application Form", 105, yPosition, { align: "center" });
-    yPosition += 15;
+      // Merge latest form data with related data
+      const completeFormData = {
+        ...formData,
+        first_name: latestForm.first_name || formData.first_name,
+        middle_name: latestForm.middle_name || formData.middle_name,
+        last_name: latestForm.last_name || formData.last_name,
+        current_address: latestForm.current_address || formData.current_address,
+        previous_address_1: latestForm.previous_address_1 || formData.previous_address_1,
+        previous_address_2: latestForm.previous_address_2 || formData.previous_address_2,
+        phone_number: latestForm.phone_number || formData.phone_number,
+        date_of_birth: latestForm.date_of_birth || formData.date_of_birth,
+        ssn: latestForm.ssn_encrypted || formData.ssn,
+        years_at_current_address: latestForm.years_at_current_address || formData.years_at_current_address,
+        legally_authorized_to_work: latestForm.legally_authorized_to_work ?? formData.legally_authorized_to_work,
+        emergency_contact_name: latestForm.emergency_contact_name || formData.emergency_contact_name,
+        emergency_contact_relation: latestForm.emergency_contact_relation || formData.emergency_contact_relation,
+        emergency_contact_address: latestForm.emergency_contact_address || formData.emergency_contact_address,
+        emergency_contact_phone: latestForm.emergency_contact_phone || formData.emergency_contact_phone,
+        dl_number: latestForm.dl_number || formData.dl_number,
+        dl_state: latestForm.dl_state || formData.dl_state,
+        dl_type: latestForm.dl_type || formData.dl_type,
+        dl_expiration_date: latestForm.dl_expiration_date || formData.dl_expiration_date,
+        no_previous_dot_employment: latestForm.no_previous_dot_employment ?? formData.no_previous_dot_employment,
+        applicant_signature: latestForm.applicant_signature || formData.applicant_signature,
+        applicant_print_name: latestForm.applicant_print_name || formData.applicant_print_name,
+        fcra_signature: latestForm.fcra_signature || formData.fcra_signature,
+        fcra_print_name: latestForm.fcra_print_name || formData.fcra_print_name,
+        driver_experience: relatedData.driver_experience || formData.driver_experience,
+        accident_history: relatedData.accident_history || formData.accident_history,
+        traffic_violations: relatedData.traffic_violations || formData.traffic_violations,
+        employment_history: relatedData.employment_history || formData.employment_history,
+        employment_gaps: relatedData.employment_gaps || formData.employment_gaps,
+        denied_license: relatedData.denied_license ?? formData.denied_license,
+        denied_license_details: relatedData.denied_license_details || formData.denied_license_details,
+        license_suspended: relatedData.license_suspended ?? formData.license_suspended,
+        license_suspended_details: relatedData.license_suspended_details || formData.license_suspended_details,
+        convicted_cmv_crime: relatedData.convicted_cmv_crime ?? formData.convicted_cmv_crime,
+        convicted_cmv_crime_details: relatedData.convicted_cmv_crime_details || formData.convicted_cmv_crime_details,
+        convicted_law_violation: relatedData.convicted_law_violation ?? formData.convicted_law_violation,
+        convicted_law_violation_details: relatedData.convicted_law_violation_details || formData.convicted_law_violation_details,
+      };
 
-    // Applicant Information
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Applicant Information", 14, yPosition);
-    yPosition += 8;
+      const doc = new jsPDF();
+      let yPosition = 20;
 
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    const fullName =
-      [formData.first_name, formData.middle_name, formData.last_name]
-        .filter((n) => n)
-        .join(" ") || "N/A";
+      // Helper function to format values
+      const formatValue = (value: any): string => {
+        if (value === null || value === undefined || value === "") {
+          return "N/A";
+        }
+        return String(value);
+      };
 
-    const applicantInfo = [
-      ["Name", fullName],
-      ["Address", formatValue(formData.current_address)],
-      ["Phone", formatValue(formData.phone_number)],
-      ["Date of Birth", formatValue(formData.date_of_birth)],
-      [
-        "Years at Current Address",
-        formatValue(formData.years_at_current_address || 0),
-      ],
-      [
-        "Legally Authorized to Work",
-        formData.legally_authorized_to_work ? "Yes" : "No",
-      ],
-    ];
+      // Title
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Driver Application Form", 105, yPosition, { align: "center" });
+      yPosition += 15;
+
+      // Applicant Information
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Applicant Information", 14, yPosition);
+      yPosition += 8;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      const fullName =
+        [completeFormData.first_name, completeFormData.middle_name, completeFormData.last_name]
+          .filter((n) => n)
+          .join(" ") || "N/A";
+
+      const applicantInfo = [
+        ["Name", fullName],
+        ["Address", formatValue(completeFormData.current_address)],
+        ["Phone", formatValue(completeFormData.phone_number)],
+        ["Date of Birth", formatValue(completeFormData.date_of_birth)],
+        [
+          "Years at Current Address",
+          formatValue(completeFormData.years_at_current_address || 0),
+        ],
+        [
+          "Legally Authorized to Work",
+          completeFormData.legally_authorized_to_work ? "Yes" : "No",
+        ],
+      ];
 
     autoTable(doc, {
       startY: yPosition,
@@ -1268,20 +1359,20 @@ export default function DriverApplicationForm() {
 
     yPosition = (doc as any).lastAutoTable.finalY + 10;
 
-    // Emergency Contact
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Emergency Contact", 14, yPosition);
-    yPosition += 8;
+      // Emergency Contact
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Emergency Contact", 14, yPosition);
+      yPosition += 8;
 
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    const emergencyInfo = [
-      ["Name", formatValue(formData.emergency_contact_name)],
-      ["Relation", formatValue(formData.emergency_contact_relation)],
-      ["Address", formatValue(formData.emergency_contact_address)],
-      ["Phone", formatValue(formData.emergency_contact_phone)],
-    ];
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      const emergencyInfo = [
+        ["Name", formatValue(completeFormData.emergency_contact_name)],
+        ["Relation", formatValue(completeFormData.emergency_contact_relation)],
+        ["Address", formatValue(completeFormData.emergency_contact_address)],
+        ["Phone", formatValue(completeFormData.emergency_contact_phone)],
+      ];
 
     autoTable(doc, {
       startY: yPosition,
@@ -1294,18 +1385,18 @@ export default function DriverApplicationForm() {
 
     yPosition = (doc as any).lastAutoTable.finalY + 10;
 
-    // Driver License
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Driver License Information", 14, yPosition);
-    yPosition += 8;
+      // Driver License
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Driver License Information", 14, yPosition);
+      yPosition += 8;
 
-    const licenseInfo = [
-      ["License Number", formatValue(formData.dl_number)],
-      ["State", formatValue(formData.dl_state)],
-      ["Type", formatValue(formData.dl_type)],
-      ["Expiration Date", formatValue(formData.dl_expiration_date)],
-    ];
+      const licenseInfo = [
+        ["License Number", formatValue(completeFormData.dl_number)],
+        ["State", formatValue(completeFormData.dl_state)],
+        ["Type", formatValue(completeFormData.dl_type)],
+        ["Expiration Date", formatValue(completeFormData.dl_expiration_date)],
+      ];
 
     autoTable(doc, {
       startY: yPosition,
@@ -1318,25 +1409,25 @@ export default function DriverApplicationForm() {
 
     yPosition = (doc as any).lastAutoTable.finalY + 10;
 
-    // Driver Experience
-    if (formData.driver_experience.length > 0) {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
+      // Driver Experience
+      if (completeFormData.driver_experience.length > 0) {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
+        }
 
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Driver Experience", 14, yPosition);
-      yPosition += 8;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Driver Experience", 14, yPosition);
+        yPosition += 8;
 
-      const experienceData = formData.driver_experience.map((exp, index) => [
-        `#${index + 1}`,
-        formatValue(exp.equipment_type),
-        formatValue(exp.from_date),
-        formatValue(exp.to_date),
-        formatValue(exp.approx_miles),
-      ]);
+        const experienceData = completeFormData.driver_experience.map((exp, index) => [
+          `#${index + 1}`,
+          formatValue(exp.equipment_type),
+          formatValue(exp.from_date),
+          formatValue(exp.to_date),
+          formatValue(exp.approx_miles),
+        ]);
 
       autoTable(doc, {
         startY: yPosition,
@@ -1349,25 +1440,25 @@ export default function DriverApplicationForm() {
       yPosition = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // Accident History
-    if (formData.accident_history.length > 0) {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
+      // Accident History
+      if (completeFormData.accident_history.length > 0) {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
+        }
 
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Accident History", 14, yPosition);
-      yPosition += 8;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Accident History", 14, yPosition);
+        yPosition += 8;
 
-      const accidentData = formData.accident_history.map((acc, index) => [
-        `#${index + 1}`,
-        formatValue(acc.accident_date),
-        formatValue(acc.description),
-        formatValue(acc.fatalities),
-        formatValue(acc.injuries),
-      ]);
+        const accidentData = completeFormData.accident_history.map((acc, index) => [
+          `#${index + 1}`,
+          formatValue(acc.accident_date),
+          formatValue(acc.description),
+          formatValue(acc.fatalities),
+          formatValue(acc.injuries),
+        ]);
 
       autoTable(doc, {
         startY: yPosition,
@@ -1380,25 +1471,25 @@ export default function DriverApplicationForm() {
       yPosition = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // Traffic Violations
-    if (formData.traffic_violations.length > 0) {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
+      // Traffic Violations
+      if (completeFormData.traffic_violations.length > 0) {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
+        }
 
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Traffic Violations", 14, yPosition);
-      yPosition += 8;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Traffic Violations", 14, yPosition);
+        yPosition += 8;
 
-      const violationData = formData.traffic_violations.map((vio, index) => [
-        `#${index + 1}`,
-        formatValue(vio.violation_date),
-        formatValue(vio.location),
-        formatValue(vio.charge),
-        formatValue(vio.penalty),
-      ]);
+        const violationData = completeFormData.traffic_violations.map((vio, index) => [
+          `#${index + 1}`,
+          formatValue(vio.violation_date),
+          formatValue(vio.location),
+          formatValue(vio.charge),
+          formatValue(vio.penalty),
+        ]);
 
       autoTable(doc, {
         startY: yPosition,
@@ -1411,19 +1502,19 @@ export default function DriverApplicationForm() {
       yPosition = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // Employment History
-    if (formData.employment_history.length > 0) {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
+      // Employment History
+      if (completeFormData.employment_history.length > 0) {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
+        }
 
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Employment History", 14, yPosition);
-      yPosition += 8;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Employment History", 14, yPosition);
+        yPosition += 8;
 
-      formData.employment_history.forEach((emp, index) => {
+        completeFormData.employment_history.forEach((emp, index) => {
         if (yPosition > 250) {
           doc.addPage();
           yPosition = 20;
@@ -1454,25 +1545,25 @@ export default function DriverApplicationForm() {
       });
     }
 
-    // Employment Gaps
-    if (formData.employment_gaps.length > 0) {
-      if (yPosition > 250) {
-        doc.addPage();
-        yPosition = 20;
-      }
+      // Employment Gaps
+      if (completeFormData.employment_gaps.length > 0) {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
+        }
 
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Employment Gaps", 14, yPosition);
-      yPosition += 8;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Employment Gaps", 14, yPosition);
+        yPosition += 8;
 
-      const gapData = formData.employment_gaps.map((gap, index) => [
-        `#${index + 1}`,
-        formatValue(gap.from_date),
-        formatValue(gap.to_date),
-        formatValue(gap.activity_description),
-        gap.was_unemployed ? "Yes" : "No",
-      ]);
+        const gapData = completeFormData.employment_gaps.map((gap, index) => [
+          `#${index + 1}`,
+          formatValue(gap.from_date),
+          formatValue(gap.to_date),
+          formatValue(gap.activity_description),
+          gap.was_unemployed ? "Yes" : "No",
+        ]);
 
       autoTable(doc, {
         startY: yPosition,
@@ -1485,16 +1576,24 @@ export default function DriverApplicationForm() {
       yPosition = (doc as any).lastAutoTable.finalY + 10;
     }
 
-    // Save the PDF
-    const firstName = formData.first_name || "Driver";
-    const lastName = formData.last_name || "Application";
-    const fileName = `Driver_Application_${firstName}_${lastName}.pdf`;
-    doc.save(fileName);
+      // Save the PDF
+      const firstName = completeFormData.first_name || "Driver";
+      const lastName = completeFormData.last_name || "Application";
+      const fileName = `Driver_Application_${firstName}_${lastName}.pdf`;
+      doc.save(fileName);
 
-    toast({
-      title: "PDF Downloaded",
-      description: "Your application has been downloaded successfully.",
-    });
+      toast({
+        title: "PDF Downloaded",
+        description: "Your application has been downloaded successfully.",
+      });
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) {
@@ -3382,6 +3481,11 @@ export default function DriverApplicationForm() {
           ...prev,
           [documentType]: true,
         }));
+        // Update document URLs state for display
+        setDocumentUrls((prev) => ({
+          ...prev,
+          [documentType]: fileUrl,
+        }));
       }
     };
 
@@ -3422,20 +3526,24 @@ export default function DriverApplicationForm() {
             complianceId={complianceId}
             documentType="dl"
             label="Driver License (Required)"
+            currentFileUrl={documentUrls.dl}
             onUploadComplete={(url) => handleDocumentUpload("dl", url)}
             onVerificationChange={(verified) =>
               handleVerificationChange("dl", verified)
             }
+            showVerification={false}
           />
           <DocumentUpload
             candidateId={candidateId}
             complianceId={complianceId}
             documentType="ssn"
             label="Social Security Card (Required)"
+            currentFileUrl={documentUrls.ssn}
             onUploadComplete={(url) => handleDocumentUpload("ssn", url)}
             onVerificationChange={(verified) =>
               handleVerificationChange("ssn", verified)
             }
+            showVerification={false}
           />
           {!isOwnerOperator && (
             <DocumentUpload
@@ -3443,12 +3551,14 @@ export default function DriverApplicationForm() {
               complianceId={complianceId}
               documentType="medical_card"
               label="Medical Card (Required)"
+              currentFileUrl={documentUrls.medical_card}
               onUploadComplete={(url) =>
                 handleDocumentUpload("medical_card", url)
               }
               onVerificationChange={(verified) =>
                 handleVerificationChange("medical_card", verified)
               }
+              showVerification={false}
             />
           )}
         </div>

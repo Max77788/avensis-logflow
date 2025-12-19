@@ -493,6 +493,104 @@ export const driverOnboardingService = {
     }
   },
 
+  // =====================================================
+  // Supervisor Orientation Management
+  // =====================================================
+  async getOrientationScheduleForDate(
+    date: string, // ISO date string (YYYY-MM-DD)
+    yardId?: string
+  ): Promise<{
+    success: boolean;
+    data?: ApplicationWithDetails[];
+    error?: string;
+  }> {
+    try {
+      // Get start and end of the day in UTC
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      // Query driver_onboarding first to get scheduled orientations
+      let onboardingQuery = supabase
+        .from("driver_onboarding")
+        .select("application_id, orientation_scheduled_at, yard_id")
+        .gte("orientation_scheduled_at", startOfDay.toISOString())
+        .lte("orientation_scheduled_at", endOfDay.toISOString())
+        .is("orientation_completed_at", null);
+
+      const { data: onboardingData, error: onboardingError } =
+        await onboardingQuery;
+
+      if (onboardingError) throw onboardingError;
+
+      if (!onboardingData || onboardingData.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      // Get application IDs
+      const applicationIds = onboardingData.map(
+        (onboarding: any) => onboarding.application_id
+      );
+
+      // Now get full application details with all relations
+      let query = supabase
+        .from("driver_applications")
+        .select(
+          `
+          *,
+          candidate:driver_candidates(*),
+          compliance:driver_compliance(*),
+          onboarding:driver_onboarding(*),
+          yard:yards(id, name, address, supervisor_name, supervisor_phone)
+        `
+        )
+        .in("id", applicationIds)
+        .eq("status", "ORIENTATION_SCHEDULED");
+
+      // Filter by yard_id if provided - use driver_applications.yard_id (references yards.id)
+      if (yardId) {
+        query = query.eq("yard_id", yardId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Process data
+      let processedData = (data || []).map((item: any) => {
+        const onboarding = Array.isArray(item.onboarding)
+          ? item.onboarding[0]
+          : item.onboarding;
+        const yard = Array.isArray(item.yard) ? item.yard[0] : item.yard;
+        
+        return {
+          application: item,
+          candidate: Array.isArray(item.candidate)
+            ? item.candidate[0]
+            : item.candidate,
+          compliance: Array.isArray(item.compliance)
+            ? item.compliance[0]
+            : item.compliance,
+          onboarding,
+          yard,
+        };
+      });
+
+      // Sort by orientation scheduled time
+      const sortedData = processedData.sort((a: ApplicationWithDetails, b: ApplicationWithDetails) => {
+        const aTime = a.onboarding?.orientation_scheduled_at || "";
+        const bTime = b.onboarding?.orientation_scheduled_at || "";
+        return aTime.localeCompare(bTime);
+      });
+
+      return { success: true, data: sortedData };
+    } catch (error: any) {
+      console.error("Error getting orientation schedule:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
   async approveAndHire(
     applicationId: string,
     userId?: string

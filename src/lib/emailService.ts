@@ -714,6 +714,17 @@ export function generateDriverDrugTestOrderEmailHTML(params: {
   site: string;
   scheduledDate: string;
 }): string {
+  // Calculate expiry date (3 days from scheduled date)
+  const scheduledDateObj = new Date(params.scheduledDate);
+  const expiryDateObj = new Date(scheduledDateObj);
+  expiryDateObj.setDate(expiryDateObj.getDate() + 3);
+  const expiryDate = expiryDateObj.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   return `
 <!DOCTYPE html>
 <html>
@@ -751,20 +762,41 @@ export function generateDriverDrugTestOrderEmailHTML(params: {
       </p>
     </div>
 
-    <div style="background-color: #dbeafe; padding: 15px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #3b82f6;">
-      <p style="margin: 0; font-size: 15px;">
-        <strong>📎 Work Order:</strong> Please see the attached work order document for detailed instructions and requirements.
+    <div style="background-color: #dbeafe; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #3b82f6;">
+      <h3 style="color: #3b82f6; margin-top: 0; font-size: 16px; margin-bottom: 10px;">📎 Work Order Instructions</h3>
+      <p style="margin: 10px 0; font-size: 15px;">
+        Please see the attached work order document for detailed instructions and requirements. You can walk in anytime during clinic working hours within the time window specified below.
       </p>
     </div>
 
-    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #f59e0b;">
-      <p style="margin: 0; font-size: 15px;">
-        <strong>⏰ Important:</strong> Please arrive on time for your scheduled drug test appointment. Bring a valid photo ID.
+    <div style="background-color: #fef3c7; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #f59e0b;">
+      <h3 style="color: #f59e0b; margin-top: 0; font-size: 16px; margin-bottom: 10px;">⏰ Time Window for Completion</h3>
+      <p style="margin: 10px 0; font-size: 15px;">
+        <strong>You have 3 days to complete your drug test.</strong> The work order expires on <strong>${expiryDate}</strong>.
       </p>
+      <p style="margin: 10px 0; font-size: 15px;">
+        You can walk in anytime during the clinic's working hours within this 3-day window. No appointment is required - simply bring your work order and a valid photo ID.
+      </p>
+    </div>
+
+    <div style="background-color: #fee2e2; padding: 15px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #ef4444;">
+      <p style="margin: 0; font-size: 15px;">
+        <strong>⚠️ Important:</strong> The work order expires 3 days from the scheduled test date (${expiryDate}). Please complete your drug test before this date.
+      </p>
+    </div>
+
+    <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 25px 0;">
+      <p style="margin: 0; font-size: 15px;">
+        <strong>📋 What to Bring:</strong>
+      </p>
+      <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 15px;">
+        <li>Valid photo ID (Driver's License or State ID)</li>
+        <li>Work order document (attached to this email)</li>
+      </ul>
     </div>
 
     <p style="font-size: 16px; margin-top: 25px;">
-      If you have any questions or need to reschedule, please contact us at <a href="mailto:support@avensisenergy.com" style="color: #2563eb; text-decoration: none;">support@avensisenergy.com</a>.
+      If you have any questions or need assistance, please contact us at <a href="mailto:support@avensisenergy.com" style="color: #2563eb; text-decoration: none;">support@avensisenergy.com</a>.
     </p>
 
     <p style="font-size: 16px; margin-top: 25px;">

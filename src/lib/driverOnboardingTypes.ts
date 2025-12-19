@@ -140,7 +140,13 @@ export interface ApplicationWithDetails {
   candidate: DriverCandidate;
   compliance?: DriverCompliance;
   onboarding?: DriverOnboarding;
-  yard?: { id: string; name: string };
+  yard?: {
+    id: string;
+    name: string;
+    address?: string;
+    supervisor_name?: string;
+    supervisor_phone?: string;
+  };
   recruiter?: { id: string; name: string };
   activities?: DriverApplicationActivity[];
 }
