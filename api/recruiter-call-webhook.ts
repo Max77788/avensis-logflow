@@ -114,35 +114,21 @@ export default async function handler(
     console.log(`   Summary Length: ${callSummary.length} chars`);
     console.log(`   Recording URL: ${recordingUrl ? 'Yes' : 'No'}`);
 
-    // Normalize phone number for lookup (remove +, spaces, dashes, parentheses)
-    const normalizedPhone = phoneNumber.replace(/[\s\-+()]/g, '');
-    // Also try with just digits (remove any non-digit characters)
-    const digitsOnly = phoneNumber.replace(/\D/g, '');
-
-    // Find driver candidate by phone number
-    // Try multiple formats: exact, normalized, and digits-only
-    let { data: candidates, error: searchError } = await supabase
-      .from('driver_candidates')
-      .select('id, phone, name')
-      .or(`phone.eq.${phoneNumber},phone.eq.${normalizedPhone},phone.eq.${digitsOnly}`)
-      .limit(1);
+    // Normalize phone number from webhook to just digits (remove all non-digits)
+    const webhookDigitsOnly = phoneNumber.replace(/\D/g, '');
     
-    // If no match found, try a more flexible search using LIKE
-    if (!candidates || candidates.length === 0) {
-      // Try searching with last 10 digits (US phone number format)
-      const last10Digits = digitsOnly.slice(-10);
-      if (last10Digits.length === 10) {
-        const { data: flexCandidates } = await supabase
-          .from('driver_candidates')
-          .select('id, phone, name')
-          .like('phone', `%${last10Digits}`)
-          .limit(1);
-        
-        if (flexCandidates && flexCandidates.length > 0) {
-          candidates = flexCandidates;
-        }
-      }
-    }
+    // Remove leading 1 if present (US country code)
+    const normalizedWebhookPhone = webhookDigitsOnly.startsWith('1') && webhookDigitsOnly.length === 11
+      ? webhookDigitsOnly.slice(1)
+      : webhookDigitsOnly;
+
+    console.log(`🔍 Searching for phone: ${phoneNumber} (normalized: ${normalizedWebhookPhone})`);
+
+    // Fetch all candidates and compare normalized phone numbers
+    // This is more reliable than trying to match various formats in SQL
+    const { data: allCandidates, error: searchError } = await supabase
+      .from('driver_candidates')
+      .select('id, phone, name');
 
     if (searchError) {
       console.error('❌ Error searching for candidate:', searchError);
@@ -152,7 +138,31 @@ export default async function handler(
       });
     }
 
-    if (!candidates || candidates.length === 0) {
+    // Find matching candidate by normalizing and comparing phone numbers
+    let matchedCandidate: { id: string; phone: string; name: string } | null = null;
+    
+    if (allCandidates && allCandidates.length > 0) {
+      for (const c of allCandidates) {
+        if (!c.phone) continue;
+        
+        // Normalize database phone number (remove all non-digits)
+        const dbPhoneDigits = c.phone.replace(/\D/g, '');
+        
+        // Remove leading 1 if present
+        const normalizedDbPhone = dbPhoneDigits.startsWith('1') && dbPhoneDigits.length === 11
+          ? dbPhoneDigits.slice(1)
+          : dbPhoneDigits;
+        
+        // Compare normalized phone numbers
+        if (normalizedDbPhone === normalizedWebhookPhone) {
+          matchedCandidate = c;
+          console.log(`✅ Match found: ${c.name} - DB: ${c.phone} matches Webhook: ${phoneNumber}`);
+          break;
+        }
+      }
+    }
+    
+    if (!matchedCandidate) {
       console.log(`⚠️ No candidate found for phone: ${phoneNumber}`);
       // Optionally create a new candidate record
       // For now, we'll just log and return success
@@ -163,7 +173,7 @@ export default async function handler(
       });
     }
 
-    const candidate = candidates[0];
+    const candidate = matchedCandidate;
     console.log(`✅ Found candidate: ${candidate.name} (${candidate.id})`);
 
     // Update candidate record with call information
@@ -214,4 +224,5 @@ export default async function handler(
     });
   }
 }
+
 

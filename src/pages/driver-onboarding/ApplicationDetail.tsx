@@ -323,6 +323,7 @@ const ApplicationDetail = () => {
         body: JSON.stringify({
           phoneNumber: application.candidate.phone,
           candidateName: application.candidate.name,
+          candidateId: application.candidate.id,
         }),
       });
 
@@ -331,6 +332,9 @@ const ApplicationDetail = () => {
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Failed to start call");
       }
+
+      // Reload application to get updated call count
+      await loadApplication();
 
       toast({
         title: "Call Initiated",
@@ -1716,7 +1720,18 @@ const ApplicationDetail = () => {
           <TabsContent value="verification">
             <Card className="p-6 max-w-4xl mx-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Initial Connect</h3>
+                <div className="flex items-center gap-4">
+                  <h3 className="text-lg font-semibold">Initial Connect</h3>
+                  {application.candidate.recruiter_call_count !== undefined && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-md">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">
+                        {application.candidate.recruiter_call_count} call
+                        {application.candidate.recruiter_call_count !== 1 ? 's' : ''} sent
+                      </span>
+                    </div>
+                  )}
+                </div>
                 {application.candidate.phone && (
                   <Button
                     onClick={handleStartCall}

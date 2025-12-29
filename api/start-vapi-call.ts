@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -27,8 +28,22 @@ export default async function handler(
     });
   }
 
+  // Initialize Supabase client for tracking call count
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('❌ Missing Supabase credentials');
+    return res.status(500).json({
+      success: false,
+      error: 'Server configuration error'
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
-    const { phoneNumber, candidateName } = req.body;
+    const { phoneNumber, candidateName, candidateId } = req.body;
 
     // Validate required fields
     if (!phoneNumber) {
@@ -36,6 +51,31 @@ export default async function handler(
         success: false,
         error: 'Phone number is required'
       });
+    }
+
+    // If candidateId is provided, increment call count
+    let callCount = null;
+    if (candidateId) {
+      try {
+        // Get current count
+        const { data: candidate } = await supabase
+          .from('driver_candidates')
+          .select('recruiter_call_count')
+          .eq('id', candidateId)
+          .single();
+
+        const currentCount = candidate?.recruiter_call_count || 0;
+        callCount = currentCount + 1;
+
+        // Increment call count
+        await supabase
+          .from('driver_candidates')
+          .update({ recruiter_call_count: callCount })
+          .eq('id', candidateId);
+      } catch (error) {
+        console.error('Error updating call count:', error);
+        // Don't fail the call if count update fails
+      }
     }
 
     // Ensure phone number is in E.164 format (starts with +)
@@ -94,6 +134,7 @@ export default async function handler(
       success: true,
       callId: data.id,
       status: data.status || 'queued',
+      callCount: callCount,
       message: 'Call initiated successfully'
     });
 

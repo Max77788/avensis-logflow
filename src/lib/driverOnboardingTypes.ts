@@ -43,6 +43,7 @@ export interface DriverCandidate {
   recruiter_call_interest_status?: 'interested' | 'not_interested';
   recruiter_call_recording_url?: string;
   recruiter_call_date?: string;
+  recruiter_call_count?: number;
   created_at: string;
   updated_at: string;
 }
