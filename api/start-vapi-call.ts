@@ -69,9 +69,7 @@ export default async function handler(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        assistant: {
-          assistantId: assistantId
-        },
+        assistantId: assistantId,
         phoneNumberId: phoneNumberId,
         customer: {
           number: formattedPhone,
