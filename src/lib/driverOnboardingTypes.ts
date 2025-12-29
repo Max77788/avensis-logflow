@@ -39,6 +39,10 @@ export interface DriverCandidate {
   email?: string;
   zip_code?: string;
   source?: string;
+  recruiter_call_summary?: string;
+  recruiter_call_interest_status?: 'interested' | 'not_interested';
+  recruiter_call_recording_url?: string;
+  recruiter_call_date?: string;
   created_at: string;
   updated_at: string;
 }

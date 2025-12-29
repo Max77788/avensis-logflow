@@ -1671,6 +1671,63 @@ const ApplicationDetail = () => {
             <Card className="p-6 max-w-4xl mx-auto">
               <h3 className="text-lg font-semibold mb-4">Initial Connect</h3>
 
+              {/* AI Recruiter Call Summary */}
+              {application.candidate.recruiter_call_summary && (
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <p className="font-semibold text-blue-900 dark:text-blue-100">
+                        AI Recruiter Call Summary
+                      </p>
+                    </div>
+                    {application.candidate.recruiter_call_interest_status && (
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          application.candidate.recruiter_call_interest_status ===
+                          "interested"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                        }`}
+                      >
+                        {application.candidate.recruiter_call_interest_status ===
+                        "interested"
+                          ? "Interested"
+                          : "Not Interested"}
+                      </span>
+                    )}
+                  </div>
+                  {application.candidate.recruiter_call_date && (
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                      Call Date:{" "}
+                      {format(
+                        new Date(application.candidate.recruiter_call_date),
+                        "PPP 'at' p"
+                      )}
+                    </p>
+                  )}
+                  <div className="bg-white dark:bg-gray-800 p-3 rounded border border-blue-200 dark:border-blue-700">
+                    <pre className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans">
+                      {application.candidate.recruiter_call_summary}
+                    </pre>
+                  </div>
+                  {application.candidate.recruiter_call_recording_url && (
+                    <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+                      <a
+                        href={application.candidate.recruiter_call_recording_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300 hover:underline font-medium"
+                      >
+                        <FileText className="h-4 w-4" />
+                        <span>Listen to Call Recording</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {application.application.initial_verification_call_at && (
                 <div className="mb-6 p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
