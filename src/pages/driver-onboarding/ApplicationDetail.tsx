@@ -99,6 +99,7 @@ const ApplicationDetail = () => {
   const [verificationNotes, setVerificationNotes] = useState("");
   const [isSubmittingVerification, setIsSubmittingVerification] =
     useState(false);
+  const [isStartingCall, setIsStartingCall] = useState(false);
 
   // MVR tab state
   const [mvrEligible, setMvrEligible] = useState(true);
@@ -300,6 +301,51 @@ const ApplicationDetail = () => {
       });
     }
     setIsSavingNotes(false);
+  };
+
+  const handleStartCall = async () => {
+    if (!application?.candidate.phone) {
+      toast({
+        title: "Error",
+        description: "Candidate phone number is required to start a call",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsStartingCall(true);
+    try {
+      const response = await fetch("/api/start-vapi-call", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumber: application.candidate.phone,
+          candidateName: application.candidate.name,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to start call");
+      }
+
+      toast({
+        title: "Call Initiated",
+        description: `Call to ${application.candidate.name} has been started. Call ID: ${data.callId}`,
+      });
+    } catch (error: any) {
+      console.error("Error starting call:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start call",
+        variant: "destructive",
+      });
+    } finally {
+      setIsStartingCall(false);
+    }
   };
 
   const handleSubmitVerification = async () => {
@@ -1669,7 +1715,23 @@ const ApplicationDetail = () => {
           {/* Initial Connect Tab */}
           <TabsContent value="verification">
             <Card className="p-6 max-w-4xl mx-auto">
-              <h3 className="text-lg font-semibold mb-4">Initial Connect</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Initial Connect</h3>
+                {application.candidate.phone && (
+                  <Button
+                    onClick={handleStartCall}
+                    disabled={isStartingCall}
+                    className="flex items-center gap-2"
+                  >
+                    {isStartingCall ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Phone className="h-4 w-4" />
+                    )}
+                    {isStartingCall ? "Starting Call..." : "Start Call"}
+                  </Button>
+                )}
+              </div>
 
               {/* AI Recruiter Call Summary */}
               {application.candidate.recruiter_call_summary && (
