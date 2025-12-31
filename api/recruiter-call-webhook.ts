@@ -114,18 +114,49 @@ export default async function handler(
     console.log(`   Summary Length: ${callSummary.length} chars`);
     console.log(`   Recording URL: ${recordingUrl ? 'Yes' : 'No'}`);
 
-    // Normalize phone number from webhook to just digits (remove all non-digits)
-    const webhookDigitsOnly = phoneNumber.replace(/\D/g, '');
+    // Normalize phone number from webhook to E.164 format
+    const normalizeToE164 = (phone: string): string => {
+      if (!phone) return '';
+      const trimmed = phone.trim();
+      
+      // If already in E.164 format (starts with +), clean it
+      if (trimmed.startsWith('+')) {
+        const cleaned = '+' + trimmed.substring(1).replace(/\D/g, '');
+        if (cleaned.length >= 3) return cleaned;
+        return '';
+      }
+      
+      // Remove all non-digit characters
+      const digitsOnly = trimmed.replace(/\D/g, '');
+      if (digitsOnly.length === 0) return '';
+      
+      // Handle US numbers (10 or 11 digits)
+      if (digitsOnly.length === 10) {
+        return '+1' + digitsOnly;
+      } else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+        return '+' + digitsOnly;
+      } else if (digitsOnly.length >= 10) {
+        // Take last 10 digits and add +1 (US default)
+        return '+1' + digitsOnly.substring(digitsOnly.length - 10);
+      }
+      
+      return '';
+    };
+
+    const normalizedWebhookPhone = normalizeToE164(phoneNumber);
     
-    // Remove leading 1 if present (US country code)
-    const normalizedWebhookPhone = webhookDigitsOnly.startsWith('1') && webhookDigitsOnly.length === 11
-      ? webhookDigitsOnly.slice(1)
-      : webhookDigitsOnly;
+    if (!normalizedWebhookPhone) {
+      console.error('❌ Invalid phone number format from webhook');
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid phone number format'
+      });
+    }
 
-    console.log(`🔍 Searching for phone: ${phoneNumber} (normalized: ${normalizedWebhookPhone})`);
+    console.log(`🔍 Searching for phone: ${phoneNumber} (E.164: ${normalizedWebhookPhone})`);
 
-    // Fetch all candidates and compare normalized phone numbers
-    // This is more reliable than trying to match various formats in SQL
+    // Fetch all candidates and compare E.164 normalized phone numbers
+    // Since we now store in E.164 format, we can do direct comparison
     const { data: allCandidates, error: searchError } = await supabase
       .from('driver_candidates')
       .select('id, phone, name');
@@ -138,22 +169,17 @@ export default async function handler(
       });
     }
 
-    // Find matching candidate by normalizing and comparing phone numbers
+    // Find matching candidate by comparing E.164 normalized phone numbers
     let matchedCandidate: { id: string; phone: string; name: string } | null = null;
     
     if (allCandidates && allCandidates.length > 0) {
       for (const c of allCandidates) {
         if (!c.phone) continue;
         
-        // Normalize database phone number (remove all non-digits)
-        const dbPhoneDigits = c.phone.replace(/\D/g, '');
+        // Normalize database phone number to E.164 (in case of old records)
+        const normalizedDbPhone = normalizeToE164(c.phone);
         
-        // Remove leading 1 if present
-        const normalizedDbPhone = dbPhoneDigits.startsWith('1') && dbPhoneDigits.length === 11
-          ? dbPhoneDigits.slice(1)
-          : dbPhoneDigits;
-        
-        // Compare normalized phone numbers
+        // Compare E.164 normalized phone numbers
         if (normalizedDbPhone === normalizedWebhookPhone) {
           matchedCandidate = c;
           console.log(`✅ Match found: ${c.name} - DB: ${c.phone} matches Webhook: ${phoneNumber}`);

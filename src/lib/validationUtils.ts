@@ -51,6 +51,54 @@ export function formatPhoneNumber(phone: string): string {
 }
 
 /**
+ * Normalize phone number to E.164 format (e.g., +12345678901)
+ * Removes all whitespace, brackets, dashes, and other formatting
+ * Assumes US numbers (+1) if no country code is present
+ * 
+ * @param phone - Phone number in any format
+ * @returns Phone number in E.164 format (e.g., +12345678901) or empty string if invalid
+ */
+export function normalizePhoneToE164(phone: string): string {
+  if (!phone) return '';
+  
+  // Remove all non-digit characters except the leading +
+  const trimmed = phone.trim();
+  
+  // If it already starts with +, keep it
+  if (trimmed.startsWith('+')) {
+    // Remove everything except digits and the +
+    const cleaned = '+' + trimmed.substring(1).replace(/\D/g, '');
+    // Validate: should have country code + number (at least 2 digits after +)
+    if (cleaned.length >= 3) {
+      return cleaned;
+    }
+    return '';
+  }
+  
+  // Remove all non-digit characters
+  const digitsOnly = trimmed.replace(/\D/g, '');
+  
+  if (digitsOnly.length === 0) return '';
+  
+  // Handle US numbers (10 or 11 digits)
+  if (digitsOnly.length === 10) {
+    // 10 digits: assume US, add +1
+    return '+1' + digitsOnly;
+  } else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+    // 11 digits starting with 1: US number, add +
+    return '+' + digitsOnly;
+  } else if (digitsOnly.length >= 10) {
+    // International number without +, assume it's valid
+    // For now, we'll default to US (+1) for safety, but this could be enhanced
+    // to detect country codes in the future
+    return '+1' + digitsOnly.substring(digitsOnly.length - 10);
+  }
+  
+  // Invalid length
+  return '';
+}
+
+/**
  * Address validation - checks for basic address components
  * A valid address should have:
  * - Street number and name

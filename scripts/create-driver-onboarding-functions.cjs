@@ -18,6 +18,55 @@ async function createDriverOnboardingFunctions() {
 
     const sql = `
       -- =====================================================
+      -- Helper function to normalize phone to E.164 format
+      -- =====================================================
+      CREATE OR REPLACE FUNCTION normalize_phone_to_e164(phone_input text)
+      RETURNS text AS $$
+      DECLARE
+        digits_only text;
+        normalized_phone text;
+      BEGIN
+        IF phone_input IS NULL OR phone_input = '' THEN
+          RETURN '';
+        END IF;
+
+        -- Remove all whitespace and non-digit characters except leading +
+        phone_input := trim(phone_input);
+        
+        -- If already in E.164 format (starts with +), clean it
+        IF phone_input LIKE '+%' THEN
+          digits_only := regexp_replace(substring(phone_input from 2), '[^0-9]', '', 'g');
+          IF length(digits_only) >= 1 THEN
+            RETURN '+' || digits_only;
+          END IF;
+          RETURN '';
+        END IF;
+
+        -- Remove all non-digit characters
+        digits_only := regexp_replace(phone_input, '[^0-9]', '', 'g');
+        
+        IF length(digits_only) = 0 THEN
+          RETURN '';
+        END IF;
+
+        -- Handle US numbers (10 or 11 digits)
+        IF length(digits_only) = 10 THEN
+          -- 10 digits: assume US, add +1
+          RETURN '+1' || digits_only;
+        ELSIF length(digits_only) = 11 AND digits_only LIKE '1%' THEN
+          -- 11 digits starting with 1: US number, add +
+          RETURN '+' || digits_only;
+        ELSIF length(digits_only) >= 10 THEN
+          -- For safety, take last 10 digits and add +1 (US default)
+          RETURN '+1' || substring(digits_only from length(digits_only) - 9);
+        END IF;
+
+        -- Invalid length
+        RETURN '';
+      END;
+      $$ LANGUAGE plpgsql;
+
+      -- =====================================================
       -- 1. Function to create a new lead (candidate + application)
       -- =====================================================
       CREATE OR REPLACE FUNCTION rpc_create_driver_lead(
@@ -36,10 +85,21 @@ async function createDriverOnboardingFunctions() {
         v_application_id uuid;
         v_compliance_id uuid;
         v_onboarding_id uuid;
+        v_normalized_phone text;
       BEGIN
-        -- Create candidate
+        -- Normalize phone number to E.164 format
+        v_normalized_phone := normalize_phone_to_e164(p_phone);
+        
+        IF v_normalized_phone = '' THEN
+          RETURN jsonb_build_object(
+            'success', false,
+            'error', 'Invalid phone number format'
+          );
+        END IF;
+
+        -- Create candidate with normalized phone
         INSERT INTO driver_candidates (name, phone, email, zip_code, source)
-        VALUES (p_name, p_phone, p_email, p_zip_code, p_source)
+        VALUES (p_name, v_normalized_phone, p_email, p_zip_code, p_source)
         RETURNING id INTO v_candidate_id;
 
         -- Create application

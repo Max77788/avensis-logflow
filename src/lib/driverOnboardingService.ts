@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { normalizePhoneToE164 } from "./validationUtils";
 import type {
   DriverCandidate,
   DriverApplication,
@@ -32,11 +33,17 @@ export const driverOnboardingService = {
           ? data.recruiter_id
           : null;
 
+      // Normalize phone number to E.164 format before saving
+      const normalizedPhone = normalizePhoneToE164(data.phone);
+      if (!normalizedPhone) {
+        return { success: false, error: 'Invalid phone number format' };
+      }
+
       const { data: result, error } = await supabase.rpc(
         "rpc_create_driver_lead",
         {
           p_name: data.name,
-          p_phone: data.phone,
+          p_phone: normalizedPhone,
           p_email: data.email || null,
           p_zip_code: data.zip_code || null,
           p_source: data.source || null,
