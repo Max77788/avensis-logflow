@@ -1975,11 +1975,11 @@ const ApplicationDetail = () => {
                       <div>
                         <Label htmlFor="edit-yard">Yard</Label>
                         <Select
-                          value={editApplicationInfo.yard_id}
+                          value={editApplicationInfo.yard_id || undefined}
                           onValueChange={(value) =>
                             setEditApplicationInfo({
                               ...editApplicationInfo,
-                              yard_id: value,
+                              yard_id: value || "",
                             })
                           }
                         >
@@ -1987,7 +1987,6 @@ const ApplicationDetail = () => {
                             <SelectValue placeholder="Select yard (optional)" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
                             {yards.map((yard) => (
                               <SelectItem key={yard.id} value={yard.id}>
                                 {yard.name}
@@ -1999,11 +1998,11 @@ const ApplicationDetail = () => {
                       <div>
                         <Label htmlFor="edit-position">Position</Label>
                         <Select
-                          value={editApplicationInfo.position_type}
+                          value={editApplicationInfo.position_type || undefined}
                           onValueChange={(value) =>
                             setEditApplicationInfo({
                               ...editApplicationInfo,
-                              position_type: value,
+                              position_type: value || "",
                             })
                           }
                         >
@@ -2011,7 +2010,6 @@ const ApplicationDetail = () => {
                             <SelectValue placeholder="Select position" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
                             <SelectItem value="Owner Operator">
                               Owner Operator
                             </SelectItem>
