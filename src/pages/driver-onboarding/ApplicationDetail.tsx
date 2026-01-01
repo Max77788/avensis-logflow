@@ -76,6 +76,8 @@ import {
   ChevronDown,
   FileText,
   ExternalLink,
+  Edit,
+  X,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -190,6 +192,25 @@ const ApplicationDetail = () => {
   const [disapprovalReason, setDisapprovalReason] = useState("");
   const [showDisapprovalDialog, setShowDisapprovalDialog] = useState(false);
 
+  // Edit overview state
+  const [isEditingOverview, setIsEditingOverview] = useState(false);
+  const [editCandidateInfo, setEditCandidateInfo] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    zip_code: "",
+    source: "",
+  });
+  const [editApplicationInfo, setEditApplicationInfo] = useState({
+    yard_id: "",
+    position_type: "",
+  });
+  const [isSavingOverview, setIsSavingOverview] = useState(false);
+  const [overviewValidationErrors, setOverviewValidationErrors] = useState<{
+    email?: string;
+    phone?: string;
+  }>({});
+
   useEffect(() => {
     if (id && id !== "new") {
       loadApplication();
@@ -301,6 +322,110 @@ const ApplicationDetail = () => {
       });
     }
     setIsSavingNotes(false);
+  };
+
+  const handleStartEditOverview = () => {
+    if (!application) return;
+
+    // Initialize edit form with current values
+    setEditCandidateInfo({
+      name: application.candidate.name || "",
+      phone: application.candidate.phone || "",
+      email: application.candidate.email || "",
+      zip_code: application.candidate.zip_code || "",
+      source: application.candidate.source || "",
+    });
+    setEditApplicationInfo({
+      yard_id: application.application.yard_id || "",
+      position_type: application.application.position_type || "",
+    });
+    setOverviewValidationErrors({});
+    setIsEditingOverview(true);
+  };
+
+  const handleCancelEditOverview = () => {
+    setIsEditingOverview(false);
+    setOverviewValidationErrors({});
+  };
+
+  const handleSaveOverview = async () => {
+    if (!id || id === "new" || !application) return;
+
+    // Validate phone number if provided
+    if (editCandidateInfo.phone && !isValidPhoneNumber(editCandidateInfo.phone)) {
+      setOverviewValidationErrors({
+        phone: "Please enter a valid 10-digit phone number",
+      });
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid 10-digit phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate email if provided
+    if (editCandidateInfo.email && !isValidEmail(editCandidateInfo.email)) {
+      setOverviewValidationErrors({
+        email: "Please enter a valid email address",
+      });
+      toast({
+        title: "Validation Error",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingOverview(true);
+
+    try {
+      // Update candidate info
+      const candidateResult = await driverOnboardingService.updateCandidateInfo(
+        application.candidate.id,
+        {
+          name: editCandidateInfo.name,
+          phone: editCandidateInfo.phone,
+          email: editCandidateInfo.email || undefined,
+          zip_code: editCandidateInfo.zip_code || undefined,
+          source: editCandidateInfo.source || undefined,
+        }
+      );
+
+      if (!candidateResult.success) {
+        throw new Error(candidateResult.error || "Failed to update candidate info");
+      }
+
+      // Update application info
+      const applicationResult = await driverOnboardingService.updateApplicationInfo(
+        id,
+        {
+          yard_id: editApplicationInfo.yard_id || null,
+          position_type: editApplicationInfo.position_type || null,
+        }
+      );
+
+      if (!applicationResult.success) {
+        throw new Error(applicationResult.error || "Failed to update application info");
+      }
+
+      toast({
+        title: "Success",
+        description: "Information updated successfully",
+      });
+
+      setIsEditingOverview(false);
+      await loadApplication();
+    } catch (error: any) {
+      console.error("Error saving overview:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save changes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingOverview(false);
+    }
   };
 
   const handleStartCall = async () => {
@@ -1629,83 +1754,331 @@ const ApplicationDetail = () => {
               <div className="lg:col-span-2 space-y-6">
                 {/* Candidate Info */}
                 <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Candidate Information
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Name</p>
-                      <p className="font-medium">
-                        {application.candidate.name}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Phone</p>
-                      <p className="font-medium flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        {application.candidate.phone}
-                      </p>
-                    </div>
-                    {application.candidate.email && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Email</p>
-                        <p className="font-medium flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          {application.candidate.email}
-                        </p>
-                      </div>
-                    )}
-                    {application.candidate.zip_code && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Zip Code
-                        </p>
-                        <p className="font-medium flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {application.candidate.zip_code}
-                        </p>
-                      </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      Candidate Information
+                    </h3>
+                    {!isEditingOverview && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStartEditOverview}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
                     )}
                   </div>
+                  {isEditingOverview ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="edit-name">Name *</Label>
+                        <Input
+                          id="edit-name"
+                          value={editCandidateInfo.name}
+                          onChange={(e) =>
+                            setEditCandidateInfo({
+                              ...editCandidateInfo,
+                              name: e.target.value,
+                            })
+                          }
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-phone">Phone *</Label>
+                        <Input
+                          id="edit-phone"
+                          type="tel"
+                          value={editCandidateInfo.phone}
+                          onChange={(e) => {
+                            setEditCandidateInfo({
+                              ...editCandidateInfo,
+                              phone: e.target.value,
+                            });
+                            if (overviewValidationErrors.phone) {
+                              setOverviewValidationErrors({
+                                ...overviewValidationErrors,
+                                phone: undefined,
+                              });
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const formatted = formatPhoneNumber(e.target.value);
+                            setEditCandidateInfo({
+                              ...editCandidateInfo,
+                              phone: formatted,
+                            });
+                            if (e.target.value && !isValidPhoneNumber(e.target.value)) {
+                              setOverviewValidationErrors({
+                                ...overviewValidationErrors,
+                                phone: "Please enter a valid 10-digit phone number",
+                              });
+                            }
+                          }}
+                          className={`mt-1 ${
+                            overviewValidationErrors.phone ? "border-red-500" : ""
+                          }`}
+                          placeholder="(555) 123-4567"
+                        />
+                        {overviewValidationErrors.phone && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {overviewValidationErrors.phone}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-email">Email</Label>
+                        <Input
+                          id="edit-email"
+                          type="email"
+                          value={editCandidateInfo.email}
+                          onChange={(e) => {
+                            setEditCandidateInfo({
+                              ...editCandidateInfo,
+                              email: e.target.value,
+                            });
+                            if (overviewValidationErrors.email) {
+                              setOverviewValidationErrors({
+                                ...overviewValidationErrors,
+                                email: undefined,
+                              });
+                            }
+                          }}
+                          onBlur={(e) => {
+                            if (e.target.value && !isValidEmail(e.target.value)) {
+                              setOverviewValidationErrors({
+                                ...overviewValidationErrors,
+                                email: "Please enter a valid email address",
+                              });
+                            }
+                          }}
+                          className={`mt-1 ${
+                            overviewValidationErrors.email ? "border-red-500" : ""
+                          }`}
+                          placeholder="email@example.com"
+                        />
+                        {overviewValidationErrors.email && (
+                          <p className="text-sm text-red-500 mt-1">
+                            {overviewValidationErrors.email}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-zip">Zip Code</Label>
+                        <Input
+                          id="edit-zip"
+                          value={editCandidateInfo.zip_code}
+                          onChange={(e) =>
+                            setEditCandidateInfo({
+                              ...editCandidateInfo,
+                              zip_code: e.target.value,
+                            })
+                          }
+                          className="mt-1"
+                          placeholder="12345"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-source">Source</Label>
+                        <Select
+                          value={editCandidateInfo.source}
+                          onValueChange={(value) =>
+                            setEditCandidateInfo({
+                              ...editCandidateInfo,
+                              source: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger id="edit-source" className="mt-1">
+                            <SelectValue placeholder="Select source" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Indeed">Indeed</SelectItem>
+                            <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+                            <SelectItem value="Meta">Meta</SelectItem>
+                            <SelectItem value="Referral">Referral</SelectItem>
+                            <SelectItem value="Walk-in">Walk-in</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Name</p>
+                        <p className="font-medium">
+                          {application.candidate.name}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Phone</p>
+                        <p className="font-medium flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {application.candidate.phone}
+                        </p>
+                      </div>
+                      {application.candidate.email && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Email</p>
+                          <p className="font-medium flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {application.candidate.email}
+                          </p>
+                        </div>
+                      )}
+                      {application.candidate.zip_code && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Zip Code
+                          </p>
+                          <p className="font-medium flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {application.candidate.zip_code}
+                          </p>
+                        </div>
+                      )}
+                      {application.candidate.source && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Source</p>
+                          <p className="font-medium">
+                            {application.candidate.source}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </Card>
 
                 {/* Application Info */}
                 <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Briefcase className="h-5 w-5" />
-                    Application Information
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Yard</p>
-                      <p className="font-medium">
-                        {application.yard?.name || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Position</p>
-                      <p className="font-medium">
-                        {application.application.position_type || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Source</p>
-                      <p className="font-medium">
-                        {application.candidate.source || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Applied</p>
-                      <p className="font-medium flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {format(
-                          new Date(application.application.created_at),
-                          "MMM d, yyyy"
-                        )}
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Briefcase className="h-5 w-5" />
+                      Application Information
+                    </h3>
+                    {!isEditingOverview && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStartEditOverview}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                    )}
                   </div>
+                  {isEditingOverview ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="edit-yard">Yard</Label>
+                        <Select
+                          value={editApplicationInfo.yard_id}
+                          onValueChange={(value) =>
+                            setEditApplicationInfo({
+                              ...editApplicationInfo,
+                              yard_id: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger id="edit-yard" className="mt-1">
+                            <SelectValue placeholder="Select yard (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">None</SelectItem>
+                            {yards.map((yard) => (
+                              <SelectItem key={yard.id} value={yard.id}>
+                                {yard.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="edit-position">Position</Label>
+                        <Select
+                          value={editApplicationInfo.position_type}
+                          onValueChange={(value) =>
+                            setEditApplicationInfo({
+                              ...editApplicationInfo,
+                              position_type: value,
+                            })
+                          }
+                        >
+                          <SelectTrigger id="edit-position" className="mt-1">
+                            <SelectValue placeholder="Select position" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="Owner Operator">
+                              Owner Operator
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {isEditingOverview && (
+                        <div className="col-span-2 flex gap-2 pt-4">
+                          <Button
+                            onClick={handleSaveOverview}
+                            disabled={
+                              isSavingOverview ||
+                              !editCandidateInfo.name.trim() ||
+                              !editCandidateInfo.phone.trim()
+                            }
+                            className="flex-1"
+                          >
+                            {isSavingOverview ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4 mr-2" />
+                            )}
+                            Save Changes
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={handleCancelEditOverview}
+                            disabled={isSavingOverview}
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Yard</p>
+                        <p className="font-medium">
+                          {application.yard?.name || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Position</p>
+                        <p className="font-medium">
+                          {application.application.position_type || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Source</p>
+                        <p className="font-medium">
+                          {application.candidate.source || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Applied</p>
+                        <p className="font-medium flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(
+                            new Date(application.application.created_at),
+                            "MMM d, yyyy"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </Card>
               </div>
 

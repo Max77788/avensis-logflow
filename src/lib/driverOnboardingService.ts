@@ -639,6 +639,79 @@ export const driverOnboardingService = {
   },
 
   // =====================================================
+  // Update Candidate and Application Info
+  // =====================================================
+  async updateCandidateInfo(
+    candidateId: string,
+    data: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      zip_code?: string;
+      source?: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const updateData: any = {};
+
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.email !== undefined) updateData.email = data.email || null;
+      if (data.zip_code !== undefined) updateData.zip_code = data.zip_code || null;
+      if (data.source !== undefined) updateData.source = data.source || null;
+
+      // Handle phone number normalization
+      if (data.phone !== undefined) {
+        const normalizedPhone = normalizePhoneToE164(data.phone);
+        if (!normalizedPhone) {
+          return { success: false, error: 'Invalid phone number format' };
+        }
+        updateData.phone = normalizedPhone;
+      }
+
+      const { error } = await supabase
+        .from("driver_candidates")
+        .update(updateData)
+        .eq("id", candidateId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error updating candidate info:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async updateApplicationInfo(
+    applicationId: string,
+    data: {
+      yard_id?: string | null;
+      position_type?: string | null;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const updateData: any = {};
+
+      if (data.yard_id !== undefined) {
+        updateData.yard_id = data.yard_id && data.yard_id.trim() !== "" ? data.yard_id : null;
+      }
+      if (data.position_type !== undefined) {
+        updateData.position_type = data.position_type || null;
+      }
+
+      const { error } = await supabase
+        .from("driver_applications")
+        .update(updateData)
+        .eq("id", applicationId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error updating application info:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // =====================================================
   // Yards
   // =====================================================
   async getYards(): Promise<{
