@@ -1497,8 +1497,8 @@ const ApplicationDetail = () => {
                     <SelectValue placeholder="Select driver type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Owner Operator">
-                      Owner Operator
+                    <SelectItem value="Employee">
+                      Employee
                     </SelectItem>
                     {/*
                     <SelectItem value="Company Driver (Employee)">
@@ -2010,8 +2010,8 @@ const ApplicationDetail = () => {
                             <SelectValue placeholder="Select position" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Owner Operator">
-                              Owner Operator
+                            <SelectItem value="Employee">
+                              Employee
                             </SelectItem>
                           </SelectContent>
                         </Select>
