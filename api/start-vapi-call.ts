@@ -97,7 +97,7 @@ export default async function handler(
 
     // Assistant ID and Phone Number ID from user's requirements
     const assistantId = 'cc78d3d0-d3e6-4689-aeec-53ababef4a33';
-    const phoneNumberId = 'b08e3753-208c-4730-acb2-8a0f704b2095';
+    const phoneNumberId = 'faead24d-3e50-4534-930b-07a43892a700';
 
     console.log(`📞 Initiating call to ${formattedPhone} (${candidateName || 'Unknown'})`);
 
