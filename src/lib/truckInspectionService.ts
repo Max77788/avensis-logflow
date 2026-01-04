@@ -13,6 +13,7 @@ export interface InspectionItemStatus {
   item_id: string;
   status: "working" | "not_working";
   notes?: string;
+  image_urls?: string[];
   checked_at: string;
 }
 
@@ -143,6 +144,7 @@ export const truckInspectionService = {
             item_id: itemStatus.item_id,
             status: itemStatus.status,
             notes: itemStatus.notes,
+            image_urls: itemStatus.image_urls || [],
             checked_at: itemStatus.checked_at,
           },
         ])
@@ -173,9 +175,23 @@ export const truckInspectionService = {
     inspectionId: string,
     itemId: string,
     status: "working" | "not_working",
-    notes?: string
+    notes?: string,
+    imageUrls?: string[]
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // Get existing record to merge image URLs
+      const { data: existing } = await supabase
+        .from("truck_inspection_item_status")
+        .select("image_urls")
+        .eq("inspection_id", inspectionId)
+        .eq("item_id", itemId)
+        .single();
+
+      const existingUrls = existing?.image_urls || [];
+      const mergedUrls = imageUrls 
+        ? [...new Set([...existingUrls, ...imageUrls])] 
+        : existingUrls;
+
       const { error } = await supabase
         .from("truck_inspection_item_status")
         .upsert(
@@ -184,6 +200,7 @@ export const truckInspectionService = {
             item_id: itemId,
             status,
             notes: notes || null,
+            image_urls: mergedUrls.length > 0 ? mergedUrls : null,
             checked_at: new Date().toISOString(),
           },
           {

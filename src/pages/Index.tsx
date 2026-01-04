@@ -421,6 +421,7 @@ const Index = () => {
                 <TruckInspectionChecklist
                   truckId={driverProfile.default_truck_id}
                   driverId={driverProfile.id}
+                  isShiftActive={driverProfile?.status === "active"}
                 />
               )}
 
