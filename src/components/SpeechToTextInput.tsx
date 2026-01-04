@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, MicOff, Loader2 } from "lucide-react";
@@ -8,14 +8,24 @@ interface SpeechToTextInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  hideMicButton?: boolean; // Hide the inline microphone button
+  onListeningChange?: (isListening: boolean) => void; // Callback when listening state changes
 }
 
-export const SpeechToTextInput = ({
+export interface SpeechToTextInputRef {
+  startListening: () => void;
+  stopListening: () => void;
+  isListening: boolean;
+}
+
+export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextInputProps>(({
   value,
   onChange,
   placeholder = "Tap microphone to speak or type here...",
   disabled = false,
-}: SpeechToTextInputProps) => {
+  hideMicButton = false,
+  onListeningChange,
+}, ref) => {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -63,6 +73,7 @@ export const SpeechToTextInput = ({
 
       recognition.onend = () => {
         setIsListening(false);
+        onListeningChange?.(false);
       };
 
       recognitionRef.current = recognition;
@@ -81,9 +92,11 @@ export const SpeechToTextInput = ({
     try {
       recognitionRef.current.start();
       setIsListening(true);
+      onListeningChange?.(true);
     } catch (error) {
       console.error("Error starting speech recognition:", error);
       setIsListening(false);
+      onListeningChange?.(false);
     }
   };
 
@@ -91,6 +104,7 @@ export const SpeechToTextInput = ({
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
+      onListeningChange?.(false);
     }
   };
 
@@ -102,6 +116,13 @@ export const SpeechToTextInput = ({
     }
   };
 
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    startListening,
+    stopListening,
+    isListening,
+  }));
+
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
@@ -112,7 +133,7 @@ export const SpeechToTextInput = ({
           disabled={disabled}
           className="flex-1 min-h-[100px]"
         />
-        {isSupported && (
+        {isSupported && !hideMicButton && (
           <Button
             type="button"
             variant={isListening ? "destructive" : "outline"}
@@ -137,4 +158,4 @@ export const SpeechToTextInput = ({
       )}
     </div>
   );
-};
+});
