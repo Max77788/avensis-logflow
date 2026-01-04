@@ -161,16 +161,19 @@ export const TruckInspectionChecklist = ({
         items: updatedItems,
       });
 
-      // Auto-advance to next item
-      if (currentItemIndex < inspection.items.length - 1) {
-        setTimeout(() => {
-          setCurrentItemIndex(currentItemIndex + 1);
-        }, 500);
-      } else {
-        toast({
-          title: "Inspection Complete!",
-          description: "You have completed all inspection items for today.",
-        });
+      // Auto-advance to next item only if marked as "working"
+      // Stay on current item if "not_working" to allow adding notes/photos
+      if (status === "working") {
+        if (currentItemIndex < inspection.items.length - 1) {
+          setTimeout(() => {
+            setCurrentItemIndex(currentItemIndex + 1);
+          }, 500);
+        } else {
+          toast({
+            title: "Inspection Complete!",
+            description: "You have completed all inspection items for today.",
+          });
+        }
       }
     } else {
       toast({
