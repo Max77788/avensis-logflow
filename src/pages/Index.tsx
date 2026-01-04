@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { QRScanner } from "@/components/QRScanner";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { Header } from "@/components/Header";
+import { TruckInspectionChecklist } from "@/components/TruckInspectionChecklist";
 import {
   QrCode,
   ClipboardList,
@@ -111,7 +112,7 @@ const Index = () => {
         tickets = [];
       } else {
         // For other roles, show all tickets
-        tickets = await ticketService.getAllTickets();
+        tickets = await ticketService.getAllTickets({});
       }
 
       // Filter to show only today's tickets for drivers
@@ -414,6 +415,14 @@ const Index = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Truck Inspection Checklist */}
+              {driverProfile?.default_truck_id && (
+                <TruckInspectionChecklist
+                  truckId={driverProfile.default_truck_id}
+                  driverId={driverProfile.id}
+                />
+              )}
 
               {/* Recent Activity */}
               <Card className="mt-4 shadow-md">
