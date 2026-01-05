@@ -28,6 +28,8 @@ export const TruckInspectionChecklist = ({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isListeningToSpeech, setIsListeningToSpeech] = useState(false);
   const [layoutOption, setLayoutOption] = useState<1 | 2>(2); // Default to Option 2 (recommended)
+  const [inspectionFlow, setInspectionFlow] = useState<'risk-first' | 'location-based'>('location-based');
+  const [orderedItems, setOrderedItems] = useState<Array<InspectionItem & { status?: any }>>([]);
   const speechInputRef = useRef<SpeechToTextInputRef>(null);
 
   useEffect(() => {
@@ -36,14 +38,34 @@ export const TruckInspectionChecklist = ({
     }
   }, [truckId, driverId, isShiftActive]);
 
+  // Reorder items when inspection flow changes
+  useEffect(() => {
+    if (inspection?.items) {
+      const reordered = truckInspectionService.reorderItemsByFlowType(
+        inspection.items,
+        inspectionFlow
+      );
+      setOrderedItems(reordered);
+      
+      // Reset to first unchecked item in new order
+      const firstUncheckedIndex = reordered.findIndex(
+        (item) => !item.status
+      );
+      setCurrentItemIndex(
+        firstUncheckedIndex >= 0 ? firstUncheckedIndex : 0
+      );
+    }
+  }, [inspectionFlow, inspection]);
+
   // Load notes and images when item changes
   useEffect(() => {
-    if (inspection?.items && inspection.items[currentItemIndex]) {
-      const item = inspection.items[currentItemIndex];
+    const itemsToCheck = orderedItems.length > 0 ? orderedItems : (inspection?.items || []);
+    if (itemsToCheck && itemsToCheck[currentItemIndex]) {
+      const item = itemsToCheck[currentItemIndex];
       setNotes(item.status?.notes || "");
       setUploadedImages(item.status?.image_urls || []);
     }
-  }, [currentItemIndex, inspection]);
+  }, [currentItemIndex, inspection, orderedItems]);
 
   const loadInspection = async () => {
     if (!truckId) return;
@@ -56,11 +78,26 @@ export const TruckInspectionChecklist = ({
 
     if (result.success && result.data) {
       setInspection(result.data);
-      // Find first unchecked item or start at 0
-      const firstUncheckedIndex = result.data.items?.findIndex(
+      
+      // Reorder items based on current inspection flow
+      const reordered = truckInspectionService.reorderItemsByFlowType(
+        result.data.items || [],
+        inspectionFlow
+      );
+      setOrderedItems(reordered);
+      
+      // Find first unchecked item or start at 0 in the reordered list
+      const firstUncheckedIndex = reordered.findIndex(
         (item) => !item.status
       );
       setCurrentItemIndex(firstUncheckedIndex >= 0 ? firstUncheckedIndex : 0);
+      
+      // Load notes and images for the first item
+      if (reordered[firstUncheckedIndex >= 0 ? firstUncheckedIndex : 0]) {
+        const item = reordered[firstUncheckedIndex >= 0 ? firstUncheckedIndex : 0];
+        setNotes(item.status?.notes || "");
+        setUploadedImages(item.status?.image_urls || []);
+      }
     } else {
       toast({
         title: "Error",
@@ -72,9 +109,10 @@ export const TruckInspectionChecklist = ({
   };
 
   const handleStatusChange = async (status: "working" | "not_working") => {
-    if (!inspection?.items) return;
+    const itemsToCheck = orderedItems.length > 0 ? orderedItems : (inspection?.items || []);
+    if (!inspection || itemsToCheck.length === 0) return;
 
-    const currentItem = inspection.items[currentItemIndex];
+    const currentItem = itemsToCheck[currentItemIndex];
     if (!currentItem) return;
 
     // Toggle: if clicking the same status, clear it (set to null/unchecked)
@@ -92,20 +130,8 @@ export const TruckInspectionChecklist = ({
           if (error) throw error;
         }
 
-        const updatedItems = inspection.items.map((item, idx) => {
-          if (idx === currentItemIndex) {
-            return {
-              ...item,
-              status: undefined,
-            };
-          }
-          return item;
-        });
-
-        setInspection({
-          ...inspection,
-          items: updatedItems,
-        });
+        // Reload inspection to get fresh data
+        await loadInspection();
         setNotes("");
         setUploadedImages([]);
         setIsUpdating(false);
@@ -159,18 +185,17 @@ export const TruckInspectionChecklist = ({
         return item;
       });
 
-      setInspection({
-        ...inspection,
-        items: updatedItems,
-      });
+      // Reload inspection to get fresh data and maintain proper ordering
+      await loadInspection();
 
       // Auto-advance to next item only if marked as "working"
       // Stay on current item if "not_working" to allow adding notes/photos
       if (status === "working") {
-        if (currentItemIndex < inspection.items.length - 1) {
+        const itemsToCheck = orderedItems.length > 0 ? orderedItems : (inspection?.items || []);
+        if (currentItemIndex < itemsToCheck.length - 1) {
           setTimeout(() => {
             setCurrentItemIndex(currentItemIndex + 1);
-          }, 500);
+          }, 200);
         } else {
           toast({
             title: "Inspection Complete!",
@@ -321,6 +346,32 @@ export const TruckInspectionChecklist = ({
             {currentItemIndex + 1} of {totalItems}
           </span>
         </div>
+        
+        {/* Inspection Flow Toggle */}
+        <div className="flex items-center justify-between mb-3 pt-2 pb-2 border-t border-b">
+          <Label className="text-sm font-medium">Inspection Method:</Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={inspectionFlow === 'risk-first' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setInspectionFlow('risk-first')}
+              className="h-8 px-3"
+            >
+              Risk-First
+            </Button>
+            <Button
+              type="button"
+              variant={inspectionFlow === 'location-based' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setInspectionFlow('location-based')}
+              className="h-8 px-3"
+            >
+              Location-Based
+            </Button>
+          </div>
+        </div>
+
         <div className="w-full bg-muted rounded-full h-2">
           <div
             className="bg-primary h-2 rounded-full transition-all"

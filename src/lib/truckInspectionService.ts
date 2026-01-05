@@ -6,6 +6,10 @@ export interface InspectionItem {
   item_key: string;
   display_order: number;
   description?: string;
+  category?: string;
+  risk_level?: number; // 1 = critical DOT shut-down, 2 = full walk-around
+  location_order?: number; // Order for location-based flow (front to back)
+  risk_order?: number; // Order for risk-first flow
 }
 
 export interface InspectionItemStatus {
@@ -155,11 +159,14 @@ export const truckInspectionService = {
         status: statusMap.get(item.id),
       }));
 
+      // Default to location-based order (original behavior)
+      const orderedItems = this.reorderItemsByFlowType(items as any, 'location-based');
+
       return {
         success: true,
         data: {
           ...inspection,
-          items: items as any,
+          items: orderedItems as any,
         },
       };
     } catch (error: any) {
@@ -238,5 +245,99 @@ export const truckInspectionService = {
       console.error("Error getting inspection items:", error);
       return { success: false, error: error.message || "Failed to get inspection items" };
     }
+  },
+
+  /**
+   * Reorder items based on inspection flow type
+   * flowType: 'risk-first' | 'location-based'
+   */
+  reorderItemsByFlowType(
+    items: Array<InspectionItem & { status?: any }>,
+    flowType: 'risk-first' | 'location-based'
+  ): Array<InspectionItem & { status?: any }> {
+    // Risk-first order mapping based on user specification
+    const riskFirstOrder: Record<string, number> = {
+      // Section 1 - Critical DOT Shut-Down Items
+      'headlights_low_beam': 1,
+      'headlights_high_beam': 2,
+      'turn_signals': 3,
+      'brake_lights': 4,
+      'marker_clearance_lights': 5,
+      'trailer_lights': 6,
+      'tire_condition': 7,
+      'tire_inflation': 8,
+      'tread_depth': 9,
+      'lug_nuts': 10,
+      'rims': 11,
+      'air_lines': 12,
+      'brake_chambers': 13,
+      'brake_damage': 14,
+      'air_leaks': 15,
+      'fuel_leaks': 16,
+      'oil_leaks': 17,
+      'coolant_leaks': 18,
+      'air_leaks_visual': 19,
+      'fifth_wheel_mounted': 20,
+      'fifth_wheel_jaws': 21,
+      'fifth_wheel_damage': 22,
+      'coupling_lines': 23,
+      // Section 2 - Full Walk-Around
+      'windshield': 24,
+      'wipers': 25,
+      'mirrors': 26,
+      'door': 27,
+      'fuel_tank': 28,
+      'def_tank': 29,
+      'suspension': 30,
+      'frame': 31,
+      'exhaust': 32,
+      'trailer_tires': 33,
+      'trailer_brakes': 34,
+      'trailer_lights': 35,
+      'trailer_reflectors': 36,
+      'trailer_doors': 37,
+      'trailer_floor': 38,
+      'rear_lights': 39,
+      'reflectors': 40,
+      'bumper': 41,
+      'fire_extinguisher': 42,
+      'warning_triangles': 43,
+      'spare_fuses': 44,
+    };
+
+    // Location-based order (front to back)
+    const locationOrder: Record<string, number> = {
+      'windshield': 1,
+      'wipers': 2,
+      'headlights_low_beam': 3,
+      'headlights_high_beam': 4,
+      'turn_signals': 5,
+      'front_wheels': 6,
+      'mirrors': 7,
+      'side_windows': 8,
+      'fuel_tank': 9,
+      'side_lights': 10,
+      'rear_wheels': 11,
+      'brake_lights': 12,
+      'rear_lights': 13,
+      'bumper': 14,
+      'brakes': 15,
+      'steering': 16,
+      'horn': 17,
+      'fluid_levels': 18,
+      'dashboard_indicators': 19,
+      'seatbelt': 20,
+    };
+
+    const orderMap = flowType === 'risk-first' ? riskFirstOrder : locationOrder;
+
+    // Sort items based on the selected flow type
+    const sorted = [...items].sort((a, b) => {
+      const orderA = orderMap[a.item_key] ?? (flowType === 'risk-first' ? 999 : a.display_order);
+      const orderB = orderMap[b.item_key] ?? (flowType === 'risk-first' ? 999 : b.display_order);
+      return orderA - orderB;
+    });
+
+    return sorted;
   },
 };
