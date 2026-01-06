@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Camera, X, Mic } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Camera, X, Mic } from "lucide-react";
 import { truckInspectionService, type DailyInspection, type InspectionItem, type InspectionSection, type InspectionGroup, type InspectionItemStatus } from "@/lib/truckInspectionService";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
@@ -21,7 +20,6 @@ export const TruckInspectionChecklist = ({
 }: TruckInspectionChecklistProps) => {
   const [inspection, setInspection] = useState<DailyInspection | null>(null);
   const [sections, setSections] = useState<(InspectionSection & { groups?: InspectionGroup[] })[]>([]);
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +41,6 @@ export const TruckInspectionChecklist = ({
   // Reset expanded states only when mode changes
   useEffect(() => {
     if (previousModeRef.current !== undefined && previousModeRef.current !== inspectionMode) {
-      setCurrentSectionIndex(0);
       setExpandedGroupId(null);
       setExpandedItemId(null);
       hasAutoExpandedRef.current = {}; // Reset auto-expand tracking when mode changes
@@ -80,31 +77,34 @@ export const TruckInspectionChecklist = ({
       setItemNotes(notesMap);
       setItemImages(imagesMap);
       
-      // Auto-expand red items in the current section (only once, not on every update)
-      const sectionKey = `${currentSectionIndex}-${inspection.id}`;
-      if (!hasAutoExpandedRef.current[sectionKey]) {
-        const currentSection = sections[currentSectionIndex];
-        if (currentSection?.groups) {
-          for (const group of currentSection.groups) {
-            const redItem = group.items.find((item) => item.status?.status === "not_working");
-            if (redItem) {
-              setExpandedGroupId(group.name);
-              setExpandedItemId(redItem.id);
-              // Scroll to the red item only on initial expansion, not on updates
-              setTimeout(() => {
-                const element = document.getElementById(`inspection-item-${redItem.id}`);
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-              }, 100);
-              hasAutoExpandedRef.current[sectionKey] = true;
-              break; // Expand the first red item found
+      // Auto-expand red items across all sections (only once, not on every update)
+      const inspectionKey = `${inspection.id}-${inspectionMode}`;
+      if (!hasAutoExpandedRef.current[inspectionKey]) {
+        // Find the first red item across all sections
+        for (const section of sections) {
+          if (section.groups) {
+            for (const group of section.groups) {
+              const redItem = group.items.find((item) => item.status?.status === "not_working");
+              if (redItem) {
+                setExpandedGroupId(group.name);
+                setExpandedItemId(redItem.id);
+                // Scroll to the red item only on initial expansion, not on updates
+                setTimeout(() => {
+                  const element = document.getElementById(`inspection-item-${redItem.id}`);
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }, 100);
+                hasAutoExpandedRef.current[inspectionKey] = true;
+                break; // Expand the first red item found
+              }
             }
+            if (hasAutoExpandedRef.current[inspectionKey]) break;
           }
         }
       }
     }
-  }, [inspection?.id, sections, currentSectionIndex]); // Only depend on inspection.id, not full inspection object
+  }, [inspection?.id, sections, inspectionMode]); // Only depend on inspection.id, not full inspection object
 
   const loadInspection = async () => {
     if (!truckId) return;
@@ -212,13 +212,14 @@ export const TruckInspectionChecklist = ({
           }
         } else {
           // When marking as red, ensure the group is expanded and item panel is visible
-          // Find which group contains this item
-          const currentSection = sections[currentSectionIndex];
-          if (currentSection?.groups) {
-            for (const group of currentSection.groups) {
-              if (group.items.some((i) => i.id === itemId)) {
-                setExpandedGroupId(group.name);
-                break;
+          // Find which group contains this item across all sections
+          for (const section of sections) {
+            if (section.groups) {
+              for (const group of section.groups) {
+                if (group.items.some((i) => i.id === itemId)) {
+                  setExpandedGroupId(group.name);
+                  break;
+                }
               }
             }
           }
@@ -288,21 +289,80 @@ export const TruckInspectionChecklist = ({
     }
   };
 
+  // Compress image before upload for better performance
+  const compressImage = async (file: File, maxWidth = 1920, maxHeight = 1920, quality = 0.8): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Calculate new dimensions while maintaining aspect ratio
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to compress image'));
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+    });
+  };
+
   const handleImageUpload = async (itemId: string, file: File) => {
     if (!inspection) return;
 
     setIsUploadingImage((prev) => ({ ...prev, [itemId]: true }));
 
     try {
+      // Compress image before upload
+      const compressedBlob = await compressImage(file);
       const timestamp = Date.now();
-      const filename = `inspection-${inspection.id}-${itemId}-${timestamp}.${file.name.split('.').pop()}`;
+      const filename = `inspection-${inspection.id}-${itemId}-${timestamp}.jpg`;
       const filepath = `truck-inspections/${filename}`;
 
+      // Upload compressed image
       const { error: uploadError } = await supabase.storage
         .from("ticket-images")
-        .upload(filepath, file, {
+        .upload(filepath, compressedBlob, {
           cacheControl: "3600",
           upsert: false,
+          contentType: 'image/jpeg',
         });
 
       if (uploadError) throw uploadError;
@@ -433,107 +493,56 @@ export const TruckInspectionChecklist = ({
     input.click();
   };
 
-  const handleNext = () => {
-    if (currentSectionIndex < sections.length - 1) {
-      const nextSection = sections[currentSectionIndex + 1];
-      // Check if next section has red items - if so, expand them
-      const redItemsInNextSection = nextSection.groups?.flatMap((group) =>
-        group.items.filter((item) => item.status?.status === "not_working")
-      ) || [];
-      
-      if (redItemsInNextSection.length > 0) {
-        // Find the group containing the first red item and expand it
-        for (const group of nextSection.groups || []) {
-          if (group.items.some((item) => item.status?.status === "not_working")) {
-            setExpandedGroupId(group.name);
-            const firstRedItem = group.items.find((item) => item.status?.status === "not_working");
-            if (firstRedItem) {
-              setExpandedItemId(firstRedItem.id);
-            }
-            break;
-          }
-        }
-      } else {
-        setExpandedGroupId(null);
-        setExpandedItemId(null);
-      }
-      
-      setCurrentSectionIndex(currentSectionIndex + 1);
-    } else {
-      // Last section - check if all groups are green
-      const currentSection = sections[currentSectionIndex];
-      const allGroupsGreen = currentSection.groups?.every((group) => {
-        return getGroupStatus(group) === "working";
-      });
-      
-      if (allGroupsGreen) {
-        toast({
-          title: "Inspection Complete",
-          description: "All sections have been inspected.",
-        });
-      }
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentSectionIndex > 0) {
-      setCurrentSectionIndex(currentSectionIndex - 1);
-      setExpandedGroupId(null);
-      setExpandedItemId(null);
-    }
-  };
 
   if (!isShiftActive) {
     return (
-      <Card className="p-4 sm:p-6">
-        <div className="text-center py-6 sm:py-8">
+      <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
+        <div className="text-center p-6">
           <p className="text-sm sm:text-base text-muted-foreground">
             Please start your shift to begin the truck inspection
           </p>
         </div>
-      </Card>
+      </div>
     );
   }
 
   if (isLoading) {
     return (
-      <Card className="p-4 sm:p-6">
-        <div className="flex items-center justify-center py-6 sm:py-8">
+      <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
+        <div className="flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </Card>
+      </div>
     );
   }
 
   if (!inspection || sections.length === 0) {
     return (
-      <Card className="p-4 sm:p-6">
+      <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
         <p className="text-sm sm:text-base text-muted-foreground text-center py-4">
           No inspection items found
         </p>
-      </Card>
+      </div>
     );
   }
 
-  const currentSection = sections[currentSectionIndex];
-  if (!currentSection) return null;
-
-  const groups = currentSection.groups || [];
-  const allGroupsGreen = groups.every((group) => getGroupStatus(group) === "working");
-  
-  const redGroupsCount = groups.filter(
-    (group) => getGroupStatus(group) === "not_working"
-  ).length;
+  // Collect all groups from all sections
+  const allGroups: Array<{ group: InspectionGroup; sectionName: string }> = [];
+  sections.forEach((section) => {
+    if (section.groups) {
+      section.groups.forEach((group) => {
+        allGroups.push({ group, sectionName: section.name });
+      });
+    }
+  });
 
   return (
-    <Card className="p-3 sm:p-4 md:p-6">
-      <div className="mb-4 sm:mb-6">
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h3 className="text-base sm:text-lg font-semibold">Truck Inspection</h3>
-          <span className="text-xs sm:text-sm text-muted-foreground">
-            Section {currentSectionIndex + 1} of {sections.length}
-          </span>
-        </div>
+    <div className="fixed inset-0 bg-background z-50 overflow-y-auto">
+      <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6 max-w-4xl">
+        <div className="mb-4 sm:mb-6">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-semibold">Truck Inspection</h3>
+          </div>
 
         {/* Mode Toggle */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 pt-2 pb-2 border-t border-b gap-2 sm:gap-0">
@@ -560,25 +569,20 @@ export const TruckInspectionChecklist = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h4 className="text-lg sm:text-xl font-bold">{currentSection.name}</h4>
-          {allGroupsGreen && (
-            <span className="text-xs sm:text-sm text-green-600 font-medium flex items-center gap-1">
-              <CheckCircle2 className="h-4 w-4" />
-              Complete
-            </span>
-          )}
-          {!allGroupsGreen && (
-            <span className="text-xs sm:text-sm text-red-600 font-medium">
-              {redGroupsCount} issue{redGroupsCount !== 1 ? 's' : ''}
-            </span>
-          )}
         </div>
       </div>
 
-      {/* Groups Grid */}
-      <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-        {groups.map((group) => {
+      {/* All Groups from All Sections */}
+      <div className="space-y-4 sm:space-y-6 mb-4 sm:mb-6">
+        {sections.map((section) => (
+          <div key={section.name} className="space-y-3 sm:space-y-4">
+            {/* Section Header */}
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-lg sm:text-xl font-bold">{section.name}</h4>
+            </div>
+            
+            {/* Groups in this section */}
+            {(section.groups || []).map((group) => {
           const groupStatus = getGroupStatus(group);
           const isGroupRed = groupStatus === "not_working";
           const isGroupExpanded = expandedGroupId === group.name;
@@ -587,8 +591,8 @@ export const TruckInspectionChecklist = ({
           ).length;
           const hasItems = group.items.length > 0;
 
-          return (
-            <div key={group.name} className="space-y-2">
+              return (
+                <div key={`${section.name}-${group.name}`} className="space-y-2">
               {/* Group Tile */}
               <button
                 onClick={() => hasItems && handleGroupToggle(group)}
@@ -732,34 +736,13 @@ export const TruckInspectionChecklist = ({
                   })}
                 </div>
               )}
-            </div>
-          );
-        })}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
-
-      {/* Navigation */}
-      <div className="flex gap-2 sm:gap-3 pt-4 border-t">
-        <Button
-          variant="outline"
-          onClick={handlePrevious}
-          disabled={currentSectionIndex === 0 || isUpdating}
-          className="flex-1 h-12 sm:h-10 text-base sm:text-sm min-h-[48px] sm:min-h-[40px]"
-        >
-          <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
-          Previous
-        </Button>
-        <Button
-          variant="default"
-          onClick={handleNext}
-          disabled={isUpdating}
-          className="flex-1 h-12 sm:h-10 text-base sm:text-sm min-h-[48px] sm:min-h-[40px]"
-        >
-          {currentSectionIndex >= sections.length - 1 ? "Finish" : "Next"}
-          {currentSectionIndex < sections.length - 1 && (
-            <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4 ml-2" />
-          )}
-        </Button>
-      </div>
-    </Card>
+    </div>
   );
 };
+

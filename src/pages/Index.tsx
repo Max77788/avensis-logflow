@@ -232,9 +232,19 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl space-y-4 md:space-y-6 pb-4">
-          {/* Action Cards */}
-          {user?.role !== "driver" && (
+        {/* Full-screen inspection when shift is active and truck is selected */}
+        {user?.role === "driver" && 
+         driverProfile?.status === "active" && 
+         driverProfile?.default_truck_id ? (
+          <TruckInspectionChecklist
+            truckId={driverProfile.default_truck_id}
+            driverId={driverProfile.id}
+            isShiftActive={true}
+          />
+        ) : (
+          <div className="mx-auto max-w-2xl space-y-4 md:space-y-6 pb-4">
+            {/* Action Cards */}
+            {user?.role !== "driver" && (
             <div className="grid gap-4 sm:grid-cols-1">
               <Card
                 className="group cursor-pointer overflow-hidden transition-all hover:shadow-glow"
@@ -415,15 +425,6 @@ const Index = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Truck Inspection Checklist */}
-              {driverProfile?.default_truck_id && (
-                <TruckInspectionChecklist
-                  truckId={driverProfile.default_truck_id}
-                  driverId={driverProfile.id}
-                  isShiftActive={driverProfile?.status === "active"}
-                />
-              )}
 
               {/* Recent Activity */}
               {/* 
