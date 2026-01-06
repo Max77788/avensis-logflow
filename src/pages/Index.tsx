@@ -426,6 +426,7 @@ const Index = () => {
               )}
 
               {/* Recent Activity */}
+              {/* 
               <Card className="mt-4 shadow-md">
                 <div className="border-b border-border p-4">
                   <h3 className="font-semibold text-foreground">
@@ -474,6 +475,7 @@ const Index = () => {
                   </div>
                 )}
               </Card>
+              */}
 
               {/* Driver Onboarding Button */}
               <div className="flex justify-center pt-4">

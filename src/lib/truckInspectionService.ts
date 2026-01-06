@@ -7,9 +7,25 @@ export interface InspectionItem {
   display_order: number;
   description?: string;
   category?: string;
+  section?: string; // Section name for grouping
+  section_order?: number; // Order of section
+  item_order_in_section?: number; // Order within section
   risk_level?: number; // 1 = critical DOT shut-down, 2 = full walk-around
   location_order?: number; // Order for location-based flow (front to back)
   risk_order?: number; // Order for risk-first flow
+}
+
+export interface InspectionGroup {
+  name: string;
+  order: number;
+  items: Array<InspectionItem & { status?: InspectionItemStatus }>;
+}
+
+export interface InspectionSection {
+  name: string;
+  order: number;
+  items: Array<InspectionItem & { status?: InspectionItemStatus }>;
+  groups?: InspectionGroup[];
 }
 
 export interface InspectionItemStatus {
@@ -159,14 +175,11 @@ export const truckInspectionService = {
         status: statusMap.get(item.id),
       }));
 
-      // Default to location-based order (original behavior)
-      const orderedItems = this.reorderItemsByFlowType(items as any, 'location-based');
-
       return {
         success: true,
         data: {
           ...inspection,
-          items: orderedItems as any,
+          items: items as any,
         },
       };
     } catch (error: any) {
@@ -186,18 +199,27 @@ export const truckInspectionService = {
     imageUrls?: string[]
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Get existing record to merge image URLs
-      const { data: existing } = await supabase
-        .from("truck_inspection_item_status")
-        .select("image_urls")
-        .eq("inspection_id", inspectionId)
-        .eq("item_id", itemId)
-        .single();
+      // If imageUrls is provided, use it directly (replace, don't merge)
+      // This allows for both adding new images and removing existing ones
+      const finalImageUrls = imageUrls !== undefined 
+        ? (imageUrls.length > 0 ? imageUrls : null)
+        : undefined;
 
-      const existingUrls = existing?.image_urls || [];
-      const mergedUrls = imageUrls 
-        ? [...new Set([...existingUrls, ...imageUrls])] 
-        : existingUrls;
+      // If imageUrls is undefined, we need to preserve existing images
+      // Otherwise, replace with the new array
+      let imageUrlsToSave = finalImageUrls;
+      
+      if (finalImageUrls === undefined) {
+        // Get existing record to preserve image URLs if not provided
+        const { data: existing } = await supabase
+          .from("truck_inspection_item_status")
+          .select("image_urls")
+          .eq("inspection_id", inspectionId)
+          .eq("item_id", itemId)
+          .single();
+
+        imageUrlsToSave = existing?.image_urls || null;
+      }
 
       const { error } = await supabase
         .from("truck_inspection_item_status")
@@ -206,8 +228,8 @@ export const truckInspectionService = {
             inspection_id: inspectionId,
             item_id: itemId,
             status,
-            notes: notes || null,
-            image_urls: mergedUrls.length > 0 ? mergedUrls : null,
+            notes: notes !== undefined ? (notes || null) : undefined,
+            image_urls: imageUrlsToSave,
             checked_at: new Date().toISOString(),
           },
           {
@@ -248,12 +270,182 @@ export const truckInspectionService = {
   },
 
   /**
-   * Reorder items based on inspection flow type
-   * flowType: 'risk-first' | 'location-based'
+   * Group items by sections and groups for the given inspection mode
+   * mode: 'critical-issue-first' | 'location-based'
+   */
+  groupItemsBySections(
+    items: Array<InspectionItem & { status?: any }>,
+    mode: 'critical-issue-first' | 'location-based'
+  ): InspectionSection[] {
+    // Define sections and groups for location-based mode (Option 1 - Standard Clockwise Walk-Around)
+    const locationBasedStructure = [
+      {
+        name: 'Front / Engine Area',
+        order: 1,
+        groups: [
+          { name: 'Front / Engine Area', order: 1, itemKeys: ['air_compressor', 'engine', 'radiator', 'oil_pressure', 'belts_hoses'] },
+        ],
+      },
+      {
+        name: 'Cab / Interior',
+        order: 2,
+        groups: [
+          { name: 'Cab / Interior', order: 1, itemKeys: ['horn', 'mirrors', 'windshield', 'windshield_wipers', 'defroster', 'heater', 'on_board_recorder'] },
+        ],
+      },
+      {
+        name: 'Driver Side',
+        order: 3,
+        groups: [
+          { name: 'Driver Side', order: 1, itemKeys: ['fuel_tanks', 'battery', 'drive_line', 'exhaust_muffler'] },
+        ],
+      },
+      {
+        name: 'Axles & Wheels',
+        order: 4,
+        groups: [
+          { name: 'Axles & Wheels', order: 1, itemKeys: ['front_axle', 'rear_end', 'tires', 'wheels', 'springs'] },
+        ],
+      },
+      {
+        name: 'Brakes & Air',
+        order: 5,
+        groups: [
+          { name: 'Brakes & Air', order: 1, itemKeys: ['brakes', 'brake_accessories', 'air_lines'] },
+        ],
+      },
+      {
+        name: 'Coupling Area',
+        order: 6,
+        groups: [
+          { name: 'Coupling Area', order: 1, itemKeys: ['fifth_wheel'] },
+        ],
+      },
+      {
+        name: 'Lights & Visibility',
+        order: 7,
+        groups: [
+          { name: 'Lights & Visibility', order: 1, itemKeys: ['headlights', 'tail_dash', 'turn_indicators', 'reflectors'] },
+        ],
+      },
+      {
+        name: 'Safety',
+        order: 8,
+        groups: [
+          { name: 'Safety', order: 1, itemKeys: ['safety_equipment', 'fire_extinguisher', 'flags_flares_fuses', 'spare_bulbs_fuses'] },
+        ],
+      },
+      {
+        name: 'Trailer Section',
+        order: 9,
+        groups: [
+          { name: 'Trailer Section', order: 1, itemKeys: ['brake_connection', 'trailer_brakes', 'coupling_king_pin', 'landing_gear', 'trailer_lights_all', 'trailer_tires', 'trailer_wheels', 'trailer_doors', 'trailer_roof', 'trailer_tarpaulin', 'trailer_springs'] },
+        ],
+      },
+    ];
+
+    // Define sections and groups for critical-issue-first mode (Option 2 - Risk-First Walk-Around)
+    const criticalIssueFirstStructure = [
+      {
+        name: 'Phase 1 – Critical DOT Shut-Down Items',
+        order: 1,
+        groups: [
+          { 
+            name: 'Lights', 
+            order: 1, 
+            itemKeys: ['lights', 'head_stop', 'tail_dash', 'turn_indicators', 'reflectors', 'trailer_lights_all']
+          },
+          { 
+            name: 'Tires & Wheels', 
+            order: 2, 
+            itemKeys: ['tires', 'wheels']
+          },
+          { 
+            name: 'Brakes & Air', 
+            order: 3, 
+            itemKeys: ['brakes', 'brake_accessories', 'air_lines']
+          },
+          { 
+            name: 'Leaks / Powertrain', 
+            order: 4, 
+            itemKeys: ['engine', 'oil_pressure', 'fuel_tanks', 'drive_line']
+          },
+          { 
+            name: 'Coupling', 
+            order: 5, 
+            itemKeys: ['fifth_wheel', 'coupling_king_pin']
+          },
+        ],
+      },
+      {
+        name: 'Phase 2 – Remaining DVIR Items',
+        order: 2,
+        groups: [
+          { 
+            name: 'Cab & Controls', 
+            order: 1, 
+            itemKeys: ['horn', 'mirrors', 'windshield', 'windshield_wipers', 'defroster', 'heater', 'on_board_recorder']
+          },
+          { 
+            name: 'Mechanical', 
+            order: 2, 
+            itemKeys: ['air_compressor', 'battery', 'radiator', 'muffler', 'transmission', 'clutch', 'starter', 'steering']
+          },
+          { 
+            name: 'Suspension & Structure', 
+            order: 3, 
+            itemKeys: ['front_axle', 'rear_end', 'springs', 'frame_roof']
+          },
+          { 
+            name: 'Safety', 
+            order: 4, 
+            itemKeys: ['safety_equipment', 'fire_extinguisher', 'flags_flares_fuses', 'spare_bulbs_fuses']
+          },
+          { 
+            name: 'Trailer', 
+            order: 5, 
+            itemKeys: ['brake_connection', 'landing_gear', 'trailer_doors', 'trailer_tarpaulin']
+          },
+        ],
+      },
+    ];
+
+    const structure = mode === 'critical-issue-first' ? criticalIssueFirstStructure : locationBasedStructure;
+
+    const groupedSections: InspectionSection[] = structure.map((sectionDef) => {
+      const sectionGroups: InspectionGroup[] = sectionDef.groups.map((groupDef) => {
+        const groupItems = groupDef.itemKeys
+          .map((key) => items.find((item) => item.item_key === key))
+          .filter((item): item is InspectionItem & { status?: any } => item !== undefined);
+
+        return {
+          name: groupDef.name,
+          order: groupDef.order,
+          items: groupItems,
+        };
+      }); // Remove filter to show all groups, even if empty
+
+      // Flatten groups into items for backward compatibility
+      const allSectionItems = sectionGroups.flatMap((group) => group.items);
+
+      return {
+        name: sectionDef.name,
+        order: sectionDef.order,
+        items: allSectionItems,
+        groups: sectionGroups,
+      };
+    }); // Remove filter to show all sections, even if empty
+
+    return groupedSections;
+  },
+
+  /**
+   * Reorder items based on inspection flow type (legacy method, kept for backward compatibility)
+   * flowType: 'critical-issue-first' | 'location-based'
    */
   reorderItemsByFlowType(
     items: Array<InspectionItem & { status?: any }>,
-    flowType: 'risk-first' | 'location-based'
+    flowType: 'critical-issue-first' | 'location-based'
   ): Array<InspectionItem & { status?: any }> {
     // Risk-first order mapping based on user specification
     const riskFirstOrder: Record<string, number> = {
@@ -329,12 +521,12 @@ export const truckInspectionService = {
       'seatbelt': 20,
     };
 
-    const orderMap = flowType === 'risk-first' ? riskFirstOrder : locationOrder;
+    const orderMap = flowType === 'critical-issue-first' ? riskFirstOrder : locationOrder;
 
     // Sort items based on the selected flow type
     const sorted = [...items].sort((a, b) => {
-      const orderA = orderMap[a.item_key] ?? (flowType === 'risk-first' ? 999 : a.display_order);
-      const orderB = orderMap[b.item_key] ?? (flowType === 'risk-first' ? 999 : b.display_order);
+      const orderA = orderMap[a.item_key] ?? (flowType === 'critical-issue-first' ? 999 : a.display_order);
+      const orderB = orderMap[b.item_key] ?? (flowType === 'critical-issue-first' ? 999 : b.display_order);
       return orderA - orderB;
     });
 

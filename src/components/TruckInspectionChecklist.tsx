@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Camera, Image as ImageIcon, X, Mic, MicOff } from "lucide-react";
-import { truckInspectionService, type DailyInspection, type InspectionItem } from "@/lib/truckInspectionService";
+import { Loader2, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Camera, X, Mic } from "lucide-react";
+import { truckInspectionService, type DailyInspection, type InspectionItem, type InspectionSection, type InspectionGroup, type InspectionItemStatus } from "@/lib/truckInspectionService";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { SpeechToTextInput, type SpeechToTextInputRef } from "@/components/SpeechToTextInput";
@@ -20,17 +20,19 @@ export const TruckInspectionChecklist = ({
   isShiftActive,
 }: TruckInspectionChecklistProps) => {
   const [inspection, setInspection] = useState<DailyInspection | null>(null);
-  const [currentItemIndex, setCurrentItemIndex] = useState(0);
+  const [sections, setSections] = useState<(InspectionSection & { groups?: InspectionGroup[] })[]>([]);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [notes, setNotes] = useState("");
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [isListeningToSpeech, setIsListeningToSpeech] = useState(false);
-  const [layoutOption, setLayoutOption] = useState<1 | 2>(2); // Default to Option 2 (recommended)
-  const [inspectionFlow, setInspectionFlow] = useState<'risk-first' | 'location-based'>('location-based');
-  const [orderedItems, setOrderedItems] = useState<Array<InspectionItem & { status?: any }>>([]);
-  const speechInputRef = useRef<SpeechToTextInputRef>(null);
+  const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
+  const [itemImages, setItemImages] = useState<Record<string, string[]>>({});
+  const [isUploadingImage, setIsUploadingImage] = useState<Record<string, boolean>>({});
+  const [isListeningToSpeech, setIsListeningToSpeech] = useState<Record<string, boolean>>({});
+  const [inspectionMode, setInspectionMode] = useState<'critical-issue-first' | 'location-based'>('location-based');
+  const speechInputRefs = useRef<Record<string, SpeechToTextInputRef>>({});
+  const previousModeRef = useRef<'critical-issue-first' | 'location-based' | undefined>(undefined);
 
   useEffect(() => {
     if (isShiftActive && truckId) {
@@ -38,34 +40,64 @@ export const TruckInspectionChecklist = ({
     }
   }, [truckId, driverId, isShiftActive]);
 
-  // Reorder items when inspection flow changes
+  // Reset expanded states only when mode changes
+  useEffect(() => {
+    if (previousModeRef.current !== undefined && previousModeRef.current !== inspectionMode) {
+      setCurrentSectionIndex(0);
+      setExpandedGroupId(null);
+      setExpandedItemId(null);
+    }
+    previousModeRef.current = inspectionMode;
+  }, [inspectionMode]);
+
+  // Update sections when inspection items or mode changes (but don't reset expanded states)
   useEffect(() => {
     if (inspection?.items) {
-      const reordered = truckInspectionService.reorderItemsByFlowType(
+      const grouped = truckInspectionService.groupItemsBySections(
         inspection.items,
-        inspectionFlow
+        inspectionMode
       );
-      setOrderedItems(reordered);
-      
-      // Reset to first unchecked item in new order
-      const firstUncheckedIndex = reordered.findIndex(
-        (item) => !item.status
-      );
-      setCurrentItemIndex(
-        firstUncheckedIndex >= 0 ? firstUncheckedIndex : 0
-      );
+      setSections(grouped);
     }
-  }, [inspectionFlow, inspection]);
+  }, [inspection?.items, inspectionMode]);
 
-  // Load notes and images when item changes
+  // Load notes and images for items and auto-expand red items
   useEffect(() => {
-    const itemsToCheck = orderedItems.length > 0 ? orderedItems : (inspection?.items || []);
-    if (itemsToCheck && itemsToCheck[currentItemIndex]) {
-      const item = itemsToCheck[currentItemIndex];
-      setNotes(item.status?.notes || "");
-      setUploadedImages(item.status?.image_urls || []);
+    if (inspection?.items) {
+      const notesMap: Record<string, string> = {};
+      const imagesMap: Record<string, string[]> = {};
+      
+      inspection.items.forEach((item) => {
+        if (item.status) {
+          notesMap[item.id] = item.status.notes || "";
+          imagesMap[item.id] = item.status.image_urls || [];
+        }
+      });
+      
+      setItemNotes(notesMap);
+      setItemImages(imagesMap);
+      
+      // Auto-expand red items in the current section
+      const currentSection = sections[currentSectionIndex];
+      if (currentSection?.groups) {
+        for (const group of currentSection.groups) {
+          const redItem = group.items.find((item) => item.status?.status === "not_working");
+          if (redItem) {
+            setExpandedGroupId(group.name);
+            setExpandedItemId(redItem.id);
+            // Scroll to the red item after a brief delay
+            setTimeout(() => {
+              const element = document.getElementById(`inspection-item-${redItem.id}`);
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 100);
+            break; // Expand the first red item found
+          }
+        }
+      }
     }
-  }, [currentItemIndex, inspection, orderedItems]);
+  }, [inspection, sections, currentSectionIndex]);
 
   const loadInspection = async () => {
     if (!truckId) return;
@@ -78,26 +110,6 @@ export const TruckInspectionChecklist = ({
 
     if (result.success && result.data) {
       setInspection(result.data);
-      
-      // Reorder items based on current inspection flow
-      const reordered = truckInspectionService.reorderItemsByFlowType(
-        result.data.items || [],
-        inspectionFlow
-      );
-      setOrderedItems(reordered);
-      
-      // Find first unchecked item or start at 0 in the reordered list
-      const firstUncheckedIndex = reordered.findIndex(
-        (item) => !item.status
-      );
-      setCurrentItemIndex(firstUncheckedIndex >= 0 ? firstUncheckedIndex : 0);
-      
-      // Load notes and images for the first item
-      if (reordered[firstUncheckedIndex >= 0 ? firstUncheckedIndex : 0]) {
-        const item = reordered[firstUncheckedIndex >= 0 ? firstUncheckedIndex : 0];
-        setNotes(item.status?.notes || "");
-        setUploadedImages(item.status?.image_urls || []);
-      }
     } else {
       toast({
         title: "Error",
@@ -108,123 +120,175 @@ export const TruckInspectionChecklist = ({
     setIsLoading(false);
   };
 
-  const handleStatusChange = async (status: "working" | "not_working") => {
-    const itemsToCheck = orderedItems.length > 0 ? orderedItems : (inspection?.items || []);
-    if (!inspection || itemsToCheck.length === 0) return;
+  // Get group status based on its items
+  const getGroupStatus = (group: InspectionGroup): "working" | "not_working" => {
+    const hasRedItem = group.items.some(
+      (item) => item.status?.status === "not_working"
+    );
+    return hasRedItem ? "not_working" : "working";
+  };
 
-    const currentItem = itemsToCheck[currentItemIndex];
-    if (!currentItem) return;
+  // Handle group toggle - when clicking a group tile (just expand/collapse, don't mark items)
+  const handleGroupToggle = (group: InspectionGroup) => {
+    // Simply toggle expansion - don't change item status
+    setExpandedGroupId(expandedGroupId === group.name ? null : group.name);
+  };
 
-    // Toggle: if clicking the same status, clear it (set to null/unchecked)
-    const currentStatus = currentItem?.status?.status;
-    if (currentStatus === status) {
-      // Clear the status by deleting the status record
-      setIsUpdating(true);
-      try {
-        if (currentItem.status?.id) {
-          const { error } = await supabase
-            .from("truck_inspection_item_status")
-            .delete()
-            .eq("id", currentItem.status.id);
+  // Handle item toggle
+  const handleItemToggle = async (itemId: string, closeExpanded = true) => {
+    if (!inspection) return;
 
-          if (error) throw error;
-        }
+    const item = inspection.items?.find((i) => i.id === itemId);
+    if (!item) return;
 
-        // Reload inspection to get fresh data
-        await loadInspection();
-        setNotes("");
-        setUploadedImages([]);
-        setIsUpdating(false);
-      } catch (error: any) {
-        console.error("Error clearing status:", error);
-        toast({
-          title: "Error",
-          description: "Failed to clear status",
-          variant: "destructive",
-        });
-        setIsUpdating(false);
-      }
-      return;
-    }
+    const currentStatus = item.status?.status || "working";
+    const newStatus = currentStatus === "not_working" ? "working" : "not_working";
 
     setIsUpdating(true);
 
-    // Upload images if status is not_working
-    let imageUrls = uploadedImages;
-    if (status === "not_working" && uploadedImages.length > 0) {
-      // Images already uploaded, just use existing URLs
-    } else if (status === "working") {
-      // Clear images if marking as working
-      imageUrls = [];
-    }
+    try {
+      // If switching to "working", clear notes and images
+      const notesToSave = newStatus === "working" ? undefined : (itemNotes[itemId] || undefined);
+      const imagesToSave = newStatus === "working" ? undefined : (itemImages[itemId] || []);
 
-    const result = await truckInspectionService.updateItemStatus(
-      inspection.id,
-      currentItem.id,
-      status,
-      notes || undefined,
-      imageUrls.length > 0 ? imageUrls : undefined
-    );
+      const result = await truckInspectionService.updateItemStatus(
+        inspection.id,
+        itemId,
+        newStatus,
+        notesToSave,
+        imagesToSave?.length > 0 ? imagesToSave : undefined
+      );
 
-    if (result.success) {
-      // Update local state
-      const updatedItems = inspection.items.map((item, idx) => {
-        if (idx === currentItemIndex) {
-          return {
-            ...item,
-            status: {
+      if (result.success) {
+        // Update local state
+        const updatedStatus: InspectionItemStatus = newStatus === "working" 
+          ? {
               id: item.status?.id || "",
-              item_id: currentItem.id,
-              status,
-              notes: notes || undefined,
-              image_urls: imageUrls,
+              item_id: itemId,
+              status: newStatus as "working" | "not_working",
+              notes: undefined,
+              image_urls: undefined,
               checked_at: new Date().toISOString(),
-            },
-          };
-        }
-        return item;
-      });
+            }
+          : {
+              id: item.status?.id || "",
+              item_id: itemId,
+              status: newStatus as "working" | "not_working",
+              notes: itemNotes[itemId] || undefined,
+              image_urls: itemImages[itemId] || undefined,
+              checked_at: new Date().toISOString(),
+            };
 
-      // Reload inspection to get fresh data and maintain proper ordering
-      await loadInspection();
+        const updatedItems = inspection.items.map((i) => {
+          if (i.id === itemId) {
+            return { ...i, status: updatedStatus };
+          }
+          return i;
+        });
 
-      // Auto-advance to next item only if marked as "working"
-      // Stay on current item if "not_working" to allow adding notes/photos
-      if (status === "working") {
-        const itemsToCheck = orderedItems.length > 0 ? orderedItems : (inspection?.items || []);
-        if (currentItemIndex < itemsToCheck.length - 1) {
-          setTimeout(() => {
-            setCurrentItemIndex(currentItemIndex + 1);
-          }, 200);
-        } else {
-          toast({
-            title: "Inspection Complete!",
-            description: "You have completed all inspection items for today.",
+        setInspection({ ...inspection, items: updatedItems });
+
+        // Clear notes and images if switching to working
+        if (newStatus === "working") {
+          setItemNotes((prev) => {
+            const next = { ...prev };
+            delete next[itemId];
+            return next;
           });
+          setItemImages((prev) => {
+            const next = { ...prev };
+            delete next[itemId];
+            return next;
+          });
+          if (closeExpanded) {
+            setExpandedItemId(null);
+          }
+        } else {
+          // When marking as red, ensure the group is expanded and item panel is visible
+          // Find which group contains this item
+          const currentSection = sections[currentSectionIndex];
+          if (currentSection?.groups) {
+            for (const group of currentSection.groups) {
+              if (group.items.some((i) => i.id === itemId)) {
+                setExpandedGroupId(group.name);
+                break;
+              }
+            }
+          }
+          setExpandedItemId(itemId);
+          
+          // Scroll to the item after a brief delay to ensure DOM is updated
+          setTimeout(() => {
+            const element = document.getElementById(`inspection-item-${itemId}`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 100);
         }
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update item",
+          variant: "destructive",
+        });
       }
-    } else {
+    } catch (error: any) {
+      console.error("Error toggling item:", error);
       toast({
         title: "Error",
-        description: result.error || "Failed to update item",
+        description: "Failed to update item",
         variant: "destructive",
       });
+    } finally {
+      setIsUpdating(false);
     }
-
-    setIsUpdating(false);
   };
 
-  const handleImageUpload = async (file: File) => {
-    if (!inspection?.items || !inspection.items[currentItemIndex]) return;
+  const handleNotesChange = async (itemId: string, notes: string) => {
+    setItemNotes((prev) => ({ ...prev, [itemId]: notes }));
 
-    setIsUploadingImage(true);
+    const item = inspection?.items?.find((i) => i.id === itemId);
+    if (item?.status?.status === "not_working") {
+      // Persist notes to database immediately
+      const result = await truckInspectionService.updateItemStatus(
+        inspection!.id,
+        itemId,
+        "not_working",
+        notes || undefined,
+        itemImages[itemId]?.length > 0 ? itemImages[itemId] : undefined
+      );
+      
+      if (result.success) {
+        // Update local state to reflect persisted notes
+        const updatedItems = inspection.items.map((i) => {
+          if (i.id === itemId && i.status) {
+            return {
+              ...i,
+              status: {
+                ...i.status,
+                notes: notes || undefined,
+              },
+            };
+          }
+          return i;
+        });
+        setInspection({ ...inspection, items: updatedItems });
+      }
+    }
+  };
+
+  const handleImageUpload = async (itemId: string, file: File) => {
+    if (!inspection) return;
+
+    setIsUploadingImage((prev) => ({ ...prev, [itemId]: true }));
+
     try {
       const timestamp = Date.now();
-      const filename = `inspection-${inspection.id}-${inspection.items[currentItemIndex].id}-${timestamp}.${file.name.split('.').pop()}`;
+      const filename = `inspection-${inspection.id}-${itemId}-${timestamp}.${file.name.split('.').pop()}`;
       const filepath = `truck-inspections/${filename}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("ticket-images") // Reuse existing bucket or create new one
+        .from("ticket-images")
         .upload(filepath, file, {
           cacheControl: "3600",
           upsert: false,
@@ -236,24 +300,39 @@ export const TruckInspectionChecklist = ({
         .from("ticket-images")
         .getPublicUrl(filepath);
 
-      const newImageUrls = [...uploadedImages, publicData.publicUrl];
-      setUploadedImages(newImageUrls);
+      const newImages = [...(itemImages[itemId] || []), publicData.publicUrl];
+      setItemImages((prev) => ({ ...prev, [itemId]: newImages }));
 
-      // Auto-save images
-      if (inspection.items[currentItemIndex].status?.status === "not_working") {
-        await truckInspectionService.updateItemStatus(
-          inspection.id,
-          inspection.items[currentItemIndex].id,
-          "not_working",
-          notes || undefined,
-          newImageUrls
-        );
+      // Persist images to database immediately (replace the entire array)
+      const result = await truckInspectionService.updateItemStatus(
+        inspection.id,
+        itemId,
+        "not_working",
+        itemNotes[itemId] || undefined,
+        newImages // Pass the new array to replace, not merge
+      );
+      
+      if (result.success) {
+        // Update local state to reflect persisted images
+        const updatedItems = inspection.items.map((i) => {
+          if (i.id === itemId && i.status) {
+            return {
+              ...i,
+              status: {
+                ...i.status,
+                image_urls: newImages,
+              },
+            };
+          }
+          return i;
+        });
+        setInspection({ ...inspection, items: updatedItems });
+        
+        toast({
+          title: "Image Uploaded",
+          description: "Photo has been saved",
+        });
       }
-
-      toast({
-        title: "Image Uploaded",
-        description: "Photo has been saved",
-      });
     } catch (error: any) {
       console.error("Error uploading image:", error);
       toast({
@@ -262,50 +341,142 @@ export const TruckInspectionChecklist = ({
         variant: "destructive",
       });
     } finally {
-      setIsUploadingImage(false);
+      setIsUploadingImage((prev) => ({ ...prev, [itemId]: false }));
     }
   };
 
-  const handleRemoveImage = (index: number) => {
-    const newImages = uploadedImages.filter((_, i) => i !== index);
-    setUploadedImages(newImages);
-    
-    // Auto-save if status is not_working
-    if (inspection?.items && inspection.items[currentItemIndex]?.status?.status === "not_working") {
-      truckInspectionService.updateItemStatus(
+  const handleRemoveImage = async (itemId: string, imageIndex: number) => {
+    if (!inspection) return;
+
+    try {
+      // Get the current images array
+      const currentImages = itemImages[itemId] || [];
+      
+      // Remove the image at the specified index
+      const newImages = currentImages.filter((_, i) => i !== imageIndex);
+      
+      // Update local state immediately for responsive UI
+      setItemImages((prev) => ({ ...prev, [itemId]: newImages }));
+
+      // Persist updated images to database (replace the entire array)
+      const result = await truckInspectionService.updateItemStatus(
         inspection.id,
-        inspection.items[currentItemIndex].id,
+        itemId,
         "not_working",
-        notes || undefined,
-        newImages.length > 0 ? newImages : undefined
+        itemNotes[itemId] || undefined,
+        newImages // Pass the new array to replace, not merge
       );
+      
+      if (result.success) {
+        // Update local state to reflect persisted images
+        const updatedItems = inspection.items.map((i) => {
+          if (i.id === itemId && i.status) {
+            return {
+              ...i,
+              status: {
+                ...i.status,
+                image_urls: newImages.length > 0 ? newImages : undefined,
+              },
+            };
+          }
+          return i;
+        });
+        setInspection({ ...inspection, items: updatedItems });
+        
+        toast({
+          title: "Image Removed",
+          description: "Photo has been deleted",
+        });
+      } else {
+        // Revert local state if database update failed
+        setItemImages((prev) => ({ ...prev, [itemId]: currentImages }));
+        toast({
+          title: "Error",
+          description: result.error || "Failed to remove image",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error removing image:", error);
+      // Revert local state on error
+      const currentImages = itemImages[itemId] || [];
+      setItemImages((prev) => ({ ...prev, [itemId]: currentImages }));
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove image",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleImageUpload(e.target.files[0]);
-    }
-  };
-
-  const handleCameraCapture = () => {
+  const handleCameraCapture = (itemId: string) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    input.capture = "environment"; // Use rear camera on mobile
+    input.capture = "environment";
     input.onchange = (e: any) => {
       if (e.target.files && e.target.files[0]) {
-        handleImageUpload(e.target.files[0]);
+        handleImageUpload(itemId, e.target.files[0]);
       }
     };
     input.click();
   };
 
+  const handleNext = () => {
+    if (currentSectionIndex < sections.length - 1) {
+      const nextSection = sections[currentSectionIndex + 1];
+      // Check if next section has red items - if so, expand them
+      const redItemsInNextSection = nextSection.groups?.flatMap((group) =>
+        group.items.filter((item) => item.status?.status === "not_working")
+      ) || [];
+      
+      if (redItemsInNextSection.length > 0) {
+        // Find the group containing the first red item and expand it
+        for (const group of nextSection.groups || []) {
+          if (group.items.some((item) => item.status?.status === "not_working")) {
+            setExpandedGroupId(group.name);
+            const firstRedItem = group.items.find((item) => item.status?.status === "not_working");
+            if (firstRedItem) {
+              setExpandedItemId(firstRedItem.id);
+            }
+            break;
+          }
+        }
+      } else {
+        setExpandedGroupId(null);
+        setExpandedItemId(null);
+      }
+      
+      setCurrentSectionIndex(currentSectionIndex + 1);
+    } else {
+      // Last section - check if all groups are green
+      const currentSection = sections[currentSectionIndex];
+      const allGroupsGreen = currentSection.groups?.every((group) => {
+        return getGroupStatus(group) === "working";
+      });
+      
+      if (allGroupsGreen) {
+        toast({
+          title: "Inspection Complete",
+          description: "All sections have been inspected.",
+        });
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentSectionIndex > 0) {
+      setCurrentSectionIndex(currentSectionIndex - 1);
+      setExpandedGroupId(null);
+      setExpandedItemId(null);
+    }
+  };
+
   if (!isShiftActive) {
     return (
-      <Card className="p-6">
-        <div className="text-center py-8">
-          <p className="text-muted-foreground">
+      <Card className="p-4 sm:p-6">
+        <div className="text-center py-6 sm:py-8">
+          <p className="text-sm sm:text-base text-muted-foreground">
             Please start your shift to begin the truck inspection
           </p>
         </div>
@@ -315,468 +486,269 @@ export const TruckInspectionChecklist = ({
 
   if (isLoading) {
     return (
-      <Card className="p-6">
-        <div className="flex items-center justify-center py-8">
+      <Card className="p-4 sm:p-6">
+        <div className="flex items-center justify-center py-6 sm:py-8">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       </Card>
     );
   }
 
-  if (!inspection || !inspection.items || inspection.items.length === 0) {
+  if (!inspection || sections.length === 0) {
     return (
-      <Card className="p-6">
-        <p className="text-muted-foreground text-center py-4">
+      <Card className="p-4 sm:p-6">
+        <p className="text-sm sm:text-base text-muted-foreground text-center py-4">
           No inspection items found
         </p>
       </Card>
     );
   }
 
-  const currentItem = inspection.items[currentItemIndex];
-  const totalItems = inspection.items.length;
-  const currentStatus = currentItem?.status?.status || null;
+  const currentSection = sections[currentSectionIndex];
+  if (!currentSection) return null;
+
+  const groups = currentSection.groups || [];
+  const allGroupsGreen = groups.every((group) => getGroupStatus(group) === "working");
+  
+  const redGroupsCount = groups.filter(
+    (group) => getGroupStatus(group) === "not_working"
+  ).length;
 
   return (
-    <Card className="p-6">
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-semibold">Truck Inspection</h3>
-          <span className="text-sm text-muted-foreground">
-            {currentItemIndex + 1} of {totalItems}
+    <Card className="p-3 sm:p-4 md:p-6">
+      <div className="mb-4 sm:mb-6">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h3 className="text-base sm:text-lg font-semibold">Truck Inspection</h3>
+          <span className="text-xs sm:text-sm text-muted-foreground">
+            Section {currentSectionIndex + 1} of {sections.length}
           </span>
         </div>
-        
-        {/* Inspection Flow Toggle */}
-        <div className="flex items-center justify-between mb-3 pt-2 pb-2 border-t border-b">
-          <Label className="text-sm font-medium">Inspection Method:</Label>
+
+        {/* Mode Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 pt-2 pb-2 border-t border-b gap-2 sm:gap-0">
+          <Label className="text-xs sm:text-sm font-medium">Inspection Mode:</Label>
           <div className="flex gap-2">
             <Button
               type="button"
-              variant={inspectionFlow === 'risk-first' ? 'default' : 'outline'}
+              variant={inspectionMode === 'critical-issue-first' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setInspectionFlow('risk-first')}
-              className="h-8 px-3"
+              onClick={() => setInspectionMode('critical-issue-first')}
+              className="h-10 sm:h-8 px-4 sm:px-3 text-sm flex-1 sm:flex-initial min-h-[44px] sm:min-h-0"
             >
               Risk-First
             </Button>
             <Button
               type="button"
-              variant={inspectionFlow === 'location-based' ? 'default' : 'outline'}
+              variant={inspectionMode === 'location-based' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setInspectionFlow('location-based')}
-              className="h-8 px-3"
+              onClick={() => setInspectionMode('location-based')}
+              className="h-10 sm:h-8 px-4 sm:px-3 text-sm flex-1 sm:flex-initial min-h-[44px] sm:min-h-0"
             >
-              Location-Based
+              Location-Based Walkaround
             </Button>
           </div>
         </div>
 
-        <div className="w-full bg-muted rounded-full h-2">
-          <div
-            className="bg-primary h-2 rounded-full transition-all"
-            style={{ width: `${((currentItemIndex + 1) / totalItems) * 100}%` }}
-          />
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h4 className="text-lg sm:text-xl font-bold">{currentSection.name}</h4>
+          {allGroupsGreen && (
+            <span className="text-xs sm:text-sm text-green-600 font-medium flex items-center gap-1">
+              <CheckCircle2 className="h-4 w-4" />
+              Complete
+            </span>
+          )}
+          {!allGroupsGreen && (
+            <span className="text-xs sm:text-sm text-red-600 font-medium">
+              {redGroupsCount} issue{redGroupsCount !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Current Item */}
-      {currentItem && (
-        <div className="space-y-6">
-          {currentStatus === null ? (
-            <>
-              {/* Status selection buttons - shown when no status is set */}
-              <div className="text-center py-4 mb-4">
-                <h4 className="text-2xl font-bold mb-2">{currentItem.item_name}</h4>
-                {currentItem.description && (
-                  <p className="text-muted-foreground">{currentItem.description}</p>
-                )}
-              </div>
+      {/* Groups Grid */}
+      <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+        {groups.map((group) => {
+          const groupStatus = getGroupStatus(group);
+          const isGroupRed = groupStatus === "not_working";
+          const isGroupExpanded = expandedGroupId === group.name;
+          const redItemsCount = group.items.filter(
+            (item) => item.status?.status === "not_working"
+          ).length;
+          const hasItems = group.items.length > 0;
 
-              <div className="grid grid-cols-2 gap-4">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-24 text-lg border-2 border-green-300 hover:bg-green-50 dark:hover:bg-green-950"
-                  onClick={() => handleStatusChange("working")}
-                  disabled={isUpdating}
-                >
-                  <CheckCircle2 className="h-8 w-8 mr-2" />
-                  <div className="flex flex-col items-center">
-                    <span>Working</span>
-                  </div>
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-24 text-lg border-2 border-red-300 hover:bg-red-50 dark:hover:bg-red-950"
-                  onClick={() => handleStatusChange("not_working")}
-                  disabled={isUpdating}
-                >
-                  <XCircle className="h-8 w-8 mr-2" />
-                  <div className="flex flex-col items-center">
-                    <span>Not Working</span>
-                  </div>
-                </Button>
-              </div>
-            </>
-          ) : currentStatus === "not_working" ? (
-            <>
-              {/* Layout Option Toggle */}
-              <div className="flex items-center justify-end gap-2 mb-4 pb-2 border-b">
-                <Label htmlFor="layout-toggle" className="text-sm text-muted-foreground">
-                  Layout: Option {layoutOption}
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLayoutOption(layoutOption === 1 ? 2 : 1)}
-                  className="h-8 px-3"
-                >
-                  Switch to Option {layoutOption === 1 ? 2 : 1}
-                </Button>
-              </div>
-
-              {layoutOption === 1 ? (
-                /* Option 1 Layout */
-                <>
-                  <div className="flex gap-4 items-start">
-                    {/* Large item box */}
-                    <div className="flex-1 p-6 rounded-lg border-2 border-muted bg-muted/30">
-                      <div className="text-center">
-                        <h4 className="text-2xl font-bold mb-1">
-                          {currentItem.item_name}
-                        </h4>
-                      </div>
-                    </div>
-
-                    {/* Status buttons on the right - vertically stacked */}
-                    <div className="flex flex-col gap-3">
-                      <Button
-                        size="lg"
-                        variant={currentStatus === "working" ? "default" : "outline"}
-                        className={`h-20 w-24 text-base ${
-                          currentStatus === "working"
-                            ? "bg-green-600 hover:bg-green-700"
-                            : "border-2 border-green-300 hover:bg-green-50 dark:hover:bg-green-950"
-                        }`}
-                        onClick={() => handleStatusChange("working")}
-                        disabled={isUpdating}
-                      >
-                        <div className="flex flex-col items-center gap-1">
-                          <CheckCircle2 className="h-6 w-6" />
-                          <span>Good</span>
-                          <span className="text-xs">Green</span>
-                        </div>
-                      </Button>
-                      <Button
-                        size="lg"
-                        variant={currentStatus === "not_working" ? "destructive" : "outline"}
-                        className={`h-20 w-24 text-base ${
-                          currentStatus !== "not_working"
-                            ? "border-2 border-red-300 hover:bg-red-50 dark:hover:bg-red-950"
-                            : ""
-                        }`}
-                        onClick={() => handleStatusChange("not_working")}
-                        disabled={isUpdating}
-                      >
-                        <div className="flex flex-col items-center gap-1">
-                          <XCircle className="h-6 w-6" />
-                          <span>Fix</span>
-                          <span className="text-xs">Red</span>
-                        </div>
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Notes field below */}
-                  <div className="space-y-2 mt-4">
-                    <div className="flex gap-4">
-                      <div className="flex-1 p-4 rounded-lg border-2 border-muted bg-muted/30">
-                        <div className="text-center mb-2">
-                          <Label className="text-sm font-medium">Notes</Label>
-                        </div>
-                        <SpeechToTextInput
-                          ref={speechInputRef}
-                          value={notes}
-                          onChange={(value) => {
-                            setNotes(value);
-                            truckInspectionService.updateItemStatus(
-                              inspection.id,
-                              currentItem.id,
-                              "not_working",
-                              value || undefined,
-                              uploadedImages.length > 0 ? uploadedImages : undefined
-                            );
-                          }}
-                          onListeningChange={(isListening) => setIsListeningToSpeech(isListening)}
-                          placeholder="Type your notes here..."
-                          hideMicButton={true}
-                        />
-                      </div>
-
-                      {/* Icons on the right of Notes */}
-                      <div className="flex flex-col gap-3 justify-start pt-8">
-                        <Button
-                          type="button"
-                          variant={isListeningToSpeech ? "destructive" : "outline"}
-                          size="icon"
-                          className="h-16 w-16"
-                          onClick={() => {
-                            if (isListeningToSpeech) {
-                              speechInputRef.current?.stopListening();
-                              setIsListeningToSpeech(false);
-                            } else {
-                              speechInputRef.current?.startListening();
-                              setIsListeningToSpeech(true);
-                            }
-                            setTimeout(() => {
-                              const notesTextarea = document.querySelector(
-                                'textarea[placeholder*="notes"]'
-                              ) as HTMLTextAreaElement;
-                              if (notesTextarea) {
-                                notesTextarea.focus();
-                              }
-                            }, 100);
-                          }}
-                        >
-                          {isListeningToSpeech ? (
-                            <MicOff className="h-6 w-6" />
-                          ) : (
-                            <Mic className="h-6 w-6" />
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-16 w-16"
-                          onClick={handleCameraCapture}
-                          disabled={isUploadingImage}
-                        >
-                          <Camera className="h-6 w-6" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                /* Option 2 Layout (Recommended) */
-                <>
-                  <div className="flex gap-4 items-start">
-                    {/* Large item box with status indicator */}
-                    <div
-                      className={`flex-1 p-6 rounded-lg border-2 cursor-pointer transition-colors ${
-                        currentStatus === "not_working"
-                          ? "bg-red-50 dark:bg-red-950/20 border-red-300 dark:border-red-800"
-                          : "bg-green-50 dark:bg-green-950/20 border-green-300 dark:border-green-800"
-                      }`}
-                      onClick={() => {
-                        // Toggle between not_working and working
-                        handleStatusChange("working");
-                      }}
-                    >
-                      <div className="text-center">
-                        <h4 className="text-2xl font-bold mb-1">
-                          {currentItem.item_name}
-                        </h4>
-                        <div className="flex items-center justify-center gap-2 mt-2">
-                          {currentStatus === "not_working" ? (
-                            <>
-                              <XCircle className="h-6 w-6 text-red-600" />
-                              <span className="text-lg font-medium text-red-600">Red</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="h-6 w-6 text-green-600" />
-                              <span className="text-lg font-medium text-green-600">Green</span>
-                            </>
-                          )}
-                          <span className="text-sm text-muted-foreground">(click)</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Icons on the right side - vertically stacked */}
-                    <div className="flex flex-col gap-3">
-                      {/* Microphone icon button */}
-                      <Button
-                        type="button"
-                        variant={isListeningToSpeech ? "destructive" : "outline"}
-                        size="icon"
-                        className="h-16 w-16"
-                        onClick={() => {
-                          // Trigger speech recognition
-                          if (isListeningToSpeech) {
-                            speechInputRef.current?.stopListening();
-                            setIsListeningToSpeech(false);
-                          } else {
-                            speechInputRef.current?.startListening();
-                            setIsListeningToSpeech(true);
-                          }
-                          // Also focus the notes field
-                          setTimeout(() => {
-                            const notesTextarea = document.querySelector(
-                              'textarea[placeholder*="microphone"]'
-                            ) as HTMLTextAreaElement;
-                            if (notesTextarea) {
-                              notesTextarea.focus();
-                            }
-                          }, 100);
-                        }}
-                      >
-                        {isListeningToSpeech ? (
-                          <MicOff className="h-6 w-6" />
-                        ) : (
-                          <Mic className="h-6 w-6" />
-                        )}
-                      </Button>
-
-                      {/* Camera icon button */}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-16 w-16"
-                        onClick={handleCameraCapture}
-                        disabled={isUploadingImage}
-                      >
-                        <Camera className="h-6 w-6" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Notes field below */}
-                  <div className="space-y-2 mt-4">
-                    <div className="p-4 rounded-lg border-2 border-muted bg-muted/30">
-                      <div className="text-sm text-muted-foreground mb-2 text-center">
-                        Notes: Click the microphone icon to open this box and record.
-                      </div>
-                      <SpeechToTextInput
-                        ref={speechInputRef}
-                        value={notes}
-                        onChange={(value) => {
-                          setNotes(value);
-                          // Auto-save notes
-                          truckInspectionService.updateItemStatus(
-                            inspection.id,
-                            currentItem.id,
-                            "not_working",
-                            value || undefined,
-                            uploadedImages.length > 0 ? uploadedImages : undefined
-                          );
-                        }}
-                        onListeningChange={(isListening) => setIsListeningToSpeech(isListening)}
-                        placeholder="Tap microphone icon to record or type here..."
-                        hideMicButton={true}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Image grid - shared for both options */}
-              <div className="mt-4 space-y-2">
-                {isUploadingImage && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Uploading...</span>
-                  </div>
-                )}
-                {uploadedImages.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {uploadedImages.map((url, index) => (
-                      <div key={index} className="relative group">
-                        <img
-                          src={url}
-                          alt={`Issue ${index + 1}`}
-                          className="w-full h-32 object-cover rounded border"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleRemoveImage(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Alternative upload button below images - only show in Option 2 or when no images in Option 1 */}
-                {layoutOption === 2 && uploadedImages.length === 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      const input = document.createElement("input");
-                      input.type = "file";
-                      input.accept = "image/*";
-                      input.onchange = handleFileSelect as any;
-                      input.click();
-                    }}
-                    disabled={isUploadingImage}
-                    className="w-full"
-                  >
-                    <ImageIcon className="h-4 w-4 mr-2" />
-                    Upload Photo from Gallery
-                  </Button>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Working status - clickable box to change */}
-              <div
-                className="p-6 rounded-lg border-2 bg-green-50 dark:bg-green-950/20 border-green-300 dark:border-green-800 cursor-pointer transition-colors hover:bg-green-100 dark:hover:bg-green-950/30"
-                onClick={() => {
-                  // Toggle to not_working
-                  handleStatusChange("not_working");
-                }}
+          return (
+            <div key={group.name} className="space-y-2">
+              {/* Group Tile */}
+              <button
+                onClick={() => hasItems && handleGroupToggle(group)}
+                disabled={isUpdating || !hasItems}
+                className={`w-full p-4 sm:p-5 rounded-lg border-2 transition-all duration-200 min-h-[56px] sm:min-h-[64px] ${
+                  isGroupRed
+                    ? "bg-red-600 hover:bg-red-700 active:bg-red-800 border-red-700 text-white shadow-md"
+                    : "bg-green-600 hover:bg-green-700 active:bg-green-800 border-green-700 text-white"
+                } ${isUpdating || !hasItems ? "opacity-50 cursor-not-allowed" : "cursor-pointer touch-manipulation"}`}
               >
-                <div className="text-center">
-                  <h4 className="text-2xl font-bold mb-1">{currentItem.item_name}</h4>
-                  <div className="flex items-center justify-center gap-2 mt-2">
-                    <CheckCircle2 className="h-6 w-6 text-green-600" />
-                    <span className="text-lg font-medium text-green-600">Green</span>
-                    <span className="text-sm text-muted-foreground">(click)</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    {hasItems ? (
+                      isGroupRed ? (
+                        <XCircle className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
+                      ) : (
+                        <CheckCircle2 className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
+                      )
+                    ) : (
+                      <div className="h-6 w-6 sm:h-5 sm:w-5 rounded-full border-2 border-white/50 flex-shrink-0" />
+                    )}
+                    <span className="font-semibold text-base sm:text-lg">{group.name}</span>
                   </div>
+                  {isGroupRed && hasItems && (
+                    <span className="text-sm sm:text-base opacity-90">
+                      {redItemsCount} issue{redItemsCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {!hasItems && (
+                    <span className="text-xs sm:text-sm opacity-75 italic">
+                      No items
+                    </span>
+                  )}
                 </div>
-              </div>
-            </>
-          )}
+              </button>
 
-          {/* Navigation */}
-          <div className="flex gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentItemIndex(Math.max(0, currentItemIndex - 1))}
-              disabled={currentItemIndex === 0 || isUpdating}
-              className="flex-1"
-            >
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                setCurrentItemIndex(
-                  Math.min(totalItems - 1, currentItemIndex + 1)
-                )
-              }
-              disabled={currentItemIndex === totalItems - 1 || isUpdating}
-              className="flex-1"
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        </div>
-      )}
+              {/* Expanded Sub-elements - Auto-expand if group has red items */}
+              {(isGroupExpanded || (isGroupRed && hasItems)) && (
+                <div className="ml-2 sm:ml-4 space-y-2 sm:space-y-3 pt-2 border-l-2 border-muted pl-3 sm:pl-4">
+                  {!hasItems && (
+                    <p className="text-xs sm:text-sm text-muted-foreground italic p-2">
+                      No items configured for this group
+                    </p>
+                  )}
+                  {group.items.map((item) => {
+                    const itemStatus = item.status?.status || "working";
+                    const isItemRed = itemStatus === "not_working";
+                    // Auto-expand red items - they should always be visible
+                    const isItemExpanded = isItemRed || expandedItemId === item.id;
+
+                    return (
+                      <div key={item.id} id={`inspection-item-${item.id}`} className="space-y-2">
+                        {/* Sub-element Tile */}
+                        <button
+                          onClick={() => handleItemToggle(item.id, false)}
+                          disabled={isUpdating}
+                          className={`w-full p-3 sm:p-4 rounded-lg border-2 transition-all duration-200 min-h-[48px] sm:min-h-[52px] ${
+                            isItemRed
+                              ? "bg-red-500 hover:bg-red-600 active:bg-red-700 border-red-600 text-white"
+                              : "bg-green-500 hover:bg-green-600 active:bg-green-700 border-green-600 text-white"
+                          } ${isUpdating ? "opacity-50 cursor-not-allowed" : "cursor-pointer touch-manipulation"}`}
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            {isItemRed ? (
+                              <XCircle className="h-5 w-5 sm:h-4 sm:w-4 flex-shrink-0" />
+                            ) : (
+                              <CheckCircle2 className="h-5 w-5 sm:h-4 sm:w-4 flex-shrink-0" />
+                            )}
+                            <span className="font-medium text-sm sm:text-base">{item.item_name}</span>
+                          </div>
+                        </button>
+
+                        {/* Expanded Panel for Red Sub-elements - Always visible when red */}
+                        {isItemRed && (
+                          <div className="p-3 sm:p-4 border-2 border-red-300 rounded-lg bg-red-50 dark:bg-red-950/20 space-y-3 sm:space-y-4 animate-in slide-in-from-top-2 duration-200">
+                            {/* Notes */}
+                            <div className="space-y-2">
+                              <Label className="text-sm sm:text-base">Notes</Label>
+                              <SpeechToTextInput
+                                ref={(ref) => {
+                                  if (ref) speechInputRefs.current[item.id] = ref;
+                                }}
+                                value={itemNotes[item.id] || ""}
+                                onChange={(value) => handleNotesChange(item.id, value)}
+                                onListeningChange={(isListening) => {
+                                  setIsListeningToSpeech((prev) => ({ ...prev, [item.id]: isListening }));
+                                }}
+                                placeholder="Tap microphone to record or type here..."
+                                hideMicButton={false}
+                              />
+                            </div>
+
+                            {/* Camera Button */}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleCameraCapture(item.id)}
+                              disabled={isUploadingImage[item.id]}
+                              className="w-full h-12 sm:h-10 text-base sm:text-sm min-h-[48px] sm:min-h-[40px]"
+                            >
+                              {isUploadingImage[item.id] ? (
+                                <>
+                                  <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 mr-2 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <Camera className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
+                                  Take Photo
+                                </>
+                              )}
+                            </Button>
+
+                            {/* Images */}
+                            {itemImages[item.id] && itemImages[item.id].length > 0 && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                                {itemImages[item.id].map((url, index) => (
+                                  <div key={index} className="relative group">
+                                    <img
+                                      src={url}
+                                      alt={`Issue ${index + 1}`}
+                                      className="w-full h-40 sm:h-32 object-cover rounded border"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="destructive"
+                                      size="icon"
+                                      className="absolute top-2 right-2 h-8 w-8 sm:h-6 sm:w-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[32px] sm:min-h-[24px]"
+                                      onClick={() => handleRemoveImage(item.id, index)}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Navigation */}
+      <div className="flex gap-2 sm:gap-3 pt-4 border-t">
+        <Button
+          variant="outline"
+          onClick={handlePrevious}
+          disabled={currentSectionIndex === 0 || isUpdating}
+          className="flex-1 h-12 sm:h-10 text-base sm:text-sm min-h-[48px] sm:min-h-[40px]"
+        >
+          <ChevronLeft className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
+          Previous
+        </Button>
+        <Button
+          variant="default"
+          onClick={handleNext}
+          disabled={isUpdating}
+          className="flex-1 h-12 sm:h-10 text-base sm:text-sm min-h-[48px] sm:min-h-[40px]"
+        >
+          {currentSectionIndex >= sections.length - 1 ? "Finish" : "Next"}
+          {currentSectionIndex < sections.length - 1 && (
+            <ChevronRight className="h-5 w-5 sm:h-4 sm:w-4 ml-2" />
+          )}
+        </Button>
+      </div>
     </Card>
   );
 };

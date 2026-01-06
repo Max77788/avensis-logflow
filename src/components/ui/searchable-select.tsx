@@ -72,9 +72,10 @@ export const SearchableSelect = React.forwardRef<
                 {items.map((item) => (
                   <CommandItem
                     key={item.value}
-                    value={item.value}
-                    onSelect={(currentValue) => {
-                      onValueChange(currentValue === value ? "" : currentValue);
+                    value={item.label}
+                    onSelect={() => {
+                      // Use the item's actual value (UUID) for the callback
+                      onValueChange(item.value === value ? "" : item.value);
                       setOpen(false);
                     }}
                   >
