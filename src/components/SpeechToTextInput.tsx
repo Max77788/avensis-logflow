@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "re
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, MicOff, Loader2 } from "lucide-react";
+import { transcribeAudio } from "@/lib/speechToTextService";
 
 interface SpeechToTextInputProps {
   value: string;
@@ -25,7 +26,7 @@ const isMobileDevice = () => {
   ) || window.innerWidth < 768;
 };
 
-// Detect iOS (which doesn't support Web Speech API)
+// Detect iOS
 const isIOS = () => {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent);
 };
@@ -39,50 +40,50 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   onListeningChange,
 }, ref) => {
   const [isListening, setIsListening] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);
+  const [isSupported, setIsSupported] = useState(true); // Always supported now (we use MediaRecorder on mobile)
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  
+  // Desktop: Web Speech API
   const recognitionRef = useRef<any>(null);
-  const baseValueRef = useRef<string>(""); // Value when recording starts
-  const accumulatedFinalRef = useRef<string>(""); // Accumulated final transcripts
-  const isMobile = useRef(isMobileDevice());
   const isListeningRef = useRef(false);
-  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Mobile: MediaRecorder
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  
+  const baseValueRef = useRef<string>("");
+  const accumulatedFinalRef = useRef<string>("");
+  const isMobile = useRef(isMobileDevice());
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previousScrollTopRef = useRef<number>(0);
 
-  // Check if Speech Recognition is supported
+  // Check if Web Speech API is available (for desktop)
+  const webSpeechSupported = !isMobile.current && 
+    (typeof (window as any).SpeechRecognition !== 'undefined' || 
+     typeof (window as any).webkitSpeechRecognition !== 'undefined');
+
+  // Preserve scroll position when value changes
   useEffect(() => {
-    // iOS doesn't support Web Speech API
-    if (isIOS()) {
-      setIsSupported(false);
-      setErrorMessage("Voice input is not supported on iOS Safari. Please use text input instead.");
-      return;
+    if (textareaRef.current) {
+      previousScrollTopRef.current = textareaRef.current.scrollTop;
     }
+  }, [value]);
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-      try {
-        const testRecognition = new SpeechRecognition();
-        setIsSupported(true);
-      } catch (e) {
-        console.error("Speech Recognition not functional:", e);
-        setIsSupported(false);
-        if (isMobile.current) {
-          setErrorMessage("Voice input is not supported on this mobile browser. Please use text input instead.");
+  useEffect(() => {
+    if (textareaRef.current && previousScrollTopRef.current > 0) {
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          textareaRef.current.scrollTop = previousScrollTopRef.current;
         }
-      }
-    } else {
-      setIsSupported(false);
-      if (isMobile.current) {
-        setErrorMessage("Voice input is not supported on this mobile browser. Please use text input instead.");
-      }
+      });
     }
-  }, []);
+  }, [value]);
 
-  // Initialize speech recognition
+  // Setup Web Speech API for desktop
   useEffect(() => {
-    if (!isSupported) return;
+    if (!webSpeechSupported || isMobile.current) return;
 
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
@@ -91,9 +92,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
-    
-    // Mobile-friendly settings
-    recognition.continuous = true; // Always use continuous mode for better mobile support
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognition.maxAlternatives = 1;
@@ -102,27 +101,22 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     let interimTranscript = "";
 
     recognition.onresult = (event: any) => {
-      // Reset interim
       interimTranscript = "";
+      finalTranscript = "";
 
-      // Process results starting from resultIndex
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
-        const transcript = result[0].transcript;
+        const transcript = result[0]?.transcript || "";
 
         if (result.isFinal) {
-          // Add to final transcript
           finalTranscript += transcript + " ";
         } else {
-          // Interim result
           interimTranscript += transcript;
         }
       }
 
-      // Update accumulated final transcript
-      accumulatedFinalRef.current = finalTranscript;
+      accumulatedFinalRef.current += finalTranscript;
 
-      // Combine: base + accumulated final + interim
       const combinedValue = baseValueRef.current + 
         (baseValueRef.current && accumulatedFinalRef.current ? " " : "") + 
         accumulatedFinalRef.current + 
@@ -133,64 +127,22 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
 
     recognition.onerror = (event: any) => {
       console.error("Speech recognition error:", event.error);
-      
-      switch (event.error) {
-        case "no-speech":
-          // Normal - just stop
-          if (isListeningRef.current) {
-            isListeningRef.current = false;
-            setIsListening(false);
-            onListeningChange?.(false);
-          }
-          break;
-        case "audio-capture":
-          setErrorMessage("No microphone found. Please check your device settings.");
-          isListeningRef.current = false;
-          setIsListening(false);
-          onListeningChange?.(false);
-          break;
-        case "not-allowed":
-          setErrorMessage("Microphone permission denied. Please allow microphone access in your browser settings.");
-          isListeningRef.current = false;
-          setIsListening(false);
-          onListeningChange?.(false);
-          break;
-        case "aborted":
-          // Normal - user stopped or system aborted
-          isListeningRef.current = false;
-          setIsListening(false);
-          onListeningChange?.(false);
-          break;
-        case "network":
-          setErrorMessage("Network error. Please check your connection.");
-          isListeningRef.current = false;
-          setIsListening(false);
-          onListeningChange?.(false);
-          break;
-        default:
-          if (event.error !== "no-speech" && event.error !== "aborted") {
-            isListeningRef.current = false;
-            setIsListening(false);
-            onListeningChange?.(false);
-          }
+      if (event.error === "not-allowed") {
+        setErrorMessage("Microphone permission denied. Please allow microphone access.");
       }
+      isListeningRef.current = false;
+      setIsListening(false);
+      onListeningChange?.(false);
     };
 
     recognition.onend = () => {
-      // On mobile, auto-restart if we're still supposed to be listening
-      if (isMobile.current && isListeningRef.current) {
-        // Clear any existing timeout
-        if (restartTimeoutRef.current) {
-          clearTimeout(restartTimeoutRef.current);
-        }
-        
-        // Restart after a short delay
-        restartTimeoutRef.current = setTimeout(() => {
+      if (isListeningRef.current) {
+        // Auto-restart on desktop
+        setTimeout(() => {
           if (isListeningRef.current && recognitionRef.current) {
             try {
               recognitionRef.current.start();
             } catch (e) {
-              // If restart fails, stop
               isListeningRef.current = false;
               setIsListening(false);
               onListeningChange?.(false);
@@ -198,7 +150,6 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
           }
         }, 100);
       } else {
-        isListeningRef.current = false;
         setIsListening(false);
         onListeningChange?.(false);
       }
@@ -214,9 +165,6 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     recognitionRef.current = recognition;
 
     return () => {
-      if (restartTimeoutRef.current) {
-        clearTimeout(restartTimeoutRef.current);
-      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -225,104 +173,144 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         }
       }
     };
-  }, [isSupported, onChange, onListeningChange]);
+  }, [webSpeechSupported, onChange, onListeningChange]);
 
-  // Request microphone permission (required for mobile)
-  const requestMicrophonePermission = async (): Promise<boolean> => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      return false;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      return true;
-    } catch (error: any) {
-      console.error("Microphone permission error:", error);
-      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
-        setErrorMessage("Microphone permission denied. Please allow microphone access in your browser settings and try again.");
-      } else if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-        setErrorMessage("No microphone found on this device.");
-      } else {
-        setErrorMessage("Could not access microphone. Please check your device settings.");
-      }
-      return false;
-    }
-  };
-
+  // Start listening - different for mobile vs desktop
   const startListening = async () => {
-    if (!recognitionRef.current || disabled || isListeningRef.current) return;
+    if (disabled || isListening) return;
 
-    // Request permission on mobile first
+    baseValueRef.current = value;
+    accumulatedFinalRef.current = "";
+    setErrorMessage(null);
+
     if (isMobile.current) {
-      const hasPermission = await requestMicrophonePermission();
-      if (!hasPermission) {
-        return;
-      }
-    }
+      // Mobile: Use MediaRecorder
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        });
 
-    try {
-      // Reset state
-      baseValueRef.current = value;
-      accumulatedFinalRef.current = "";
-      setErrorMessage(null);
-      isListeningRef.current = true;
-      recognitionRef.current.start();
-    } catch (error: any) {
-      console.error("Error starting speech recognition:", error);
-      isListeningRef.current = false;
-      
-      if (error.message?.includes("already started") || error.name === "InvalidStateError") {
-        // Already started - stop and restart
+        streamRef.current = stream;
+        audioChunksRef.current = [];
+
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/mp4";
+
+        const mediaRecorder = new MediaRecorder(stream, { mimeType });
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          if (audioChunksRef.current.length === 0) {
+            setIsListening(false);
+            onListeningChange?.(false);
+            if (streamRef.current) {
+              streamRef.current.getTracks().forEach(track => track.stop());
+              streamRef.current = null;
+            }
+            return;
+          }
+
+          setIsTranscribing(true);
+          const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+          
+          const result = await transcribeAudio(audioBlob, mimeType);
+          
+          setIsTranscribing(false);
+          
+          if (result.success && result.transcript) {
+            const newText = result.transcript.trim();
+            if (newText) {
+              const updatedValue = baseValueRef.current + 
+                (baseValueRef.current ? " " : "") + 
+                newText;
+              onChange(updatedValue);
+              accumulatedFinalRef.current += newText + " ";
+            }
+          } else {
+            setErrorMessage(result.error || "Failed to transcribe audio");
+          }
+
+          audioChunksRef.current = [];
+          setIsListening(false);
+          onListeningChange?.(false);
+
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+          }
+        };
+
+        mediaRecorder.start();
+        setIsListening(true);
+        onListeningChange?.(true);
+      } catch (error: any) {
+        console.error("Error starting recording:", error);
+        setIsListening(false);
+        onListeningChange?.(false);
+        
+        if (error.name === "NotAllowedError") {
+          setErrorMessage("Microphone permission denied. Please allow microphone access in browser settings.");
+        } else {
+          setErrorMessage("Failed to access microphone: " + (error.message || "Unknown error"));
+        }
+      }
+    } else {
+      // Desktop: Use Web Speech API
+      if (recognitionRef.current) {
         try {
-          recognitionRef.current.stop();
-          setTimeout(() => {
-            baseValueRef.current = value;
-            accumulatedFinalRef.current = "";
-            setErrorMessage(null);
-            isListeningRef.current = true;
-            recognitionRef.current.start();
-          }, 200);
-        } catch (e) {
-          console.error("Error restarting speech recognition:", e);
+          isListeningRef.current = true;
+          recognitionRef.current.start();
+        } catch (error: any) {
+          console.error("Error starting recognition:", error);
           isListeningRef.current = false;
           setIsListening(false);
           onListeningChange?.(false);
+          setErrorMessage("Failed to start voice input. Please try again.");
         }
-      } else if (error.name === "NotAllowedError" || error.message?.includes("not allowed")) {
-        setErrorMessage("Microphone permission denied. Please allow microphone access and try again.");
-        setIsListening(false);
-        onListeningChange?.(false);
-      } else {
-        setErrorMessage("Failed to start voice input. Please try again.");
-        setIsListening(false);
-        onListeningChange?.(false);
       }
     }
   };
 
   const stopListening = () => {
-    if (restartTimeoutRef.current) {
-      clearTimeout(restartTimeoutRef.current);
-      restartTimeoutRef.current = null;
-    }
-
-    if (recognitionRef.current && isListeningRef.current) {
-      try {
+    if (isMobile.current) {
+      // Mobile: Stop MediaRecorder
+      if (mediaRecorderRef.current && isListening) {
+        mediaRecorderRef.current.stop();
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    } else {
+      // Desktop: Stop Web Speech API
+      if (recognitionRef.current) {
         isListeningRef.current = false;
-        recognitionRef.current.stop();
-        setIsListening(false);
-        onListeningChange?.(false);
-        accumulatedFinalRef.current = "";
-      } catch (e) {
-        isListeningRef.current = false;
-        setIsListening(false);
-        onListeningChange?.(false);
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Ignore
+        }
       }
     }
   };
 
-  const handleToggle = () => {
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (isListening) {
       stopListening();
     } else {
@@ -330,30 +318,6 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     }
   };
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const previousScrollTopRef = useRef<number>(0);
-
-  // Preserve scroll position when value changes (prevents auto-scroll to top)
-  useEffect(() => {
-    if (textareaRef.current) {
-      // Save scroll position before update
-      previousScrollTopRef.current = textareaRef.current.scrollTop;
-    }
-  }, [value]);
-
-  // Restore scroll position after render
-  useEffect(() => {
-    if (textareaRef.current && previousScrollTopRef.current > 0) {
-      // Restore scroll position after React updates
-      requestAnimationFrame(() => {
-        if (textareaRef.current) {
-          textareaRef.current.scrollTop = previousScrollTopRef.current;
-        }
-      });
-    }
-  }, [value]);
-
-  // Expose methods via ref
   useImperativeHandle(ref, () => ({
     startListening,
     stopListening,
@@ -367,10 +331,8 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
           ref={textareaRef}
           value={value}
           onChange={(e) => {
-            // Prevent default scroll behavior
             const scrollTop = e.target.scrollTop;
             onChange(e.target.value);
-            // Restore scroll position immediately
             requestAnimationFrame(() => {
               if (textareaRef.current) {
                 textareaRef.current.scrollTop = scrollTop;
@@ -378,7 +340,6 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
             });
           }}
           onFocus={(e) => {
-            // Prevent scrolling to textarea on focus
             e.target.scrollIntoView({ behavior: 'auto', block: 'nearest' });
           }}
           placeholder={placeholder}
@@ -391,29 +352,39 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
             variant={isListening ? "destructive" : "ghost"}
             size="icon"
             onClick={handleToggle}
-            disabled={disabled}
+            onTouchStart={(e) => {
+              if (!isListening && !disabled) {
+                e.preventDefault();
+              }
+            }}
+            disabled={disabled || isTranscribing}
             className="absolute bottom-2 right-2 h-10 w-10 sm:h-12 sm:w-12 rounded-full shadow-md hover:shadow-lg transition-all touch-manipulation"
             title={isListening ? "Stop recording" : "Start voice input"}
           >
-            {isListening ? (
+            {isTranscribing ? (
+              <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
+            ) : isListening ? (
               <MicOff className="h-5 w-5 sm:h-6 sm:w-6 animate-pulse" />
             ) : (
               <Mic className="h-5 w-5 sm:h-6 sm:w-6" />
             )}
           </Button>
         )}
-        {!isSupported && !hideMicButton && isMobile.current && (
-          <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
-            Voice not available
-          </div>
-        )}
       </div>
-      {isListening && (
+      {isListening && !isTranscribing && (
         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
           <span className="font-medium">
-            Recording... Speak now. Tap mic again to stop.
+            {isMobile.current 
+              ? "Recording... Tap mic again to stop and transcribe." 
+              : "Recording... Speak now. Tap mic again to stop."}
           </span>
+        </div>
+      )}
+      {isTranscribing && (
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="font-medium">Transcribing audio...</span>
         </div>
       )}
       {errorMessage && (
