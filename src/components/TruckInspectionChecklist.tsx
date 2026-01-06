@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, CheckCircle2, XCircle, Camera, X, Mic } from "lucide-react";
+import { Loader2, CheckCircle2, XCircle, Camera, X, Mic, CheckCircle } from "lucide-react";
 import { truckInspectionService, type DailyInspection, type InspectionItem, type InspectionSection, type InspectionGroup, type InspectionItemStatus } from "@/lib/truckInspectionService";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
@@ -537,6 +537,13 @@ export const TruckInspectionChecklist = ({
     }
   });
 
+  const handleCompleteInspection = () => {
+    toast({
+      title: "Inspection Complete",
+      description: "Truck inspection has been completed successfully.",
+    });
+  };
+
   return (
     <Card className="p-3 sm:p-4 md:p-6">
       <div className="w-full">
@@ -743,6 +750,18 @@ export const TruckInspectionChecklist = ({
           ))}
         </div>
         
+        {/* Complete Inspection Button */}
+        <div className="mt-6 sm:mt-8 pt-4 border-t">
+          <Button
+            type="button"
+            onClick={handleCompleteInspection}
+            size="lg"
+            className="w-full h-12 sm:h-10 text-base sm:text-sm font-semibold shadow-lg active:scale-[0.98] min-h-[48px] sm:min-h-[40px]"
+          >
+            <CheckCircle className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
+            Complete Inspection
+          </Button>
+        </div>
       </div>
     </Card>
   );
