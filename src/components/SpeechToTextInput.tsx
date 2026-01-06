@@ -40,7 +40,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   onListeningChange,
 }, ref) => {
   const [isListening, setIsListening] = useState(false);
-  const [isSupported, setIsSupported] = useState(true); // Always supported now (we use MediaRecorder on mobile)
+  const [isSupported, setIsSupported] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   
@@ -59,13 +59,9 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previousScrollTopRef = useRef<number>(0);
 
-  // TEMPORARY: Use Google Cloud Speech-to-Text for desktop too (for troubleshooting)
-  // Set to false to re-enable Web Speech API on desktop
-  const USE_GOOGLE_CLOUD_FOR_DESKTOP = true;
-
   // Check if Web Speech API is available (for desktop)
-  // Temporarily disabled when USE_GOOGLE_CLOUD_FOR_DESKTOP is true
-  const webSpeechSupported = !USE_GOOGLE_CLOUD_FOR_DESKTOP && !isMobile.current && 
+  // Desktop uses Web Speech API, mobile uses Google Cloud Speech-to-Text
+  const webSpeechSupported = !isMobile.current && 
     (typeof (window as any).SpeechRecognition !== 'undefined' || 
      typeof (window as any).webkitSpeechRecognition !== 'undefined');
 
@@ -85,6 +81,28 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       });
     }
   }, [value]);
+
+  // Check Web Speech API support and initialize for desktop
+  useEffect(() => {
+    if (isMobile.current) {
+      // Mobile always uses MediaRecorder, so it's always "supported"
+      setIsSupported(true);
+      return;
+    }
+
+    // Desktop: Check for Web Speech API support
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      setIsSupported(true);
+    } else {
+      setIsSupported(false);
+      setErrorMessage("Web Speech API is not supported in this browser. Voice input will not be available.");
+      return;
+    }
+  }, []);
 
   // Setup Web Speech API for desktop
   useEffect(() => {
@@ -208,8 +226,8 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     accumulatedFinalRef.current = "";
     setErrorMessage(null);
 
-    // Use MediaRecorder approach for both mobile and desktop (when USE_GOOGLE_CLOUD_FOR_DESKTOP is true)
-    if (isMobile.current || USE_GOOGLE_CLOUD_FOR_DESKTOP) {
+    if (isMobile.current) {
+      // Mobile: Use MediaRecorder + Google Cloud Speech-to-Text
       // Mobile: Use MediaRecorder
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -302,7 +320,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         }
       }
     } else {
-      // Desktop: Use Web Speech API (when Web Speech API is enabled)
+      // Desktop: Use Web Speech API
       if (recognitionRef.current) {
         try {
           isListeningRef.current = true;
@@ -314,14 +332,17 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
           onListeningChange?.(false);
           setErrorMessage("Failed to start voice input. Please try again.");
         }
+      } else {
+        setErrorMessage("Web Speech API is not available in this browser.");
+        setIsListening(false);
+        onListeningChange?.(false);
       }
     }
   };
 
   const stopListening = () => {
-    // Use MediaRecorder approach for both mobile and desktop (when USE_GOOGLE_CLOUD_FOR_DESKTOP is true)
-    if (isMobile.current || USE_GOOGLE_CLOUD_FOR_DESKTOP) {
-      // Mobile or Desktop with Google Cloud: Stop MediaRecorder
+    if (isMobile.current) {
+      // Mobile: Stop MediaRecorder (Google Cloud Speech-to-Text)
       if (mediaRecorderRef.current) {
         // Check MediaRecorder state before stopping
         if (mediaRecorderRef.current.state === "recording") {
@@ -349,7 +370,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       setIsListening(false);
       onListeningChange?.(false);
     } else {
-      // Desktop: Stop Web Speech API (when Web Speech API is enabled)
+      // Desktop: Stop Web Speech API
       if (recognitionRef.current) {
         isListeningRef.current = false;
         try {
@@ -431,7 +452,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
           <span className="font-medium">
-            {(isMobile.current || USE_GOOGLE_CLOUD_FOR_DESKTOP)
+            {isMobile.current
               ? "Recording... Tap mic again to stop and transcribe." 
               : "Recording... Speak now. Tap mic again to stop."}
           </span>
