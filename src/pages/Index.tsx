@@ -493,6 +493,7 @@ const Index = () => {
             </div>
           )}
         </div>
+        )}
       </main>
 
       {/* End Shift Warning Dialog */}
