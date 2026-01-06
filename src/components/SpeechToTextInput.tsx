@@ -43,16 +43,14 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const baseValueRef = useRef<string>(""); // Value when recording starts
-  const finalTranscriptRef = useRef<string>(""); // Accumulated final transcripts
+  const accumulatedFinalRef = useRef<string>(""); // Accumulated final transcripts
   const isMobile = useRef(isMobileDevice());
-  const isListeningRef = useRef(false); // Track listening state for onend handler
-  const hasRequestedPermission = useRef(false); // Track if we've requested permission
-  const audioStartTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Timeout to detect if audio never starts
-  const lastProcessedFinalIndexRef = useRef<number>(-1); // Track last processed final result index to prevent duplicates
+  const isListeningRef = useRef(false);
+  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check if Speech Recognition is actually supported and functional
+  // Check if Speech Recognition is supported
   useEffect(() => {
-    // iOS doesn't support Web Speech API at all
+    // iOS doesn't support Web Speech API
     if (isIOS()) {
       setIsSupported(false);
       setErrorMessage("Voice input is not supported on iOS Safari. Please use text input instead.");
@@ -64,7 +62,6 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       (window as any).webkitSpeechRecognition;
 
     if (SpeechRecognition) {
-      // Test if we can actually create an instance
       try {
         const testRecognition = new SpeechRecognition();
         setIsSupported(true);
@@ -83,6 +80,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     }
   }, []);
 
+  // Initialize speech recognition
   useEffect(() => {
     if (!isSupported) return;
 
@@ -90,221 +88,153 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
 
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      
-      // Mobile browsers work better with continuous mode and interim results
-      recognition.continuous = isMobile.current;
-      recognition.interimResults = isMobile.current;
-      recognition.lang = "en-US";
-      recognition.maxAlternatives = 1;
+    if (!SpeechRecognition) return;
 
-      recognition.onresult = (event: any) => {
-        let interimTranscript = "";
-        let newFinalTranscript = "";
+    const recognition = new SpeechRecognition();
+    
+    // Mobile-friendly settings
+    recognition.continuous = true; // Always use continuous mode for better mobile support
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognition.maxAlternatives = 1;
 
-        // Process only NEW results that haven't been processed as final yet
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          const transcript = result[0].transcript;
-          
-          if (result.isFinal) {
-            // Only process final results that we haven't processed before
-            // This prevents duplicates when continuous mode fires multiple times
-            if (i > lastProcessedFinalIndexRef.current) {
-              newFinalTranscript += transcript + " ";
-              lastProcessedFinalIndexRef.current = i;
-            }
-          } else {
-            // Interim result - show as preview (only the latest interim)
-            if (i === event.results.length - 1) {
-              interimTranscript = transcript;
-            }
-          }
-        }
+    let finalTranscript = "";
+    let interimTranscript = "";
 
-        // Update accumulated final transcript only with new final results
-        if (newFinalTranscript) {
-          finalTranscriptRef.current += newFinalTranscript;
-        }
+    recognition.onresult = (event: any) => {
+      // Reset interim
+      interimTranscript = "";
 
-        // Combine: base value + accumulated final transcripts + latest interim preview
-        const combinedValue = baseValueRef.current + 
-          (baseValueRef.current && finalTranscriptRef.current ? " " : "") + 
-          finalTranscriptRef.current + 
-          (interimTranscript ? " " + interimTranscript : "");
-        
-        onChange(combinedValue.trim());
-      };
+      // Process results starting from resultIndex
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result[0].transcript;
 
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error:", event.error);
-        setErrorMessage(null);
-        
-        // Handle different error types
-        switch (event.error) {
-          case "no-speech":
-            // No speech detected - this is normal, just stop
-            isListeningRef.current = false;
-            setIsListening(false);
-            onListeningChange?.(false);
-            break;
-          case "audio-capture":
-            setErrorMessage("No microphone found. Please check your device settings.");
-            isListeningRef.current = false;
-            setIsListening(false);
-            onListeningChange?.(false);
-            break;
-          case "not-allowed":
-            setErrorMessage("Microphone permission denied. Please allow microphone access in your browser settings.");
-            isListeningRef.current = false;
-            setIsListening(false);
-            onListeningChange?.(false);
-            break;
-          case "aborted":
-            // User or system aborted - this is normal, just stop
-            isListeningRef.current = false;
-            setIsListening(false);
-            onListeningChange?.(false);
-            break;
-          case "network":
-            setErrorMessage("Network error. Please check your connection.");
-            isListeningRef.current = false;
-            setIsListening(false);
-            onListeningChange?.(false);
-            break;
-          case "service-not-allowed":
-            setErrorMessage("Speech recognition service not allowed. Please check your browser settings.");
-            isListeningRef.current = false;
-            setIsListening(false);
-            onListeningChange?.(false);
-            break;
-          default:
-            // For other errors, try to continue if possible
-        if (event.error !== "no-speech" && event.error !== "aborted") {
-          isListeningRef.current = false;
-          setIsListening(false);
-          onListeningChange?.(false);
-        }
-        }
-        
-        if (recognitionRef.current) {
-          try {
-            recognitionRef.current.stop();
-          } catch (e) {
-            // Ignore stop errors
-          }
-        }
-      };
-
-      recognition.onend = () => {
-        // Clear any pending timeout
-        if (audioStartTimeoutRef.current) {
-          clearTimeout(audioStartTimeoutRef.current);
-          audioStartTimeoutRef.current = null;
-        }
-
-        // On mobile, if we're still supposed to be listening, restart
-        if (isMobile.current && isListeningRef.current) {
-          try {
-            // Small delay before restarting to avoid immediate restart issues
-            setTimeout(() => {
-              if (recognitionRef.current && isListeningRef.current) {
-                try {
-                  recognitionRef.current.start();
-                } catch (e) {
-                  // If restart fails, stop listening
-                  isListeningRef.current = false;
-                  setIsListening(false);
-                  onListeningChange?.(false);
-                }
-              }
-            }, 100);
-          } catch (e) {
-            isListeningRef.current = false;
-            setIsListening(false);
-            onListeningChange?.(false);
-          }
+        if (result.isFinal) {
+          // Add to final transcript
+          finalTranscript += transcript + " ";
         } else {
+          // Interim result
+          interimTranscript += transcript;
+        }
+      }
+
+      // Update accumulated final transcript
+      accumulatedFinalRef.current = finalTranscript;
+
+      // Combine: base + accumulated final + interim
+      const combinedValue = baseValueRef.current + 
+        (baseValueRef.current && accumulatedFinalRef.current ? " " : "") + 
+        accumulatedFinalRef.current + 
+        (interimTranscript ? " " + interimTranscript : "");
+      
+      onChange(combinedValue.trim());
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      
+      switch (event.error) {
+        case "no-speech":
+          // Normal - just stop
+          if (isListeningRef.current) {
+            isListeningRef.current = false;
+            setIsListening(false);
+            onListeningChange?.(false);
+          }
+          break;
+        case "audio-capture":
+          setErrorMessage("No microphone found. Please check your device settings.");
           isListeningRef.current = false;
           setIsListening(false);
           onListeningChange?.(false);
-        }
-      };
+          break;
+        case "not-allowed":
+          setErrorMessage("Microphone permission denied. Please allow microphone access in your browser settings.");
+          isListeningRef.current = false;
+          setIsListening(false);
+          onListeningChange?.(false);
+          break;
+        case "aborted":
+          // Normal - user stopped or system aborted
+          isListeningRef.current = false;
+          setIsListening(false);
+          onListeningChange?.(false);
+          break;
+        case "network":
+          setErrorMessage("Network error. Please check your connection.");
+          isListeningRef.current = false;
+          setIsListening(false);
+          onListeningChange?.(false);
+          break;
+        default:
+          if (event.error !== "no-speech" && event.error !== "aborted") {
+            isListeningRef.current = false;
+            setIsListening(false);
+            onListeningChange?.(false);
+          }
+      }
+    };
 
-      recognition.onstart = () => {
-        isListeningRef.current = true;
-        setIsListening(true);
-        onListeningChange?.(true);
-        setErrorMessage(null);
-        // Reset the last processed index when starting a new session
-        lastProcessedFinalIndexRef.current = -1;
-        console.log("Speech recognition started successfully");
+    recognition.onend = () => {
+      // On mobile, auto-restart if we're still supposed to be listening
+      if (isMobile.current && isListeningRef.current) {
+        // Clear any existing timeout
+        if (restartTimeoutRef.current) {
+          clearTimeout(restartTimeoutRef.current);
+        }
         
-        // On mobile, set a timeout to detect if audio never starts
-        if (isMobile.current && audioStartTimeoutRef.current === null) {
-          audioStartTimeoutRef.current = setTimeout(() => {
-            if (isListeningRef.current) {
-              console.warn("Audio capture may not have started - checking microphone access");
-              // Don't show error yet, wait a bit more
+        // Restart after a short delay
+        restartTimeoutRef.current = setTimeout(() => {
+          if (isListeningRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              // If restart fails, stop
+              isListeningRef.current = false;
+              setIsListening(false);
+              onListeningChange?.(false);
             }
-          }, 2000);
-        }
-      };
+          }
+        }, 100);
+      } else {
+        isListeningRef.current = false;
+        setIsListening(false);
+        onListeningChange?.(false);
+      }
+    };
 
-      recognition.onaudiostart = () => {
-        console.log("Audio capture started");
-        // Clear timeout if audio started
-        if (audioStartTimeoutRef.current) {
-          clearTimeout(audioStartTimeoutRef.current);
-          audioStartTimeoutRef.current = null;
-        }
-      };
+    recognition.onstart = () => {
+      isListeningRef.current = true;
+      setIsListening(true);
+      onListeningChange?.(true);
+      setErrorMessage(null);
+    };
 
-      recognition.onaudioend = () => {
-        console.log("Audio capture ended");
-      };
-
-      recognition.onsoundstart = () => {
-        console.log("Sound detected");
-      };
-
-      recognition.onsoundend = () => {
-        console.log("Sound ended");
-      };
-
-      recognition.onspeechstart = () => {
-        console.log("Speech detected");
-      };
-
-      recognition.onspeechend = () => {
-        console.log("Speech ended");
-      };
-
-      recognitionRef.current = recognition;
-    }
+    recognitionRef.current = recognition;
 
     return () => {
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
         } catch (e) {
-          // Ignore errors when stopping
+          // Ignore
         }
       }
     };
-    }, [onChange, onListeningChange]);
+  }, [isSupported, onChange, onListeningChange]);
 
-  // Request microphone permission explicitly (required for mobile)
+  // Request microphone permission (required for mobile)
   const requestMicrophonePermission = async (): Promise<boolean> => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return false;
     }
 
     try {
-      // Request microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Stop the stream immediately - we just needed permission
       stream.getTracks().forEach(track => track.stop());
       return true;
     } catch (error: any) {
@@ -323,23 +253,18 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   const startListening = async () => {
     if (!recognitionRef.current || disabled || isListeningRef.current) return;
 
-    // On mobile, request microphone permission first
-    if (isMobile.current && !hasRequestedPermission.current) {
-      setErrorMessage(null);
+    // Request permission on mobile first
+    if (isMobile.current) {
       const hasPermission = await requestMicrophonePermission();
-      hasRequestedPermission.current = true;
-      
       if (!hasPermission) {
         return;
       }
     }
 
     try {
-      // Reset accumulated transcripts and processed indices
-      finalTranscriptRef.current = "";
-      lastProcessedFinalIndexRef.current = -1;
-      // Capture current value as base for this recording
+      // Reset state
       baseValueRef.current = value;
+      accumulatedFinalRef.current = "";
       setErrorMessage(null);
       isListeningRef.current = true;
       recognitionRef.current.start();
@@ -347,14 +272,13 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       console.error("Error starting speech recognition:", error);
       isListeningRef.current = false;
       
-      // If already started, stop first then restart
       if (error.message?.includes("already started") || error.name === "InvalidStateError") {
+        // Already started - stop and restart
         try {
           recognitionRef.current.stop();
           setTimeout(() => {
-            finalTranscriptRef.current = "";
-            lastProcessedFinalIndexRef.current = -1;
             baseValueRef.current = value;
+            accumulatedFinalRef.current = "";
             setErrorMessage(null);
             isListeningRef.current = true;
             recognitionRef.current.start();
@@ -378,10 +302,9 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   };
 
   const stopListening = () => {
-    // Clear any pending timeout
-    if (audioStartTimeoutRef.current) {
-      clearTimeout(audioStartTimeoutRef.current);
-      audioStartTimeoutRef.current = null;
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
     }
 
     if (recognitionRef.current && isListeningRef.current) {
@@ -390,8 +313,8 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         recognitionRef.current.stop();
         setIsListening(false);
         onListeningChange?.(false);
+        accumulatedFinalRef.current = "";
       } catch (e) {
-        // Ignore errors
         isListeningRef.current = false;
         setIsListening(false);
         onListeningChange?.(false);
@@ -407,6 +330,29 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     }
   };
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previousScrollTopRef = useRef<number>(0);
+
+  // Preserve scroll position when value changes (prevents auto-scroll to top)
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Save scroll position before update
+      previousScrollTopRef.current = textareaRef.current.scrollTop;
+    }
+  }, [value]);
+
+  // Restore scroll position after render
+  useEffect(() => {
+    if (textareaRef.current && previousScrollTopRef.current > 0) {
+      // Restore scroll position after React updates
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          textareaRef.current.scrollTop = previousScrollTopRef.current;
+        }
+      });
+    }
+  }, [value]);
+
   // Expose methods via ref
   useImperativeHandle(ref, () => ({
     startListening,
@@ -418,8 +364,23 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     <div className="space-y-2">
       <div className="relative">
         <Textarea
+          ref={textareaRef}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            // Prevent default scroll behavior
+            const scrollTop = e.target.scrollTop;
+            onChange(e.target.value);
+            // Restore scroll position immediately
+            requestAnimationFrame(() => {
+              if (textareaRef.current) {
+                textareaRef.current.scrollTop = scrollTop;
+              }
+            });
+          }}
+          onFocus={(e) => {
+            // Prevent scrolling to textarea on focus
+            e.target.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+          }}
           placeholder={placeholder}
           disabled={disabled}
           className="flex-1 min-h-[100px] sm:min-h-[120px] text-sm sm:text-base pr-12 sm:pr-14"
@@ -451,9 +412,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
           <span className="font-medium">
-            {isMobile.current 
-              ? "Recording... Speak now. Tap mic again to stop." 
-              : "Recording... Speak now. Tap mic again to stop."}
+            Recording... Speak now. Tap mic again to stop.
           </span>
         </div>
       )}

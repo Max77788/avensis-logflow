@@ -46,6 +46,7 @@ export const TruckInspectionChecklist = ({
       setCurrentSectionIndex(0);
       setExpandedGroupId(null);
       setExpandedItemId(null);
+      hasAutoExpandedRef.current = {}; // Reset auto-expand tracking when mode changes
     }
     previousModeRef.current = inspectionMode;
   }, [inspectionMode]);
@@ -61,7 +62,9 @@ export const TruckInspectionChecklist = ({
     }
   }, [inspection?.items, inspectionMode]);
 
-  // Load notes and images for items and auto-expand red items
+  const hasAutoExpandedRef = useRef<Record<string, boolean>>({}); // Track which items we've already auto-expanded
+
+  // Load notes and images for items and auto-expand red items (only once per item)
   useEffect(() => {
     if (inspection?.items) {
       const notesMap: Record<string, string> = {};
@@ -77,27 +80,31 @@ export const TruckInspectionChecklist = ({
       setItemNotes(notesMap);
       setItemImages(imagesMap);
       
-      // Auto-expand red items in the current section
-      const currentSection = sections[currentSectionIndex];
-      if (currentSection?.groups) {
-        for (const group of currentSection.groups) {
-          const redItem = group.items.find((item) => item.status?.status === "not_working");
-          if (redItem) {
-            setExpandedGroupId(group.name);
-            setExpandedItemId(redItem.id);
-            // Scroll to the red item after a brief delay
-            setTimeout(() => {
-              const element = document.getElementById(`inspection-item-${redItem.id}`);
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }, 100);
-            break; // Expand the first red item found
+      // Auto-expand red items in the current section (only once, not on every update)
+      const sectionKey = `${currentSectionIndex}-${inspection.id}`;
+      if (!hasAutoExpandedRef.current[sectionKey]) {
+        const currentSection = sections[currentSectionIndex];
+        if (currentSection?.groups) {
+          for (const group of currentSection.groups) {
+            const redItem = group.items.find((item) => item.status?.status === "not_working");
+            if (redItem) {
+              setExpandedGroupId(group.name);
+              setExpandedItemId(redItem.id);
+              // Scroll to the red item only on initial expansion, not on updates
+              setTimeout(() => {
+                const element = document.getElementById(`inspection-item-${redItem.id}`);
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }, 100);
+              hasAutoExpandedRef.current[sectionKey] = true;
+              break; // Expand the first red item found
+            }
           }
         }
       }
     }
-  }, [inspection, sections, currentSectionIndex]);
+  }, [inspection?.id, sections, currentSectionIndex]); // Only depend on inspection.id, not full inspection object
 
   const loadInspection = async () => {
     if (!truckId) return;
@@ -217,13 +224,8 @@ export const TruckInspectionChecklist = ({
           }
           setExpandedItemId(itemId);
           
-          // Scroll to the item after a brief delay to ensure DOM is updated
-          setTimeout(() => {
-            const element = document.getElementById(`inspection-item-${itemId}`);
-            if (element) {
-              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 100);
+          // Don't scroll when toggling - let user control their view
+          // Only auto-scroll on initial expansion (handled in useEffect above)
         }
       } else {
         toast({
@@ -245,6 +247,10 @@ export const TruckInspectionChecklist = ({
   };
 
   const handleNotesChange = async (itemId: string, notes: string) => {
+    // Save current scroll position to prevent auto-scroll
+    const scrollY = window.scrollY;
+    const scrollX = window.scrollX;
+    
     setItemNotes((prev) => ({ ...prev, [itemId]: notes }));
 
     const item = inspection?.items?.find((i) => i.id === itemId);
@@ -273,6 +279,11 @@ export const TruckInspectionChecklist = ({
           return i;
         });
         setInspection({ ...inspection, items: updatedItems });
+        
+        // Restore scroll position after state update
+        requestAnimationFrame(() => {
+          window.scrollTo(scrollX, scrollY);
+        });
       }
     }
   };
