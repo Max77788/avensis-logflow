@@ -59,8 +59,13 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previousScrollTopRef = useRef<number>(0);
 
+  // TEMPORARY: Use Google Cloud Speech-to-Text for desktop too (for troubleshooting)
+  // Set to false to re-enable Web Speech API on desktop
+  const USE_GOOGLE_CLOUD_FOR_DESKTOP = true;
+
   // Check if Web Speech API is available (for desktop)
-  const webSpeechSupported = !isMobile.current && 
+  // Temporarily disabled when USE_GOOGLE_CLOUD_FOR_DESKTOP is true
+  const webSpeechSupported = !USE_GOOGLE_CLOUD_FOR_DESKTOP && !isMobile.current && 
     (typeof (window as any).SpeechRecognition !== 'undefined' || 
      typeof (window as any).webkitSpeechRecognition !== 'undefined');
 
@@ -175,6 +180,26 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     };
   }, [webSpeechSupported, onChange, onListeningChange]);
 
+  // Cleanup MediaRecorder on unmount
+  useEffect(() => {
+    return () => {
+      // Stop MediaRecorder if still recording
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.error("Error stopping MediaRecorder on cleanup:", e);
+        }
+      }
+      
+      // Stop all audio tracks
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
+
   // Start listening - different for mobile vs desktop
   const startListening = async () => {
     if (disabled || isListening) return;
@@ -183,7 +208,8 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     accumulatedFinalRef.current = "";
     setErrorMessage(null);
 
-    if (isMobile.current) {
+    // Use MediaRecorder approach for both mobile and desktop (when USE_GOOGLE_CLOUD_FOR_DESKTOP is true)
+    if (isMobile.current || USE_GOOGLE_CLOUD_FOR_DESKTOP) {
       // Mobile: Use MediaRecorder
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -197,11 +223,19 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         streamRef.current = stream;
         audioChunksRef.current = [];
 
-        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-          ? "audio/webm;codecs=opus"
-          : MediaRecorder.isTypeSupported("audio/webm")
-          ? "audio/webm"
-          : "audio/mp4";
+        // Determine best MIME type for recording
+        // Prefer WEBM_OPUS as it's well-supported by Google Speech API
+        let mimeType: string;
+        if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+          mimeType = "audio/webm;codecs=opus";
+        } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+          mimeType = "audio/webm";
+        } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          mimeType = "audio/mp4";
+        } else {
+          // Fallback to default
+          mimeType = "audio/webm";
+        }
 
         const mediaRecorder = new MediaRecorder(stream, { mimeType });
         mediaRecorderRef.current = mediaRecorder;
@@ -268,7 +302,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         }
       }
     } else {
-      // Desktop: Use Web Speech API
+      // Desktop: Use Web Speech API (when Web Speech API is enabled)
       if (recognitionRef.current) {
         try {
           isListeningRef.current = true;
@@ -285,25 +319,47 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   };
 
   const stopListening = () => {
-    if (isMobile.current) {
-      // Mobile: Stop MediaRecorder
-      if (mediaRecorderRef.current && isListening) {
-        mediaRecorderRef.current.stop();
+    // Use MediaRecorder approach for both mobile and desktop (when USE_GOOGLE_CLOUD_FOR_DESKTOP is true)
+    if (isMobile.current || USE_GOOGLE_CLOUD_FOR_DESKTOP) {
+      // Mobile or Desktop with Google Cloud: Stop MediaRecorder
+      if (mediaRecorderRef.current) {
+        // Check MediaRecorder state before stopping
+        if (mediaRecorderRef.current.state === "recording") {
+          try {
+            mediaRecorderRef.current.stop();
+          } catch (e) {
+            console.error("Error stopping MediaRecorder:", e);
+          }
+        } else if (mediaRecorderRef.current.state === "inactive") {
+          // Already stopped, just clean up
+          setIsListening(false);
+          onListeningChange?.(false);
+        }
       }
+      
+      // Stop all audio tracks
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current.getTracks().forEach(track => {
+          track.stop();
+        });
         streamRef.current = null;
       }
+      
+      // Force update listening state
+      setIsListening(false);
+      onListeningChange?.(false);
     } else {
-      // Desktop: Stop Web Speech API
+      // Desktop: Stop Web Speech API (when Web Speech API is enabled)
       if (recognitionRef.current) {
         isListeningRef.current = false;
         try {
           recognitionRef.current.stop();
         } catch (e) {
-          // Ignore
+          console.error("Error stopping Web Speech API:", e);
         }
       }
+      setIsListening(false);
+      onListeningChange?.(false);
     }
   };
 
@@ -375,7 +431,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
           <span className="font-medium">
-            {isMobile.current 
+            {(isMobile.current || USE_GOOGLE_CLOUD_FOR_DESKTOP)
               ? "Recording... Tap mic again to stop and transcribe." 
               : "Recording... Speak now. Tap mic again to stop."}
           </span>

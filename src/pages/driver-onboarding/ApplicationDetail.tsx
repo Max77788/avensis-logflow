@@ -81,10 +81,12 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ApplicationDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [application, setApplication] = useState<ApplicationWithDetails | null>(
     null
   );
@@ -102,6 +104,9 @@ const ApplicationDetail = () => {
   const [isSubmittingVerification, setIsSubmittingVerification] =
     useState(false);
   const [isStartingCall, setIsStartingCall] = useState(false);
+  const [editableCallSummary, setEditableCallSummary] = useState("");
+  const [isEditingCallSummary, setIsEditingCallSummary] = useState(false);
+  const [isSavingCallSummary, setIsSavingCallSummary] = useState(false);
 
   // MVR tab state
   const [mvrEligible, setMvrEligible] = useState(true);
@@ -267,6 +272,11 @@ const ApplicationDetail = () => {
     if (result.success && result.data) {
       setApplication(result.data);
       setNotes(result.data.application.notes || "");
+
+      // Initialize editable call summary if it exists
+      if (result.data.candidate.recruiter_call_summary && !isEditingCallSummary) {
+        setEditableCallSummary(result.data.candidate.recruiter_call_summary);
+      }
 
       // Auto-populate orientation yard from application yard if not already set
       if (result.data.application.yard_id && !orientationYardId) {
@@ -483,7 +493,7 @@ const ApplicationDetail = () => {
     setIsSubmittingVerification(true);
     const result = await driverOnboardingService.submitInitialVerification(id, {
       call_outcome: verificationOutcome,
-      notes: verificationNotes,
+      notes: "", // No longer using notes field
     });
     if (result.success) {
       toast({
@@ -519,7 +529,6 @@ const ApplicationDetail = () => {
         }
       }
 
-      setVerificationNotes("");
       // Move to next tab
       setActiveTab(getNextTab("verification"));
     } else {
@@ -1641,9 +1650,22 @@ const ApplicationDetail = () => {
     );
   }
 
+  // Handle home button click - navigate to appropriate homepage based on user role
+  const handleHomeClick = () => {
+    if (!user) {
+      // If not authenticated, redirect to driver login (as per ProtectedRoute default)
+      navigate("/driver/login");
+      return;
+    }
+
+    // Navigate to driver homepage for all authenticated users
+    // The ProtectedRoute will handle role-based access
+    navigate("/home");
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header showHomeButton onHomeClick={() => navigate("/home")} />
+      <Header showHomeButton onHomeClick={handleHomeClick} />
       <main className="container mx-auto px-4 py-8 flex-1">
         {/* Header */}
         <div className="mb-6">
@@ -2119,8 +2141,11 @@ const ApplicationDetail = () => {
                 )}
               </div>
 
-              {/* AI Recruiter Call Summary */}
-              {application.candidate.recruiter_call_summary && (
+              {/* AI Recruiter Call Summary - Only show after call has been initiated and accepted by driver */}
+              {application.candidate.recruiter_call_summary &&
+                application.candidate.recruiter_call_date &&
+                (application.candidate.recruiter_call_count !== undefined &&
+                  application.candidate.recruiter_call_count > 0) && (
                 <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -2129,36 +2154,120 @@ const ApplicationDetail = () => {
                         AI Recruiter Call Summary
                       </p>
                     </div>
-                    {application.candidate.recruiter_call_interest_status && (
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          application.candidate.recruiter_call_interest_status ===
+                    <div className="flex items-center gap-2">
+                      {application.candidate.recruiter_call_interest_status && (
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            application.candidate.recruiter_call_interest_status ===
+                            "interested"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+                          }`}
+                        >
+                          {application.candidate.recruiter_call_interest_status ===
                           "interested"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                        }`}
-                      >
-                        {application.candidate.recruiter_call_interest_status ===
-                        "interested"
-                          ? "Interested"
-                          : "Not Interested"}
-                      </span>
-                    )}
-                  </div>
-                  {application.candidate.recruiter_call_date && (
-                    <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
-                      Call Date:{" "}
-                      {format(
-                        new Date(application.candidate.recruiter_call_date),
-                        "PPP 'at' p"
+                            ? "Interested"
+                            : "Not Interested"}
+                        </span>
                       )}
-                    </p>
-                  )}
-                  <div className="bg-white dark:bg-gray-800 p-3 rounded border border-blue-200 dark:border-blue-700">
-                    <pre className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans">
-                      {application.candidate.recruiter_call_summary}
-                    </pre>
+                      {!isEditingCallSummary && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditableCallSummary(
+                              application.candidate.recruiter_call_summary || ""
+                            );
+                            setIsEditingCallSummary(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </Button>
+                      )}
+                    </div>
                   </div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                    Call Date:{" "}
+                    {format(
+                      new Date(application.candidate.recruiter_call_date),
+                      "PPP 'at' p"
+                    )}
+                  </p>
+                  {isEditingCallSummary ? (
+                    <div className="space-y-3">
+                      <Textarea
+                        value={editableCallSummary}
+                        onChange={(e) => setEditableCallSummary(e.target.value)}
+                        className="bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 min-h-[150px] font-sans"
+                        placeholder="Enter call summary..."
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            setIsSavingCallSummary(true);
+                            try {
+                              const { error } = await supabase
+                                .from("driver_candidates")
+                                .update({
+                                  recruiter_call_summary: editableCallSummary,
+                                })
+                                .eq("id", application.candidate.id);
+
+                              if (error) throw error;
+
+                              toast({
+                                title: "Success",
+                                description: "Call summary updated successfully",
+                              });
+
+                              setIsEditingCallSummary(false);
+                              await loadApplication();
+                            } catch (error: any) {
+                              console.error("Error updating call summary:", error);
+                              toast({
+                                title: "Error",
+                                description:
+                                  error.message || "Failed to update call summary",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setIsSavingCallSummary(false);
+                            }
+                          }}
+                          disabled={isSavingCallSummary}
+                        >
+                          {isSavingCallSummary ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="h-4 w-4 mr-2" />
+                          )}
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setIsEditingCallSummary(false);
+                            setEditableCallSummary(
+                              application.candidate.recruiter_call_summary || ""
+                            );
+                          }}
+                          disabled={isSavingCallSummary}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-gray-800 p-3 rounded border border-blue-200 dark:border-blue-700">
+                      <pre className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans">
+                        {application.candidate.recruiter_call_summary}
+                      </pre>
+                    </div>
+                  )}
                   {application.candidate.recruiter_call_recording_url && (
                     <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
                       <a
@@ -2276,22 +2385,9 @@ const ApplicationDetail = () => {
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="verification-notes">Call Notes</Label>
-                  <Textarea
-                    id="verification-notes"
-                    value={verificationNotes}
-                    onChange={(e) => setVerificationNotes(e.target.value)}
-                    placeholder="Enter notes from the verification call..."
-                    className="mt-1 min-h-[120px]"
-                  />
-                </div>
-
                 <Button
                   onClick={handleSubmitVerification}
-                  disabled={
-                    isSubmittingVerification || !verificationNotes.trim()
-                  }
+                  disabled={isSubmittingVerification}
                   className="w-full h-12 text-base"
                 >
                   {isSubmittingVerification ? (
