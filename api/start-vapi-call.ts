@@ -53,6 +53,9 @@ export default async function handler(
       });
     }
 
+    // Extract first name from candidate name
+    const firstName = candidateName ? candidateName.split(' ')[0] : '';
+
     // If candidateId is provided, increment call count
     let callCount = null;
     if (candidateId) {
@@ -114,6 +117,11 @@ export default async function handler(
         customer: {
           number: formattedPhone,
           ...(candidateName && { name: candidateName })
+        },
+        assistantOverrides: {
+          variableValues: {
+            ...(firstName && { first_name: firstName })
+          }
         }
       }),
     });

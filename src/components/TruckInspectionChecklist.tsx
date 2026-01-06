@@ -538,51 +538,50 @@ export const TruckInspectionChecklist = ({
 
   return (
     <div className="fixed inset-0 bg-background z-50 overflow-y-auto">
-      <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6 max-w-4xl">
-        <div className="mb-4 sm:mb-6">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h3 className="text-base sm:text-lg font-semibold">Truck Inspection</h3>
+      <div className="w-full px-3 py-3 sm:container sm:mx-auto sm:px-4 sm:py-6 sm:max-w-4xl">
+        {/* Header Section - Sticky on mobile */}
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm pb-2 pt-2 sm:pb-4 sm:pt-0 sm:static sm:bg-transparent sm:backdrop-blur-none">
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <h3 className="text-lg sm:text-xl font-bold">Truck Inspection</h3>
           </div>
 
-        {/* Mode Toggle */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 pt-2 pb-2 border-t border-b gap-2 sm:gap-0">
-          <Label className="text-xs sm:text-sm font-medium">Inspection Mode:</Label>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant={inspectionMode === 'critical-issue-first' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setInspectionMode('critical-issue-first')}
-              className="h-10 sm:h-8 px-4 sm:px-3 text-sm flex-1 sm:flex-initial min-h-[44px] sm:min-h-0"
-            >
-              Risk-First
-            </Button>
-            <Button
-              type="button"
-              variant={inspectionMode === 'location-based' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setInspectionMode('location-based')}
-              className="h-10 sm:h-8 px-4 sm:px-3 text-sm flex-1 sm:flex-initial min-h-[44px] sm:min-h-0"
-            >
-              Location-Based Walkaround
-            </Button>
-          </div>
-        </div>
-
-        </div>
-      </div>
-
-      {/* All Groups from All Sections */}
-      <div className="space-y-4 sm:space-y-6 mb-4 sm:mb-6">
-        {sections.map((section) => (
-          <div key={section.name} className="space-y-3 sm:space-y-4">
-            {/* Section Header */}
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-lg sm:text-xl font-bold">{section.name}</h4>
+          {/* Mode Toggle */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-0 pt-2 pb-2 border-t border-b sm:mb-4">
+            <Label className="text-sm font-medium text-muted-foreground sm:text-xs">Inspection Mode:</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={inspectionMode === 'critical-issue-first' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setInspectionMode('critical-issue-first')}
+                className="h-11 sm:h-8 px-4 sm:px-3 text-sm flex-1 sm:flex-initial min-h-[48px] sm:min-h-0 font-medium"
+              >
+                Risk-First
+              </Button>
+              <Button
+                type="button"
+                variant={inspectionMode === 'location-based' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setInspectionMode('location-based')}
+                className="h-11 sm:h-8 px-4 sm:px-3 text-sm flex-1 sm:flex-initial min-h-[48px] sm:min-h-0 font-medium"
+              >
+                Location-Based
+              </Button>
             </div>
+          </div>
+        </div>
+
+        {/* All Groups from All Sections */}
+        <div className="space-y-4 sm:space-y-6 mb-6 sm:mb-8">
+          {sections.map((section) => (
+            <div key={section.name} className="space-y-3 sm:space-y-4">
+              {/* Section Header */}
+              <div className="flex items-center justify-between mb-3 sm:mb-2 pt-1">
+                <h4 className="text-base sm:text-xl font-bold text-foreground">{section.name}</h4>
+              </div>
             
-            {/* Groups in this section */}
-            {(section.groups || []).map((group) => {
+              {/* Groups in this section */}
+              {(section.groups || []).map((group) => {
           const groupStatus = getGroupStatus(group);
           const isGroupRed = groupStatus === "not_working";
           const isGroupExpanded = expandedGroupId === group.name;
@@ -592,37 +591,37 @@ export const TruckInspectionChecklist = ({
           const hasItems = group.items.length > 0;
 
               return (
-                <div key={`${section.name}-${group.name}`} className="space-y-2">
+                <div key={`${section.name}-${group.name}`} className="space-y-2.5 sm:space-y-2">
               {/* Group Tile */}
               <button
                 onClick={() => hasItems && handleGroupToggle(group)}
                 disabled={isUpdating || !hasItems}
-                className={`w-full p-4 sm:p-5 rounded-lg border-2 transition-all duration-200 min-h-[56px] sm:min-h-[64px] ${
+                className={`w-full p-4 sm:p-5 rounded-xl border-2 transition-all duration-200 min-h-[64px] sm:min-h-[64px] shadow-sm active:scale-[0.98] ${
                   isGroupRed
-                    ? "bg-red-600 hover:bg-red-700 active:bg-red-800 border-red-700 text-white shadow-md"
-                    : "bg-green-600 hover:bg-green-700 active:bg-green-800 border-green-700 text-white"
-                } ${isUpdating || !hasItems ? "opacity-50 cursor-not-allowed" : "cursor-pointer touch-manipulation"}`}
+                    ? "bg-red-600 hover:bg-red-700 active:bg-red-800 border-red-700 text-white shadow-red-500/20"
+                    : "bg-green-600 hover:bg-green-700 active:bg-green-800 border-green-700 text-white shadow-green-500/20"
+                } ${isUpdating || !hasItems ? "opacity-50 cursor-not-allowed active:scale-100" : "cursor-pointer touch-manipulation"}`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 sm:gap-3 flex-1 min-w-0">
                     {hasItems ? (
                       isGroupRed ? (
-                        <XCircle className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
+                        <XCircle className="h-7 w-7 sm:h-6 sm:w-6 flex-shrink-0" />
                       ) : (
-                        <CheckCircle2 className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
+                        <CheckCircle2 className="h-7 w-7 sm:h-6 sm:w-6 flex-shrink-0" />
                       )
                     ) : (
-                      <div className="h-6 w-6 sm:h-5 sm:w-5 rounded-full border-2 border-white/50 flex-shrink-0" />
+                      <div className="h-7 w-7 sm:h-5 sm:w-5 rounded-full border-2 border-white/50 flex-shrink-0" />
                     )}
-                    <span className="font-semibold text-base sm:text-lg">{group.name}</span>
+                    <span className="font-bold text-lg sm:text-lg truncate">{group.name}</span>
                   </div>
                   {isGroupRed && hasItems && (
-                    <span className="text-sm sm:text-base opacity-90">
+                    <span className="text-sm sm:text-base font-semibold opacity-95 flex-shrink-0">
                       {redItemsCount} issue{redItemsCount !== 1 ? 's' : ''}
                     </span>
                   )}
                   {!hasItems && (
-                    <span className="text-xs sm:text-sm opacity-75 italic">
+                    <span className="text-xs sm:text-sm opacity-75 italic flex-shrink-0">
                       No items
                     </span>
                   )}
@@ -631,9 +630,9 @@ export const TruckInspectionChecklist = ({
 
               {/* Expanded Sub-elements - Auto-expand if group has red items */}
               {(isGroupExpanded || (isGroupRed && hasItems)) && (
-                <div className="ml-2 sm:ml-4 space-y-2 sm:space-y-3 pt-2 border-l-2 border-muted pl-3 sm:pl-4">
+                <div className="ml-3 sm:ml-4 space-y-2.5 sm:space-y-3 pt-2 border-l-3 sm:border-l-2 border-muted/50 pl-4 sm:pl-4">
                   {!hasItems && (
-                    <p className="text-xs sm:text-sm text-muted-foreground italic p-2">
+                    <p className="text-sm sm:text-sm text-muted-foreground italic p-3">
                       No items configured for this group
                     </p>
                   )}
@@ -644,33 +643,33 @@ export const TruckInspectionChecklist = ({
                     const isItemExpanded = isItemRed || expandedItemId === item.id;
 
                     return (
-                      <div key={item.id} id={`inspection-item-${item.id}`} className="space-y-2">
+                      <div key={item.id} id={`inspection-item-${item.id}`} className="space-y-2.5 sm:space-y-2">
                         {/* Sub-element Tile */}
                         <button
                           onClick={() => handleItemToggle(item.id, false)}
                           disabled={isUpdating}
-                          className={`w-full p-3 sm:p-4 rounded-lg border-2 transition-all duration-200 min-h-[48px] sm:min-h-[52px] ${
+                          className={`w-full p-4 sm:p-4 rounded-xl border-2 transition-all duration-200 min-h-[56px] sm:min-h-[52px] shadow-sm active:scale-[0.98] ${
                             isItemRed
-                              ? "bg-red-500 hover:bg-red-600 active:bg-red-700 border-red-600 text-white"
-                              : "bg-green-500 hover:bg-green-600 active:bg-green-700 border-green-600 text-white"
-                          } ${isUpdating ? "opacity-50 cursor-not-allowed" : "cursor-pointer touch-manipulation"}`}
+                              ? "bg-red-500 hover:bg-red-600 active:bg-red-700 border-red-600 text-white shadow-red-500/20"
+                              : "bg-green-500 hover:bg-green-600 active:bg-green-700 border-green-600 text-white shadow-green-500/20"
+                          } ${isUpdating ? "opacity-50 cursor-not-allowed active:scale-100" : "cursor-pointer touch-manipulation"}`}
                         >
-                          <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="flex items-center gap-3 sm:gap-3">
                             {isItemRed ? (
-                              <XCircle className="h-5 w-5 sm:h-4 sm:w-4 flex-shrink-0" />
+                              <XCircle className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
                             ) : (
-                              <CheckCircle2 className="h-5 w-5 sm:h-4 sm:w-4 flex-shrink-0" />
+                              <CheckCircle2 className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
                             )}
-                            <span className="font-medium text-sm sm:text-base">{item.item_name}</span>
+                            <span className="font-semibold text-base sm:text-base text-left flex-1">{item.item_name}</span>
                           </div>
                         </button>
 
                         {/* Expanded Panel for Red Sub-elements - Always visible when red */}
                         {isItemRed && (
-                          <div className="p-3 sm:p-4 border-2 border-red-300 rounded-lg bg-red-50 dark:bg-red-950/20 space-y-3 sm:space-y-4 animate-in slide-in-from-top-2 duration-200">
+                          <div className="p-4 sm:p-4 border-2 border-red-300 dark:border-red-700 rounded-xl bg-red-50 dark:bg-red-950/30 space-y-4 sm:space-y-4 animate-in slide-in-from-top-2 duration-200 shadow-sm">
                             {/* Notes */}
-                            <div className="space-y-2">
-                              <Label className="text-sm sm:text-base">Notes</Label>
+                            <div className="space-y-2.5 sm:space-y-2">
+                              <Label className="text-base sm:text-base font-semibold text-foreground">Notes</Label>
                               <SpeechToTextInput
                                 ref={(ref) => {
                                   if (ref) speechInputRefs.current[item.id] = ref;
@@ -691,7 +690,7 @@ export const TruckInspectionChecklist = ({
                               variant="outline"
                               onClick={() => handleCameraCapture(item.id)}
                               disabled={isUploadingImage[item.id]}
-                              className="w-full h-12 sm:h-10 text-base sm:text-sm min-h-[48px] sm:min-h-[40px]"
+                              className="w-full h-12 sm:h-10 text-base sm:text-sm min-h-[48px] sm:min-h-[40px] font-medium shadow-sm active:scale-[0.98]"
                             >
                               {isUploadingImage[item.id] ? (
                                 <>
@@ -708,22 +707,22 @@ export const TruckInspectionChecklist = ({
 
                             {/* Images */}
                             {itemImages[item.id] && itemImages[item.id].length > 0 && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3">
                                 {itemImages[item.id].map((url, index) => (
                                   <div key={index} className="relative group">
                                     <img
                                       src={url}
                                       alt={`Issue ${index + 1}`}
-                                      className="w-full h-40 sm:h-32 object-cover rounded border"
+                                      className="w-full h-48 sm:h-32 object-cover rounded-lg border-2 border-red-200 dark:border-red-800 shadow-sm"
                                     />
                                     <Button
                                       type="button"
                                       variant="destructive"
                                       size="icon"
-                                      className="absolute top-2 right-2 h-8 w-8 sm:h-6 sm:w-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[32px] sm:min-h-[24px]"
+                                      className="absolute top-3 right-3 h-10 w-10 sm:h-8 sm:w-8 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity min-h-[40px] min-w-[40px] sm:min-h-[32px] sm:min-w-[32px] shadow-md active:scale-95"
                                       onClick={() => handleRemoveImage(item.id, index)}
                                     >
-                                      <X className="h-4 w-4" />
+                                      <X className="h-5 w-5 sm:h-4 sm:w-4" />
                                     </Button>
                                   </div>
                                 ))}
@@ -736,11 +735,12 @@ export const TruckInspectionChecklist = ({
                   })}
                 </div>
               )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+            </div>
+            );
+          })}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
