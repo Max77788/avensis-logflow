@@ -232,17 +232,7 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 flex-1 overflow-y-auto">
-        {/* Full-screen inspection when shift is active and truck is selected */}
-        {user?.role === "driver" && 
-         driverProfile?.status === "active" && 
-         driverProfile?.default_truck_id ? (
-          <TruckInspectionChecklist
-            truckId={driverProfile.default_truck_id}
-            driverId={driverProfile.id}
-            isShiftActive={true}
-          />
-        ) : (
-          <div className="mx-auto max-w-2xl space-y-4 md:space-y-6 pb-4">
+        <div className="mx-auto max-w-2xl space-y-4 md:space-y-6 pb-4">
             {/* Action Cards */}
             {user?.role !== "driver" && (
             <div className="grid gap-4 sm:grid-cols-1">
@@ -426,6 +416,15 @@ const Index = () => {
                 </div>
               </div>
 
+              {/* Truck Inspection Checklist - Show when shift is active and truck is selected */}
+              {driverProfile?.status === "active" && driverProfile?.default_truck_id && (
+                <TruckInspectionChecklist
+                  truckId={driverProfile.default_truck_id}
+                  driverId={driverProfile.id}
+                  isShiftActive={true}
+                />
+              )}
+
               {/* Recent Activity */}
               {/* 
               <Card className="mt-4 shadow-md">
@@ -493,7 +492,6 @@ const Index = () => {
             </div>
           )}
         </div>
-        )}
       </main>
 
       {/* End Shift Warning Dialog */}

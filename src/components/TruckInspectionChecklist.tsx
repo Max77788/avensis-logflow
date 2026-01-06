@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Loader2, CheckCircle2, XCircle, Camera, X, Mic } from "lucide-react";
 import { truckInspectionService, type DailyInspection, type InspectionItem, type InspectionSection, type InspectionGroup, type InspectionItemStatus } from "@/lib/truckInspectionService";
@@ -496,33 +497,33 @@ export const TruckInspectionChecklist = ({
 
   if (!isShiftActive) {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
-        <div className="text-center p-6">
+      <Card className="p-4 sm:p-6">
+        <div className="text-center py-6 sm:py-8">
           <p className="text-sm sm:text-base text-muted-foreground">
             Please start your shift to begin the truck inspection
           </p>
         </div>
-      </div>
+      </Card>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
-        <div className="flex items-center justify-center">
+      <Card className="p-4 sm:p-6">
+        <div className="flex items-center justify-center py-6 sm:py-8">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      </div>
+      </Card>
     );
   }
 
   if (!inspection || sections.length === 0) {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
+      <Card className="p-4 sm:p-6">
         <p className="text-sm sm:text-base text-muted-foreground text-center py-4">
           No inspection items found
         </p>
-      </div>
+      </Card>
     );
   }
 
@@ -537,10 +538,10 @@ export const TruckInspectionChecklist = ({
   });
 
   return (
-    <div className="fixed inset-0 bg-background z-50 overflow-y-auto">
-      <div className="w-full px-3 py-3 sm:container sm:mx-auto sm:px-4 sm:py-6 sm:max-w-4xl">
-        {/* Header Section - Sticky on mobile */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm pb-2 pt-2 sm:pb-4 sm:pt-0 sm:static sm:bg-transparent sm:backdrop-blur-none">
+    <Card className="p-3 sm:p-4 md:p-6">
+      <div className="w-full">
+        {/* Header Section */}
+        <div className="mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-2 sm:mb-3">
             <h3 className="text-lg sm:text-xl font-bold">Truck Inspection</h3>
           </div>
@@ -741,8 +742,9 @@ export const TruckInspectionChecklist = ({
             </div>
           ))}
         </div>
+        
       </div>
-    </div>
+    </Card>
   );
 };
 
