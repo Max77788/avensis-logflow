@@ -239,10 +239,63 @@ export const truckInspectionService = {
 
       if (error) throw error;
 
+      // Update truck compliance status if an issue is reported
+      if (status === "not_working") {
+        await this.updateTruckComplianceStatus(inspectionId);
+      }
+
       return { success: true };
     } catch (error: any) {
       console.error("Error updating item status:", error);
       return { success: false, error: error.message || "Failed to update item status" };
+    }
+  },
+
+  /**
+   * Update truck compliance status based on inspection results
+   */
+  async updateTruckComplianceStatus(
+    inspectionId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get the inspection to find the truck_id
+      const { data: inspection, error: inspectionError } = await supabase
+        .from("truck_daily_inspections")
+        .select("truck_id, inspection_date")
+        .eq("id", inspectionId)
+        .single();
+
+      if (inspectionError) throw inspectionError;
+
+      // Count the number of "not_working" items
+      const { count: issuesCount, error: countError } = await supabase
+        .from("truck_inspection_item_status")
+        .select("*", { count: "exact", head: true })
+        .eq("inspection_id", inspectionId)
+        .eq("status", "not_working");
+
+      if (countError) throw countError;
+
+      // Determine compliance status
+      const compliance_status = (issuesCount && issuesCount > 0) ? "restricted" : "active";
+      const last_inspection_status = (issuesCount && issuesCount > 0) ? "issues_reported" : "passed";
+
+      // Update the truck
+      const { error: updateError } = await supabase
+        .from("trucks")
+        .update({
+          compliance_status,
+          last_inspection_date: inspection.inspection_date,
+          last_inspection_status,
+        })
+        .eq("id", inspection.truck_id);
+
+      if (updateError) throw updateError;
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error updating truck compliance:", error);
+      return { success: false, error: error.message || "Failed to update truck compliance" };
     }
   },
 

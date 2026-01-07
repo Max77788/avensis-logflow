@@ -2,27 +2,32 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Loader2, CheckCircle2, XCircle, Camera, X, Mic, CheckCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, CheckCircle2, XCircle, Camera, X, Mic, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { truckInspectionService, type DailyInspection, type InspectionItem, type InspectionSection, type InspectionGroup, type InspectionItemStatus } from "@/lib/truckInspectionService";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { SpeechToTextInput, type SpeechToTextInputRef } from "@/components/SpeechToTextInput";
+import { SignaturePad } from "@/components/SignaturePad";
 
 interface TruckInspectionChecklistProps {
   truckId: string;
   driverId?: string;
   isShiftActive: boolean;
+  onCompleted?: () => void;
 }
 
 export const TruckInspectionChecklist = ({
   truckId,
   driverId,
   isShiftActive,
+  onCompleted,
 }: TruckInspectionChecklistProps) => {
   const [inspection, setInspection] = useState<DailyInspection | null>(null);
   const [sections, setSections] = useState<(InspectionSection & { groups?: InspectionGroup[] })[]>([]);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [collapsedRedItems, setCollapsedRedItems] = useState<Set<string>>(new Set()); // Track collapsed red items
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
@@ -30,12 +35,19 @@ export const TruckInspectionChecklist = ({
   const [isUploadingImage, setIsUploadingImage] = useState<Record<string, boolean>>({});
   const [isListeningToSpeech, setIsListeningToSpeech] = useState<Record<string, boolean>>({});
   const [inspectionMode, setInspectionMode] = useState<'critical-issue-first' | 'location-based'>('location-based');
+  const [signature, setSignature] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   const speechInputRefs = useRef<Record<string, SpeechToTextInputRef>>({});
   const previousModeRef = useRef<'critical-issue-first' | 'location-based' | undefined>(undefined);
 
   useEffect(() => {
     if (isShiftActive && truckId) {
       loadInspection();
+    } else {
+      // Reset completion state when shift ends
+      setIsCompleted(false);
     }
   }, [truckId, driverId, isShiftActive]);
 
@@ -118,6 +130,23 @@ export const TruckInspectionChecklist = ({
 
     if (result.success && result.data) {
       setInspection(result.data);
+      
+      // Check if inspection is already completed
+      const { data: inspectionData } = await supabase
+        .from("truck_daily_inspections")
+        .select("completed_at, driver_signature, driver_agreement")
+        .eq("id", result.data.id)
+        .single();
+
+      if (inspectionData?.completed_at) {
+        setIsCompleted(true);
+        setSignature(inspectionData.driver_signature || null);
+        setAgreed(inspectionData.driver_agreement || false);
+      } else {
+        setIsCompleted(false);
+        setSignature(null);
+        setAgreed(false);
+      }
     } else {
       toast({
         title: "Error",
@@ -507,6 +536,35 @@ export const TruckInspectionChecklist = ({
     );
   }
 
+  // Show completion message when inspection is completed
+  if (isCompleted) {
+    return (
+      <Card className="p-4 sm:p-6">
+        <div className="text-center py-6 sm:py-8 space-y-4">
+          <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+          <div>
+            <h3 className="text-lg sm:text-xl font-bold text-foreground mb-2">
+              Inspection Complete
+            </h3>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Your truck inspection has been completed and submitted successfully.
+            </p>
+            {signature && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-xs text-muted-foreground mb-2">Signed:</p>
+                <img
+                  src={signature}
+                  alt="Driver signature"
+                  className="h-16 w-full max-w-xs mx-auto object-contain border rounded-lg bg-white p-2"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   if (isLoading) {
     return (
       <Card className="p-4 sm:p-6">
@@ -537,10 +595,75 @@ export const TruckInspectionChecklist = ({
     }
   });
 
-  const handleCompleteInspection = () => {
-    toast({
-      title: "Inspection Complete",
-      description: "Truck inspection has been completed successfully.",
+  const handleCompleteInspection = async () => {
+    if (!inspection) return;
+
+    // Validate signature and agreement
+    if (!signature) {
+      toast({
+        title: "Signature Required",
+        description: "Please provide your signature before completing the inspection.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!agreed) {
+      toast({
+        title: "Agreement Required",
+        description: "Please check 'I agree' to confirm the inspection is complete.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCompleting(true);
+
+    try {
+      // Update inspection with completion data
+      const { error } = await supabase
+        .from("truck_daily_inspections")
+        .update({
+          completed_at: new Date().toISOString(),
+          driver_signature: signature,
+          driver_agreement: true,
+        })
+        .eq("id", inspection.id);
+
+      if (error) throw error;
+
+      setIsCompleted(true);
+      
+      toast({
+        title: "Inspection Complete",
+        description: "Truck inspection has been completed successfully.",
+      });
+
+      // Notify parent component
+      if (onCompleted) {
+        onCompleted();
+      }
+    } catch (error: any) {
+      console.error("Error completing inspection:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to complete inspection",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const toggleRedItemCollapse = (itemId: string) => {
+    setCollapsedRedItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
     });
   };
 
@@ -647,33 +770,52 @@ export const TruckInspectionChecklist = ({
                   {group.items.map((item) => {
                     const itemStatus = item.status?.status || "working";
                     const isItemRed = itemStatus === "not_working";
-                    // Auto-expand red items - they should always be visible
-                    const isItemExpanded = isItemRed || expandedItemId === item.id;
 
                     return (
                       <div key={item.id} id={`inspection-item-${item.id}`} className="space-y-2.5 sm:space-y-2">
                         {/* Sub-element Tile */}
-                        <button
-                          onClick={() => handleItemToggle(item.id, false)}
-                          disabled={isUpdating}
-                          className={`w-full p-4 sm:p-4 rounded-xl border-2 transition-all duration-200 min-h-[56px] sm:min-h-[52px] shadow-sm active:scale-[0.98] ${
-                            isItemRed
-                              ? "bg-red-500 hover:bg-red-600 active:bg-red-700 border-red-600 text-white shadow-red-500/20"
-                              : "bg-green-500 hover:bg-green-600 active:bg-green-700 border-green-600 text-white shadow-green-500/20"
-                          } ${isUpdating ? "opacity-50 cursor-not-allowed active:scale-100" : "cursor-pointer touch-manipulation"}`}
-                        >
-                          <div className="flex items-center gap-3 sm:gap-3">
-                            {isItemRed ? (
-                              <XCircle className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
-                            ) : (
-                              <CheckCircle2 className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
-                            )}
-                            <span className="font-semibold text-base sm:text-base text-left flex-1">{item.item_name}</span>
-                          </div>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleItemToggle(item.id, false)}
+                            disabled={isUpdating}
+                            className={`flex-1 p-4 sm:p-4 rounded-xl border-2 transition-all duration-200 min-h-[56px] sm:min-h-[52px] shadow-sm active:scale-[0.98] ${
+                              isItemRed
+                                ? "bg-red-500 hover:bg-red-600 active:bg-red-700 border-red-600 text-white shadow-red-500/20"
+                                : "bg-green-500 hover:bg-green-600 active:bg-green-700 border-green-600 text-white shadow-green-500/20"
+                            } ${isUpdating ? "opacity-50 cursor-not-allowed active:scale-100" : "cursor-pointer touch-manipulation"}`}
+                          >
+                            <div className="flex items-center gap-3 sm:gap-3">
+                              {isItemRed ? (
+                                <XCircle className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
+                              ) : (
+                                <CheckCircle2 className="h-6 w-6 sm:h-5 sm:w-5 flex-shrink-0" />
+                              )}
+                              <span className="font-semibold text-base sm:text-base text-left flex-1">{item.item_name}</span>
+                            </div>
+                          </button>
+                          {/* Collapse/Expand Button for Red Items */}
+                          {isItemRed && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleRedItemCollapse(item.id);
+                              }}
+                              className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0"
+                            >
+                              {collapsedRedItems.has(item.id) ? (
+                                <ChevronDown className="h-5 w-5" />
+                              ) : (
+                                <ChevronUp className="h-5 w-5" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
 
-                        {/* Expanded Panel for Red Sub-elements - Always visible when red */}
-                        {isItemRed && (
+                        {/* Expanded Panel for Red Sub-elements - Collapsible when red */}
+                        {isItemRed && !collapsedRedItems.has(item.id) && (
                           <div className="p-4 sm:p-4 border-2 border-red-300 dark:border-red-700 rounded-xl bg-red-50 dark:bg-red-950/30 space-y-4 sm:space-y-4 animate-in slide-in-from-top-2 duration-200 shadow-sm">
                             {/* Notes */}
                             <div className="space-y-2.5 sm:space-y-2">
@@ -750,16 +892,62 @@ export const TruckInspectionChecklist = ({
           ))}
         </div>
         
-        {/* Complete Inspection Button */}
-        <div className="mt-6 sm:mt-8 pt-4 border-t">
+        {/* Signature and Agreement Section */}
+        <div className="mt-6 sm:mt-8 pt-4 border-t space-y-4">
+          <div className="space-y-4">
+            <div>
+              <Label className="text-base sm:text-base font-semibold mb-3 block">
+                Driver Signature
+              </Label>
+              <SignaturePad
+                onSave={(sig) => setSignature(sig)}
+                label="Sign to confirm inspection completion"
+              />
+              {signature && (
+                <div className="mt-2">
+                  <img
+                    src={signature}
+                    alt="Driver signature"
+                    className="h-20 w-full object-contain border rounded-lg bg-white p-2"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2 p-4 border rounded-lg">
+              <Checkbox
+                id="agreement"
+                checked={agreed}
+                onCheckedChange={(checked) => setAgreed(checked === true)}
+              />
+              <Label
+                htmlFor="agreement"
+                className="text-sm sm:text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                I agree that I have completed the inspection to the best of my knowledge and have reported all issues found.
+              </Label>
+            </div>
+          </div>
+
+          {/* Complete Inspection Button */}
           <Button
             type="button"
             onClick={handleCompleteInspection}
+            disabled={isCompleting || !signature || !agreed}
             size="lg"
             className="w-full h-12 sm:h-10 text-base sm:text-sm font-semibold shadow-lg active:scale-[0.98] min-h-[48px] sm:min-h-[40px]"
           >
-            <CheckCircle className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
-            Complete Inspection
+            {isCompleting ? (
+              <>
+                <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 mr-2 animate-spin" />
+                Completing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-5 w-5 sm:h-4 sm:w-4 mr-2" />
+                Complete Inspection
+              </>
+            )}
           </Button>
         </div>
       </div>

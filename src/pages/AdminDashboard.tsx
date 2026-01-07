@@ -5,10 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, MapPin, Building, Lock, Eye, EyeOff } from "lucide-react";
+import { Building2, MapPin, Building, Lock, Eye, EyeOff, Truck } from "lucide-react";
 import { CompaniesTab } from "@/components/admin/CompaniesTab";
 import { PickupSitesTab } from "@/components/admin/PickupSitesTab";
 import { DestinationSitesTab } from "@/components/admin/DestinationSitesTab";
+import { AdminFleetComplianceTab } from "@/components/admin/AdminFleetComplianceTab";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -148,10 +149,14 @@ const AdminDashboard = () => {
           {/* Main Tabs */}
           <Card className="shadow-md">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="companies" className="gap-2">
                   <Building2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Companies</span>
+                </TabsTrigger>
+                <TabsTrigger value="fleet-compliance" className="gap-2">
+                  <Truck className="h-4 w-4" />
+                  <span className="hidden sm:inline">Fleet Compliance</span>
                 </TabsTrigger>
                 <TabsTrigger value="pickup-sites" className="gap-2">
                   <MapPin className="h-4 w-4" />
@@ -166,6 +171,9 @@ const AdminDashboard = () => {
               <div className="p-6">
                 <TabsContent value="companies" className="mt-0">
                   <CompaniesTab />
+                </TabsContent>
+                <TabsContent value="fleet-compliance" className="mt-0">
+                  <AdminFleetComplianceTab />
                 </TabsContent>
                 <TabsContent value="pickup-sites" className="mt-0">
                   <PickupSitesTab />
