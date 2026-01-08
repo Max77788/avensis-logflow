@@ -28,6 +28,7 @@ export const TruckInspectionChecklist = ({
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [collapsedRedItems, setCollapsedRedItems] = useState<Set<string>>(new Set()); // Track collapsed red items
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set()); // Track collapsed groups
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
@@ -44,10 +45,16 @@ export const TruckInspectionChecklist = ({
 
   useEffect(() => {
     if (isShiftActive && truckId) {
+      // Reset completion state when shift becomes active to require new inspection
+      setIsCompleted(false);
+      setSignature(null);
+      setAgreed(false);
       loadInspection();
     } else {
       // Reset completion state when shift ends
       setIsCompleted(false);
+      setSignature(null);
+      setAgreed(false);
     }
   }, [truckId, driverId, isShiftActive]);
 
@@ -56,6 +63,8 @@ export const TruckInspectionChecklist = ({
     if (previousModeRef.current !== undefined && previousModeRef.current !== inspectionMode) {
       setExpandedGroupId(null);
       setExpandedItemId(null);
+      setCollapsedGroups(new Set()); // Reset collapsed groups when mode changes
+      setCollapsedRedItems(new Set()); // Reset collapsed items when mode changes
       hasAutoExpandedRef.current = {}; // Reset auto-expand tracking when mode changes
     }
     previousModeRef.current = inspectionMode;
@@ -132,17 +141,22 @@ export const TruckInspectionChecklist = ({
       setInspection(result.data);
       
       // Check if inspection is already completed
+      // Note: We check but don't set completed state if shift just started
+      // This allows the inspection to be reset when shift starts
       const { data: inspectionData } = await supabase
         .from("truck_daily_inspections")
         .select("completed_at, driver_signature, driver_agreement")
         .eq("id", result.data.id)
         .single();
 
+      // Only mark as completed if there's a completion timestamp AND we're not forcing a reset
+      // The reset happens when shift starts, so we check completed_at here
       if (inspectionData?.completed_at) {
         setIsCompleted(true);
         setSignature(inspectionData.driver_signature || null);
         setAgreed(inspectionData.driver_agreement || false);
       } else {
+        // Ensure completion state is false if not completed
         setIsCompleted(false);
         setSignature(null);
         setAgreed(false);
@@ -167,8 +181,21 @@ export const TruckInspectionChecklist = ({
 
   // Handle group toggle - when clicking a group tile (just expand/collapse, don't mark items)
   const handleGroupToggle = (group: InspectionGroup) => {
-    // Simply toggle expansion - don't change item status
-    setExpandedGroupId(expandedGroupId === group.name ? null : group.name);
+    const isCurrentlyCollapsed = collapsedGroups.has(group.name);
+    
+    // Toggle collapse state
+    setCollapsedGroups((prev) => {
+      const newSet = new Set(prev);
+      if (isCurrentlyCollapsed) {
+        // Expand: remove from collapsed set
+        newSet.delete(group.name);
+        setExpandedGroupId(group.name);
+      } else {
+        // Collapse: add to collapsed set
+        newSet.add(group.name);
+      }
+      return newSet;
+    });
   };
 
   // Handle item toggle
@@ -715,7 +742,9 @@ export const TruckInspectionChecklist = ({
               {(section.groups || []).map((group) => {
           const groupStatus = getGroupStatus(group);
           const isGroupRed = groupStatus === "not_working";
-          const isGroupExpanded = expandedGroupId === group.name;
+          const isGroupCollapsed = collapsedGroups.has(group.name);
+          // Group is expanded if it's not collapsed AND (it has red items OR it's the expanded group)
+          const isGroupExpanded = !isGroupCollapsed && (isGroupRed || expandedGroupId === group.name);
           const redItemsCount = group.items.filter(
             (item) => item.status?.status === "not_working"
           ).length;
@@ -724,43 +753,68 @@ export const TruckInspectionChecklist = ({
               return (
                 <div key={`${section.name}-${group.name}`} className="space-y-2.5 sm:space-y-2">
               {/* Group Tile */}
-              <button
-                onClick={() => hasItems && handleGroupToggle(group)}
-                disabled={isUpdating || !hasItems}
-                className={`w-full p-4 sm:p-5 rounded-xl border-2 transition-all duration-200 min-h-[64px] sm:min-h-[64px] shadow-sm active:scale-[0.98] ${
-                  isGroupRed
-                    ? "bg-red-600 hover:bg-red-700 active:bg-red-800 border-red-700 text-white shadow-red-500/20"
-                    : "bg-green-600 hover:bg-green-700 active:bg-green-800 border-green-700 text-white shadow-green-500/20"
-                } ${isUpdating || !hasItems ? "opacity-50 cursor-not-allowed active:scale-100" : "cursor-pointer touch-manipulation"}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 sm:gap-3 flex-1 min-w-0">
-                    {hasItems ? (
-                      isGroupRed ? (
-                        <XCircle className="h-7 w-7 sm:h-6 sm:w-6 flex-shrink-0" />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => hasItems && handleGroupToggle(group)}
+                  disabled={isUpdating || !hasItems}
+                  className={`flex-1 p-4 sm:p-5 rounded-xl border-2 transition-all duration-200 min-h-[64px] sm:min-h-[64px] shadow-sm active:scale-[0.98] ${
+                    isGroupRed
+                      ? "bg-red-600 hover:bg-red-700 active:bg-red-800 border-red-700 text-white shadow-red-500/20"
+                      : "bg-green-600 hover:bg-green-700 active:bg-green-800 border-green-700 text-white shadow-green-500/20"
+                  } ${isUpdating || !hasItems ? "opacity-50 cursor-not-allowed active:scale-100" : "cursor-pointer touch-manipulation"}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 sm:gap-3 flex-1 min-w-0">
+                      {hasItems ? (
+                        isGroupRed ? (
+                          <XCircle className="h-7 w-7 sm:h-6 sm:w-6 flex-shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="h-7 w-7 sm:h-6 sm:w-6 flex-shrink-0" />
+                        )
                       ) : (
-                        <CheckCircle2 className="h-7 w-7 sm:h-6 sm:w-6 flex-shrink-0" />
-                      )
-                    ) : (
-                      <div className="h-7 w-7 sm:h-5 sm:w-5 rounded-full border-2 border-white/50 flex-shrink-0" />
+                        <div className="h-7 w-7 sm:h-5 sm:w-5 rounded-full border-2 border-white/50 flex-shrink-0" />
+                      )}
+                      <span className="font-bold text-lg sm:text-lg truncate">{group.name}</span>
+                    </div>
+                    {isGroupRed && hasItems && (
+                      <span className="text-sm sm:text-base font-semibold opacity-95 flex-shrink-0">
+                        {redItemsCount} issue{redItemsCount !== 1 ? 's' : ''}
+                      </span>
                     )}
-                    <span className="font-bold text-lg sm:text-lg truncate">{group.name}</span>
+                    {!hasItems && (
+                      <span className="text-xs sm:text-sm opacity-75 italic flex-shrink-0">
+                        No items
+                      </span>
+                    )}
                   </div>
-                  {isGroupRed && hasItems && (
-                    <span className="text-sm sm:text-base font-semibold opacity-95 flex-shrink-0">
-                      {redItemsCount} issue{redItemsCount !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                  {!hasItems && (
-                    <span className="text-xs sm:text-sm opacity-75 italic flex-shrink-0">
-                      No items
-                    </span>
-                  )}
-                </div>
-              </button>
+                </button>
+                {/* Collapse/Expand Button for Groups */}
+                {hasItems && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleGroupToggle(group);
+                    }}
+                    className={`h-14 w-14 sm:h-12 sm:w-12 flex-shrink-0 ${
+                      isGroupRed
+                        ? "text-white hover:bg-red-700/50"
+                        : "text-white hover:bg-green-700/50"
+                    }`}
+                  >
+                    {isGroupCollapsed ? (
+                      <ChevronDown className="h-5 w-5" />
+                    ) : (
+                      <ChevronUp className="h-5 w-5" />
+                    )}
+                  </Button>
+                )}
+              </div>
 
-              {/* Expanded Sub-elements - Auto-expand if group has red items */}
-              {(isGroupExpanded || (isGroupRed && hasItems)) && (
+              {/* Expanded Sub-elements - Show if group is expanded and not collapsed */}
+              {isGroupExpanded && (
                 <div className="ml-3 sm:ml-4 space-y-2.5 sm:space-y-3 pt-2 border-l-3 sm:border-l-2 border-muted/50 pl-4 sm:pl-4">
                   {!hasItems && (
                     <p className="text-sm sm:text-sm text-muted-foreground italic p-3">

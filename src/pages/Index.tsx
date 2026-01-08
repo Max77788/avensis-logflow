@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ticketService } from "@/lib/ticketService";
 import { carrierService } from "@/lib/carrierService";
+import { supabase } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -164,6 +165,41 @@ const Index = () => {
 
       if (result.success) {
         updateDriverStatus(newStatus);
+        
+        // If starting a shift (changing to active), reset inspection completion
+        if (newStatus === "active" && driverProfile.default_truck_id) {
+          try {
+            const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+            
+            // Get today's inspection
+            const { data: inspection, error: inspectionError } = await supabase
+              .from("truck_daily_inspections")
+              .select("id")
+              .eq("truck_id", driverProfile.default_truck_id)
+              .eq("inspection_date", today)
+              .maybeSingle();
+
+            if (inspectionError && inspectionError.code !== "PGRST116") {
+              console.error("Error fetching inspection:", inspectionError);
+            } else if (inspection) {
+              // Reset completion status for today's inspection
+              const { error: resetError } = await supabase
+                .from("truck_daily_inspections")
+                .update({
+                  completed_at: null,
+                  driver_signature: null,
+                  driver_agreement: false,
+                })
+                .eq("id", inspection.id);
+
+              if (resetError) {
+                console.error("Error resetting inspection:", resetError);
+              }
+            }
+          } catch (error) {
+            console.error("Error resetting inspection on shift start:", error);
+          }
+        }
       } else {
         throw new Error(result.error);
       }
