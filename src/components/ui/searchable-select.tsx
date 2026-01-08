@@ -20,7 +20,7 @@ interface SearchableSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
-  items: Array<{ value: string; label: string }>;
+  items: Array<{ value: string; label: string; disabled?: boolean }>;
   disabled?: boolean;
   className?: string;
 }
@@ -73,11 +73,16 @@ export const SearchableSelect = React.forwardRef<
                   <CommandItem
                     key={item.value}
                     value={item.label}
+                    disabled={item.disabled}
                     onSelect={() => {
+                      if (item.disabled) return;
                       // Use the item's actual value (UUID) for the callback
                       onValueChange(item.value === value ? "" : item.value);
                       setOpen(false);
                     }}
+                    className={cn(
+                      item.disabled && "opacity-50 cursor-not-allowed text-red-500"
+                    )}
                   >
                     <Check
                       className={cn(

@@ -30,6 +30,7 @@ import { useShift } from "@/contexts/ShiftContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { carrierService } from "@/lib/carrierService";
 import { ticketService } from "@/lib/ticketService";
+import { supabase } from "@/lib/supabase";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -171,7 +172,48 @@ const DriverProfile = () => {
         const trucks = await carrierService.getAvailableTrucksByCarrier(
           editFormData.carrier_id
         );
-        setAvailableTrucks(trucks);
+        
+        // Check each truck for restrictions
+        const trucksWithRestrictions = await Promise.all(
+          trucks.map(async (truck) => {
+            // Get latest inspection for this truck
+            const { data: latestInspection } = await supabase
+              .from("truck_daily_inspections")
+              .select("id, inspection_date")
+              .eq("truck_id", truck.id)
+              .order("inspection_date", { ascending: false })
+              .limit(1)
+              .single();
+
+            let hasIssues = false;
+            if (latestInspection) {
+              // Count "not_working" items
+              const { count } = await supabase
+                .from("truck_inspection_item_status")
+                .select("*", { count: "exact", head: true })
+                .eq("inspection_id", latestInspection.id)
+                .eq("status", "not_working");
+
+              hasIssues = (count || 0) > 0;
+            }
+
+            // Check compliance_status
+            const { data: truckData } = await supabase
+              .from("trucks")
+              .select("compliance_status")
+              .eq("id", truck.id)
+              .single();
+
+            const isRestricted = hasIssues || truckData?.compliance_status === "restricted";
+
+            return {
+              ...truck,
+              isRestricted,
+            };
+          })
+        );
+
+        setAvailableTrucks(trucksWithRestrictions);
       } catch (error) {
         console.error("Error fetching available trucks:", error);
         setAvailableTrucks([]);
@@ -720,6 +762,7 @@ const DriverProfile = () => {
                       .map((truck) => ({
                         value: truck.id, // UUID
                         label: truck.truck_id, // display name
+                        disabled: (truck as any).isRestricted || false,
                       }))
                       .sort((a, b) =>
                         a.label.localeCompare(b.label, undefined, {

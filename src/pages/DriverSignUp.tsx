@@ -10,6 +10,7 @@ import { UserPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { carrierService, type Carrier, type Truck } from "@/lib/carrierService";
+import { supabase } from "@/lib/supabase";
 
 const DriverSignUp = () => {
   const navigate = useNavigate();
@@ -43,7 +44,48 @@ const DriverSignUp = () => {
         const data = await carrierService.getAvailableTrucksByCarrier(
           formData.carrier_id
         );
-        setTrucks(data);
+        
+        // Check each truck for restrictions
+        const trucksWithRestrictions = await Promise.all(
+          data.map(async (truck) => {
+            // Get latest inspection for this truck
+            const { data: latestInspection } = await supabase
+              .from("truck_daily_inspections")
+              .select("id, inspection_date")
+              .eq("truck_id", truck.id)
+              .order("inspection_date", { ascending: false })
+              .limit(1)
+              .single();
+
+            let hasIssues = false;
+            if (latestInspection) {
+              // Count "not_working" items
+              const { count } = await supabase
+                .from("truck_inspection_item_status")
+                .select("*", { count: "exact", head: true })
+                .eq("inspection_id", latestInspection.id)
+                .eq("status", "not_working");
+
+              hasIssues = (count || 0) > 0;
+            }
+
+            // Check compliance_status
+            const { data: truckData } = await supabase
+              .from("trucks")
+              .select("compliance_status")
+              .eq("id", truck.id)
+              .single();
+
+            const isRestricted = hasIssues || truckData?.compliance_status === "restricted";
+
+            return {
+              ...truck,
+              isRestricted,
+            };
+          })
+        );
+
+        setTrucks(trucksWithRestrictions);
         // Reset truck selection when carrier changes
         setFormData((prev) => ({ ...prev, default_truck_id: "" }));
       };
@@ -67,10 +109,12 @@ const DriverSignUp = () => {
     );
 
   // Available trucks from database (those without assigned drivers) - sorted alphabetically
+  // Mark restricted trucks as disabled
   const trucksList = trucks
     .map((truck) => ({
       value: truck.id,
       label: truck.truck_id,
+      disabled: (truck as any).isRestricted || false,
     }))
     .sort((a, b) =>
       a.label.localeCompare(b.label, undefined, {

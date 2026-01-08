@@ -63,6 +63,8 @@ export const AdminFleetComplianceTab = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [complianceFilter, setComplianceFilter] = useState<string>("restricted");
+  const [issuesFilter, setIssuesFilter] = useState<string>("all");
   
   const [editForm, setEditForm] = useState({
     compliance_status: "",
@@ -269,6 +271,30 @@ export const AdminFleetComplianceTab = () => {
     }
   };
 
+  // Filter trucks based on compliance status and issues filters
+  const filteredTrucks = trucks.filter((truck) => {
+    // Compliance status filter
+    if (complianceFilter !== "all") {
+      if (complianceFilter === "restricted") {
+        // Show restricted trucks (has issues OR compliance_status is "restricted")
+        const hasIssues = (truck.issues_count || 0) > 0;
+        const isRestricted = truck.compliance_status === "restricted";
+        if (!hasIssues && !isRestricted) return false;
+      } else if (truck.compliance_status !== complianceFilter) {
+        return false;
+      }
+    }
+
+    // Issues filter
+    if (issuesFilter === "with_issues") {
+      if ((truck.issues_count || 0) === 0) return false;
+    } else if (issuesFilter === "no_issues") {
+      if ((truck.issues_count || 0) > 0) return false;
+    }
+
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -277,6 +303,38 @@ export const AdminFleetComplianceTab = () => {
         <p className="text-sm text-muted-foreground">
           Monitor truck inspections and manage compliance status. Trucks with reported issues are automatically flagged for admin review.
         </p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-4 items-end">
+        <div className="space-y-2 flex-1 max-w-xs">
+          <Label htmlFor="compliance-filter">Compliance Status</Label>
+          <Select value={complianceFilter} onValueChange={setComplianceFilter}>
+            <SelectTrigger id="compliance-filter">
+              <SelectValue placeholder="Filter by compliance status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="restricted">Restricted Only</SelectItem>
+              <SelectItem value="active">Active Only</SelectItem>
+              <SelectItem value="inactive">Inactive Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2 flex-1 max-w-xs">
+          <Label htmlFor="issues-filter">Issues</Label>
+          <Select value={issuesFilter} onValueChange={setIssuesFilter}>
+            <SelectTrigger id="issues-filter">
+              <SelectValue placeholder="Filter by issues" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Trucks</SelectItem>
+              <SelectItem value="with_issues">With Issues</SelectItem>
+              <SelectItem value="no_issues">No Issues</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Trucks Table */}
@@ -303,14 +361,14 @@ export const AdminFleetComplianceTab = () => {
                   Loading...
                 </TableCell>
               </TableRow>
-            ) : trucks.length === 0 ? (
+            ) : filteredTrucks.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-8">
-                  No trucks found
+                  No trucks found matching the selected filters
                 </TableCell>
               </TableRow>
             ) : (
-              trucks.map((truck) => (
+              filteredTrucks.map((truck) => (
                 <TableRow key={truck.id}>
                   <TableCell className="font-medium">{truck.truck_id}</TableCell>
                   <TableCell>{truck.carrier_name}</TableCell>
