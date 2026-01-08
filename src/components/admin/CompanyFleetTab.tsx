@@ -9,13 +9,19 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { carrierService, Truck, Driver } from "@/lib/carrierService";
+import { supabase } from "@/lib/supabase";
 
 interface CompanyFleetTabProps {
   companyId: string;
 }
 
+interface TruckWithIssues extends Truck {
+  hasIssues?: boolean;
+  compliance_status?: string;
+}
+
 export const CompanyFleetTab = ({ companyId }: CompanyFleetTabProps) => {
-  const [trucks, setTrucks] = useState<Truck[]>([]);
+  const [trucks, setTrucks] = useState<TruckWithIssues[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -29,7 +35,47 @@ export const CompanyFleetTab = ({ companyId }: CompanyFleetTabProps) => {
       carrierService.getTrucksByCarrier(companyId),
       carrierService.getDriversByCarrier(companyId),
     ]);
-    setTrucks(trucksData);
+
+    // Check for inspection issues for each truck
+    const trucksWithIssues = await Promise.all(
+      trucksData.map(async (truck) => {
+        // Get latest inspection for this truck
+        const { data: latestInspection } = await supabase
+          .from("truck_daily_inspections")
+          .select("id, inspection_date")
+          .eq("truck_id", truck.id)
+          .order("inspection_date", { ascending: false })
+          .limit(1)
+          .single();
+
+        let hasIssues = false;
+        if (latestInspection) {
+          // Count "not_working" items
+          const { count } = await supabase
+            .from("truck_inspection_item_status")
+            .select("*", { count: "exact", head: true })
+            .eq("inspection_id", latestInspection.id)
+            .eq("status", "not_working");
+
+          hasIssues = (count || 0) > 0;
+        }
+
+        // Also check compliance_status from the truck record
+        const { data: truckData } = await supabase
+          .from("trucks")
+          .select("compliance_status")
+          .eq("id", truck.id)
+          .single();
+
+        return {
+          ...truck,
+          hasIssues,
+          compliance_status: truckData?.compliance_status || null,
+        };
+      })
+    );
+
+    setTrucks(trucksWithIssues);
     setDrivers(driversData);
     setIsLoading(false);
   };
@@ -80,12 +126,16 @@ export const CompanyFleetTab = ({ companyId }: CompanyFleetTabProps) => {
                     <TableCell>
                       <Badge
                         className={
-                          truck.status === "active"
+                          truck.hasIssues || truck.compliance_status === "restricted"
+                            ? "bg-red-500"
+                            : truck.status === "active"
                             ? "bg-green-500"
                             : "bg-gray-500"
                         }
                       >
-                        {truck.status}
+                        {truck.hasIssues || truck.compliance_status === "restricted"
+                          ? "restricted"
+                          : truck.status}
                       </Badge>
                     </TableCell>
                     <TableCell>

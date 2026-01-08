@@ -121,7 +121,26 @@ export const AdminFleetComplianceTab = () => {
         })
       );
 
-      setTrucks(trucksWithIssues);
+      // Sort trucks: those with issues first, then by created_at descending
+      const sortedTrucks = trucksWithIssues.sort((a, b) => {
+        const aHasIssues = (a.issues_count || 0) > 0;
+        const bHasIssues = (b.issues_count || 0) > 0;
+        
+        // If one has issues and the other doesn't, prioritize the one with issues
+        if (aHasIssues && !bHasIssues) return -1;
+        if (!aHasIssues && bHasIssues) return 1;
+        
+        // If both have issues or both don't, sort by issues count (descending), then by created_at
+        if (aHasIssues && bHasIssues) {
+          const issuesDiff = (b.issues_count || 0) - (a.issues_count || 0);
+          if (issuesDiff !== 0) return issuesDiff;
+        }
+        
+        // Finally, sort by created_at descending
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+      setTrucks(sortedTrucks);
     } catch (error: any) {
       console.error("Error loading fleet data:", error);
       toast({
