@@ -826,12 +826,14 @@ const DriverProfile = () => {
                     items={trucksForSelect
                       .map((truck) => {
                         const status = (truck as any).displayStatus || "available";
+                        const isRestricted = (truck as any).isRestricted || false;
                         const label = `${truck.truck_id} - ${status}`;
                         
                         return {
                           value: truck.id, // UUID
                           label: label, // display name with status
-                          disabled: (truck as any).isRestricted || false,
+                          disabled: false, // Allow selection of restricted trucks so drivers can see them
+                          isRestricted: isRestricted, // Pass through for styling
                         };
                       })
                       .sort((a, b) =>

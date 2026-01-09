@@ -20,7 +20,7 @@ interface SearchableSelectProps {
   value: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
-  items: Array<{ value: string; label: string; disabled?: boolean }>;
+  items: Array<{ value: string; label: string; disabled?: boolean; isRestricted?: boolean }>;
   disabled?: boolean;
   className?: string;
 }
@@ -81,7 +81,8 @@ export const SearchableSelect = React.forwardRef<
                       setOpen(false);
                     }}
                     className={cn(
-                      item.disabled && "opacity-50 cursor-not-allowed text-red-500"
+                      item.disabled && "opacity-50 cursor-not-allowed text-red-500",
+                      item.isRestricted && !item.disabled && "text-red-500 font-medium"
                     )}
                   >
                     <Check
