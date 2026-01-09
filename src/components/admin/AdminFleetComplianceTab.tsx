@@ -80,53 +80,122 @@ export const AdminFleetComplianceTab = () => {
   const loadFleetData = async () => {
     setIsLoading(true);
     try {
-      // Get all trucks with their carrier info and latest inspection data
+      // Get all trucks with carrier info and latest inspection metadata in parallel
+      // Use stored fields to minimize queries
       const { data: trucksData, error: trucksError } = await supabase
         .from("trucks")
         .select(`
-          *,
+          id,
+          truck_id,
+          carrier_id,
+          status,
+          compliance_status,
+          admin_notes,
+          last_inspection_date,
+          last_inspection_status,
+          license_plate,
+          license_state,
+          truck_type,
+          vin,
+          created_at,
           carrier:companies!trucks_carrier_id_fkey_companies(name)
         `)
         .order("created_at", { ascending: false });
 
       if (trucksError) throw trucksError;
 
-      // For each truck, get the count of "not_working" items from latest inspection
-      const trucksWithIssues = await Promise.all(
-        (trucksData || []).map(async (truck) => {
-          // Get latest inspection for this truck
-          const { data: latestInspection } = await supabase
-            .from("truck_daily_inspections")
-            .select("id, inspection_date")
-            .eq("truck_id", truck.id)
-            .order("inspection_date", { ascending: false })
-            .limit(1)
-            .single();
+      if (!trucksData || trucksData.length === 0) {
+        setTrucks([]);
+        return;
+      }
 
-          let issuesCount = 0;
-          if (latestInspection) {
-            // Count "not_working" items
-            const { count } = await supabase
-              .from("truck_inspection_item_status")
-              .select("*", { count: "exact", head: true })
-              .eq("inspection_id", latestInspection.id)
-              .eq("status", "not_working");
-
-            issuesCount = count || 0;
-          }
-
-          return {
-            ...truck,
-            carrier_name: (truck.carrier as any)?.name || "Unknown",
-            issues_count: issuesCount,
-          };
-        })
+      // Only fetch issue counts for trucks that need them (have issues_reported status or restricted compliance)
+      const trucksNeedingDetails = trucksData.filter(
+        (t) => t.last_inspection_status === "issues_reported" || t.compliance_status === "restricted"
       );
+
+      let truckIssuesMap = new Map<string, number>();
+
+      if (trucksNeedingDetails.length > 0 && trucksNeedingDetails.length <= 100) {
+        // For reasonable number of trucks, fetch in parallel batches
+        const truckIdsWithIssues = trucksNeedingDetails.map((t) => t.id);
+        
+        // Fetch latest inspection for each truck with issues (optimized: only ids)
+        const { data: latestInspections, error: inspectionsError } = await supabase
+          .from("truck_daily_inspections")
+          .select("id, truck_id")
+          .in("truck_id", truckIdsWithIssues)
+          .order("inspection_date", { ascending: false })
+          .limit(truckIdsWithIssues.length * 5); // Reasonable limit per truck
+
+        if (inspectionsError) throw inspectionsError;
+
+        // Group by truck_id and get latest (first occurrence per truck_id since sorted desc)
+        const truckToInspectionMap = new Map<string, string>();
+        const seenTrucks = new Set<string>();
+        (latestInspections || []).forEach((inspection) => {
+          if (!seenTrucks.has(inspection.truck_id)) {
+            truckToInspectionMap.set(inspection.truck_id, inspection.id);
+            seenTrucks.add(inspection.truck_id);
+          }
+        });
+
+        const inspectionIds = Array.from(truckToInspectionMap.values());
+
+        if (inspectionIds.length > 0) {
+          // Single optimized query: Get all "not_working" items for relevant inspections
+          // Only fetch inspection_id column to minimize data transfer
+          const { data: allNotWorkingItems, error: itemsError } = await supabase
+            .from("truck_inspection_item_status")
+            .select("inspection_id")
+            .in("inspection_id", inspectionIds)
+            .eq("status", "not_working");
+
+          if (itemsError) throw itemsError;
+
+          // Build count map efficiently
+          const inspectionCounts = new Map<string, number>();
+          (allNotWorkingItems || []).forEach((item) => {
+            const count = inspectionCounts.get(item.inspection_id) || 0;
+            inspectionCounts.set(item.inspection_id, count + 1);
+          });
+
+          // Map inspection_id counts back to truck_id
+          truckToInspectionMap.forEach((inspectionId, truckId) => {
+            truckIssuesMap.set(truckId, inspectionCounts.get(inspectionId) || 0);
+          });
+        }
+      } else if (trucksNeedingDetails.length > 100) {
+        // For large datasets, use stored compliance_status as approximation
+        // This avoids expensive queries
+        trucksNeedingDetails.forEach((truck) => {
+          if (truck.compliance_status === "restricted" || truck.last_inspection_status === "issues_reported") {
+            truckIssuesMap.set(truck.id, 1); // Indicate issues exist
+          }
+        });
+      }
+
+      // Map trucks with their issue counts efficiently
+      const trucksWithIssues = trucksData.map((truck) => {
+        // Use stored compliance_status for fast filtering, then get actual count if available
+        let issuesCount = truckIssuesMap.get(truck.id) || 0;
+        
+        // If no count but truck shows issues status, indicate issues exist
+        if (issuesCount === 0 && (truck.last_inspection_status === "issues_reported" || truck.compliance_status === "restricted")) {
+          issuesCount = 1; // Indicates issues exist (exact count may require refresh)
+        }
+
+        return {
+          ...truck,
+          carrier_name: (truck.carrier as any)?.name || "Unknown",
+          issues_count: issuesCount,
+        };
+      });
 
       // Sort trucks: those with issues first, then by created_at descending
       const sortedTrucks = trucksWithIssues.sort((a, b) => {
-        const aHasIssues = (a.issues_count || 0) > 0;
-        const bHasIssues = (b.issues_count || 0) > 0;
+        const aHasIssues = (a.issues_count || 0) > 0 || a.compliance_status === "restricted";
+        const bHasIssues = (b.issues_count || 0) > 0 || b.compliance_status === "restricted";
         
         // If one has issues and the other doesn't, prioritize the one with issues
         if (aHasIssues && !bHasIssues) return -1;

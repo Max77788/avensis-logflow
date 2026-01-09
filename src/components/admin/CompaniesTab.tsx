@@ -171,20 +171,19 @@ export const CompaniesTab = () => {
               <TableHead>Status</TableHead>
               <TableHead>Primary Contact</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Password</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : filteredCompanies.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
+                <TableCell colSpan={6} className="text-center py-8">
                   No companies found
                 </TableCell>
               </TableRow>
@@ -204,11 +203,6 @@ export const CompaniesTab = () => {
                   </TableCell>
                   <TableCell>{company.primary_contact_name || "-"}</TableCell>
                   <TableCell>{company.contact_email || "-"}</TableCell>
-                  <TableCell>
-                    <span className="font-mono text-sm">
-                      {company.plain_password || "-"}
-                    </span>
-                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button
