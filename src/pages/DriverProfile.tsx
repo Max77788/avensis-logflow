@@ -103,7 +103,7 @@ const DriverProfile = () => {
             updated_at: dbDriver.updated_at,
           });
 
-          // Fetch truck name from truck_id
+          // Fetch truck name from truck_id and get status information
           let currentTruckLocal: any = null;
 
           if (dbDriver.default_truck_id) {
@@ -111,8 +111,57 @@ const DriverProfile = () => {
               dbDriver.default_truck_id
             );
             if (truck) {
-              console.log("Found truck:", truck);
-              currentTruckLocal = truck; // keep full object
+              // Get latest inspection for this truck to check for restrictions
+              const { data: latestInspection } = await supabase
+                .from("truck_daily_inspections")
+                .select("id, inspection_date")
+                .eq("truck_id", truck.id)
+                .order("inspection_date", { ascending: false })
+                .limit(1)
+                .single();
+
+              let hasIssues = false;
+              if (latestInspection) {
+                // Count "not_working" items
+                const { count } = await supabase
+                  .from("truck_inspection_item_status")
+                  .select("*", { count: "exact", head: true })
+                  .eq("inspection_id", latestInspection.id)
+                  .eq("status", "not_working");
+
+                hasIssues = (count || 0) > 0;
+              }
+
+              // Get compliance_status and status
+              const { data: truckData } = await supabase
+                .from("trucks")
+                .select("compliance_status, status")
+                .eq("id", truck.id)
+                .single();
+
+              const isRestricted = hasIssues || truckData?.compliance_status === "restricted";
+              
+              // Determine display status
+              let displayStatus = "available";
+              if (isRestricted || truckData?.compliance_status === "restricted") {
+                displayStatus = "restricted";
+              } else if (truckData?.compliance_status === "inactive") {
+                displayStatus = "inactive";
+              } else if (truckData?.status === "active") {
+                displayStatus = "active";
+              } else if (truckData?.status === "inactive") {
+                displayStatus = "available";
+              } else if (truckData?.compliance_status) {
+                displayStatus = truckData.compliance_status;
+              }
+
+              currentTruckLocal = {
+                ...truck,
+                isRestricted,
+                compliance_status: truckData?.compliance_status || null,
+                displayStatus,
+              };
+              console.log("Found truck:", currentTruckLocal);
             }
           }
 
@@ -197,18 +246,34 @@ const DriverProfile = () => {
               hasIssues = (count || 0) > 0;
             }
 
-            // Check compliance_status
+            // Check compliance_status and status
             const { data: truckData } = await supabase
               .from("trucks")
-              .select("compliance_status")
+              .select("compliance_status, status")
               .eq("id", truck.id)
               .single();
 
             const isRestricted = hasIssues || truckData?.compliance_status === "restricted";
+            
+            // Determine display status
+            let displayStatus = "available";
+            if (isRestricted || truckData?.compliance_status === "restricted") {
+              displayStatus = "restricted";
+            } else if (truckData?.compliance_status === "inactive") {
+              displayStatus = "inactive";
+            } else if (truckData?.status === "active") {
+              displayStatus = "active";
+            } else if (truckData?.status === "inactive") {
+              displayStatus = "available";
+            } else if (truckData?.compliance_status) {
+              displayStatus = truckData.compliance_status;
+            }
 
             return {
               ...truck,
               isRestricted,
+              compliance_status: truckData?.compliance_status || null,
+              displayStatus,
             };
           })
         );
@@ -759,11 +824,16 @@ const DriverProfile = () => {
                       handleTruckChange(value);
                     }}
                     items={trucksForSelect
-                      .map((truck) => ({
-                        value: truck.id, // UUID
-                        label: truck.truck_id, // display name
-                        disabled: (truck as any).isRestricted || false,
-                      }))
+                      .map((truck) => {
+                        const status = (truck as any).displayStatus || "available";
+                        const label = `${truck.truck_id} - ${status}`;
+                        
+                        return {
+                          value: truck.id, // UUID
+                          label: label, // display name with status
+                          disabled: (truck as any).isRestricted || false,
+                        };
+                      })
                       .sort((a, b) =>
                         a.label.localeCompare(b.label, undefined, {
                           numeric: true,
