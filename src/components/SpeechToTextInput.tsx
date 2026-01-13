@@ -222,9 +222,15 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     };
   }, [webSpeechSupported, onChange, updateListeningState, isStopping]);
 
-  // Cleanup MediaRecorder on unmount
+  // Cleanup MediaRecorder and timer on unmount
   useEffect(() => {
     return () => {
+      // Clear recording timer
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      
       // Stop MediaRecorder if still recording
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         try {
@@ -589,13 +595,26 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         )}
       </div>
       {isListening && !isTranscribing && !isStopping && (
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-white bg-red-600 p-3 rounded-md animate-pulse">
-          <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
-          <span className="font-medium">
-            {isMobile.current
-              ? "Recording... Tap the STOP button when done." 
-              : "Recording... Tap the STOP button when done."}
-          </span>
+        <div className="flex items-center justify-between gap-2 text-xs sm:text-sm text-white bg-red-600 p-3 rounded-md">
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
+            <span className="font-medium">
+              Recording ({Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')})
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              forceStopAllRecording();
+            }}
+            className="h-7 px-3 text-xs font-bold bg-white text-red-600 hover:bg-gray-100"
+          >
+            STOP
+          </Button>
         </div>
       )}
       {isStopping && !isTranscribing && (
