@@ -65,9 +65,9 @@ export const DestinationSitesTab = () => {
       const companiesData = await adminService.getAllCompanies();
       console.log("Loaded companies:", companiesData.length, companiesData);
 
-      // Filter companies to show only "Contractor" type
+      // Filter companies to show only "Destination Client" type (support both old "Contractor" and new "Destination Client")
       const contractorCompanies = companiesData.filter(
-        (company) => company.type === "Contractor"
+        (company) => company.type === "Destination Client" || company.type === "Contractor"
       );
       console.log("Filtered Contractor companies:", contractorCompanies.length);
 

@@ -111,48 +111,61 @@ const DriverProfile = () => {
               dbDriver.default_truck_id
             );
             if (truck) {
-              // Get latest inspection for this truck to check for restrictions
-              const { data: latestInspection } = await supabase
-                .from("truck_daily_inspections")
-                .select("id, inspection_date")
-                .eq("truck_id", truck.id)
-                .order("inspection_date", { ascending: false })
-                .limit(1)
-                .single();
-
-              let hasIssues = false;
-              if (latestInspection) {
-                // Count "not_working" items
-                const { count } = await supabase
-                  .from("truck_inspection_item_status")
-                  .select("*", { count: "exact", head: true })
-                  .eq("inspection_id", latestInspection.id)
-                  .eq("status", "not_working");
-
-                hasIssues = (count || 0) > 0;
-              }
-
-              // Get compliance_status and status
+              // Get compliance_status and status (admin-assigned)
               const { data: truckData } = await supabase
                 .from("trucks")
                 .select("compliance_status, status")
                 .eq("id", truck.id)
                 .single();
 
-              const isRestricted = hasIssues || truckData?.compliance_status === "restricted";
+              // Admin-assigned status takes priority
+              // If admin set to "active" -> truck is NOT restricted (even if there are inspection issues)
+              // If admin set to "restricted" -> truck IS restricted
+              // If no admin decision (null/undefined) -> check inspection issues as fallback
+              let isRestricted = false;
               
-              // Determine display status
+              if (truckData?.compliance_status === "restricted") {
+                // Admin explicitly marked as restricted
+                isRestricted = true;
+              } else if (truckData?.compliance_status === "active") {
+                // Admin explicitly marked as active - NOT restricted
+                isRestricted = false;
+              } else {
+                // No admin decision - fall back to checking inspection issues
+                const { data: latestInspection } = await supabase
+                  .from("truck_daily_inspections")
+                  .select("id, inspection_date")
+                  .eq("truck_id", truck.id)
+                  .order("inspection_date", { ascending: false })
+                  .limit(1)
+                  .single();
+
+                if (latestInspection) {
+                  // Count "not_working" items
+                  const { count } = await supabase
+                    .from("truck_inspection_item_status")
+                    .select("*", { count: "exact", head: true })
+                    .eq("inspection_id", latestInspection.id)
+                    .eq("status", "not_working");
+
+                  isRestricted = (count || 0) > 0;
+                }
+              }
+              
+              // Determine display status based on admin-assigned compliance_status
               let displayStatus = "available";
-              if (isRestricted || truckData?.compliance_status === "restricted") {
+              if (truckData?.compliance_status === "restricted") {
                 displayStatus = "restricted";
+              } else if (truckData?.compliance_status === "active") {
+                displayStatus = "active";
               } else if (truckData?.compliance_status === "inactive") {
                 displayStatus = "inactive";
+              } else if (isRestricted) {
+                displayStatus = "restricted";
               } else if (truckData?.status === "active") {
                 displayStatus = "active";
               } else if (truckData?.status === "inactive") {
                 displayStatus = "available";
-              } else if (truckData?.compliance_status) {
-                displayStatus = truckData.compliance_status;
               }
 
               currentTruckLocal = {
@@ -209,7 +222,7 @@ const DriverProfile = () => {
     loadDriverDataFromSupabase();
   }, [user?.driver_id]);
 
-  // Fetch available trucks when carrier changes
+  // Fetch available trucks when carrier changes or periodically to refresh status
   useEffect(() => {
     const loadAvailableTrucks = async () => {
       if (!editFormData.carrier_id) {
@@ -223,50 +236,64 @@ const DriverProfile = () => {
         );
         
         // Check each truck for restrictions
+        // Priority: Admin-assigned compliance_status takes precedence over inspection issues
         const trucksWithRestrictions = await Promise.all(
           trucks.map(async (truck) => {
-            // Get latest inspection for this truck
-            const { data: latestInspection } = await supabase
-              .from("truck_daily_inspections")
-              .select("id, inspection_date")
-              .eq("truck_id", truck.id)
-              .order("inspection_date", { ascending: false })
-              .limit(1)
-              .single();
-
-            let hasIssues = false;
-            if (latestInspection) {
-              // Count "not_working" items
-              const { count } = await supabase
-                .from("truck_inspection_item_status")
-                .select("*", { count: "exact", head: true })
-                .eq("inspection_id", latestInspection.id)
-                .eq("status", "not_working");
-
-              hasIssues = (count || 0) > 0;
-            }
-
-            // Check compliance_status and status
+            // Get compliance_status and status (admin-assigned)
             const { data: truckData } = await supabase
               .from("trucks")
               .select("compliance_status, status")
               .eq("id", truck.id)
               .single();
 
-            const isRestricted = hasIssues || truckData?.compliance_status === "restricted";
+            // Admin-assigned status takes priority
+            // If admin set to "active" -> truck is NOT restricted (even if there are inspection issues)
+            // If admin set to "restricted" -> truck IS restricted
+            // If no admin decision (null/undefined) -> check inspection issues as fallback
+            let isRestricted = false;
             
-            // Determine display status
+            if (truckData?.compliance_status === "restricted") {
+              // Admin explicitly marked as restricted
+              isRestricted = true;
+            } else if (truckData?.compliance_status === "active") {
+              // Admin explicitly marked as active - NOT restricted
+              isRestricted = false;
+            } else {
+              // No admin decision - fall back to checking inspection issues
+              const { data: latestInspection } = await supabase
+                .from("truck_daily_inspections")
+                .select("id, inspection_date")
+                .eq("truck_id", truck.id)
+                .order("inspection_date", { ascending: false })
+                .limit(1)
+                .single();
+
+              if (latestInspection) {
+                // Count "not_working" items
+                const { count } = await supabase
+                  .from("truck_inspection_item_status")
+                  .select("*", { count: "exact", head: true })
+                  .eq("inspection_id", latestInspection.id)
+                  .eq("status", "not_working");
+
+                isRestricted = (count || 0) > 0;
+              }
+            }
+            
+            // Determine display status based on admin-assigned compliance_status
             let displayStatus = "available";
-            if (isRestricted || truckData?.compliance_status === "restricted") {
+            if (truckData?.compliance_status === "restricted") {
               displayStatus = "restricted";
+            } else if (truckData?.compliance_status === "active") {
+              displayStatus = "active";
             } else if (truckData?.compliance_status === "inactive") {
               displayStatus = "inactive";
+            } else if (isRestricted) {
+              displayStatus = "restricted";
             } else if (truckData?.status === "active") {
               displayStatus = "active";
             } else if (truckData?.status === "inactive") {
               displayStatus = "available";
-            } else if (truckData?.compliance_status) {
-              displayStatus = truckData.compliance_status;
             }
 
             return {
@@ -286,7 +313,54 @@ const DriverProfile = () => {
     };
 
     loadAvailableTrucks();
-  }, [editFormData.carrier_id]);
+    
+    // Set up real-time subscription to listen for truck status updates
+    if (editFormData.carrier_id && driverProfile?.default_truck_id) {
+      const currentTruckId = driverProfile.default_truck_id; // Capture in closure
+      const channel = supabase
+        .channel(`truck-updates-${currentTruckId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'trucks',
+            filter: `id=eq.${currentTruckId}`,
+          },
+          (payload) => {
+            console.log('Truck status updated:', payload);
+            // Reload trucks to get updated status
+            loadAvailableTrucks();
+            // Also reload current truck data
+            if (currentTruckId) {
+              carrierService.getTruckById(currentTruckId).then((truck) => {
+                if (truck) {
+                  // Reload truck with status info
+                  supabase
+                    .from("trucks")
+                    .select("compliance_status, status")
+                    .eq("id", truck.id)
+                    .single()
+                    .then(({ data: truckData }) => {
+                      const updatedTruck = {
+                        ...truck,
+                        compliance_status: truckData?.compliance_status || null,
+                        status: truckData?.status || truck.status,
+                      };
+                      setCurrentTruck(updatedTruck);
+                    });
+                }
+              });
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [editFormData.carrier_id, driverProfile?.default_truck_id, driverProfile?.id]);
 
   useEffect(() => {
     if (!user || user.role !== "driver") {
@@ -832,7 +906,7 @@ const DriverProfile = () => {
                         return {
                           value: truck.id, // UUID
                           label: label, // display name with status
-                          disabled: false, // Allow selection of restricted trucks so drivers can see them
+                          disabled: isRestricted, // Disable restricted trucks - they cannot be selected
                           isRestricted: isRestricted, // Pass through for styling
                         };
                       })

@@ -371,7 +371,7 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
             <SelectContent>
               <SelectItem value="Carrier">Carrier</SelectItem>
               <SelectItem value="Scale House">Scale House</SelectItem>
-              <SelectItem value="Contractor">Contractor</SelectItem>
+              <SelectItem value="Destination Client">Destination Client</SelectItem>
               <SelectItem value="Other">Other</SelectItem>
             </SelectContent>
           </Select>

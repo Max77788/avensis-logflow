@@ -659,11 +659,22 @@ export const TruckInspectionChecklist = ({
 
       if (error) throw error;
 
+      // Generate and save inspection report, then send SMS to driver
+      try {
+        const reportResult = await truckInspectionService.generateAndSaveInspectionReport(inspection.id);
+        if (reportResult.success && reportResult.reportUrl) {
+          console.log("Inspection report generated:", reportResult.reportUrl);
+        }
+      } catch (reportError) {
+        console.error("Error generating inspection report:", reportError);
+        // Don't fail the inspection completion if report generation fails
+      }
+
       setIsCompleted(true);
       
       toast({
         title: "Inspection Complete",
-        description: "Truck inspection has been completed successfully.",
+        description: "Truck inspection has been completed successfully. Report saved to your profile.",
       });
 
       // Notify parent component

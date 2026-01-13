@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from "react";
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, MicOff, Loader2 } from "lucide-react";
+import { Mic, MicOff, Loader2, Square } from "lucide-react";
 import { transcribeAudio } from "@/lib/speechToTextService";
 
 interface SpeechToTextInputProps {
@@ -26,11 +26,6 @@ const isMobileDevice = () => {
   ) || window.innerWidth < 768;
 };
 
-// Detect iOS
-const isIOS = () => {
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
-};
-
 export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextInputProps>(({
   value,
   onChange,
@@ -43,10 +38,17 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   const [isSupported, setIsSupported] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isStopping, setIsStopping] = useState(false); // Track stopping state
+  const [recordingDuration, setRecordingDuration] = useState(0); // Track recording time
+  
+  // Use refs for immediate state tracking (no async delays)
+  const isListeningRef = useRef(false);
+  const isProcessingRef = useRef(false); // Prevent concurrent operations
+  const lastToggleTimeRef = useRef(0); // Debounce tracking
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null); // Timer for recording duration
   
   // Desktop: Web Speech API
   const recognitionRef = useRef<any>(null);
-  const isListeningRef = useRef(false);
   
   // Mobile: MediaRecorder
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -59,8 +61,10 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previousScrollTopRef = useRef<number>(0);
 
+  // Debounce time in ms
+  const DEBOUNCE_MS = 300;
+
   // Check if Web Speech API is available (for desktop)
-  // Desktop uses Web Speech API, mobile uses Google Cloud Speech-to-Text
   const webSpeechSupported = !isMobile.current && 
     (typeof (window as any).SpeechRecognition !== 'undefined' || 
      typeof (window as any).webkitSpeechRecognition !== 'undefined');
@@ -81,6 +85,27 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       });
     }
   }, [value]);
+
+  // Update listening state helper
+  const updateListeningState = useCallback((listening: boolean) => {
+    isListeningRef.current = listening;
+    setIsListening(listening);
+    onListeningChange?.(listening);
+    
+    // Start/stop recording duration timer
+    if (listening) {
+      setRecordingDuration(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      setRecordingDuration(0);
+    }
+  }, [onListeningChange]);
 
   // Check Web Speech API support and initialize for desktop
   useEffect(() => {
@@ -153,35 +178,34 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       if (event.error === "not-allowed") {
         setErrorMessage("Microphone permission denied. Please allow microphone access.");
       }
-      isListeningRef.current = false;
-      setIsListening(false);
-      onListeningChange?.(false);
+      isProcessingRef.current = false;
+      updateListeningState(false);
     };
 
     recognition.onend = () => {
-      if (isListeningRef.current) {
-        // Auto-restart on desktop
+      // Only restart if we're supposed to be listening AND not in stopping state
+      if (isListeningRef.current && !isStopping) {
         setTimeout(() => {
-          if (isListeningRef.current && recognitionRef.current) {
+          if (isListeningRef.current && recognitionRef.current && !isStopping) {
             try {
               recognitionRef.current.start();
             } catch (e) {
-              isListeningRef.current = false;
-              setIsListening(false);
-              onListeningChange?.(false);
+              console.error("Error restarting recognition:", e);
+              isProcessingRef.current = false;
+              updateListeningState(false);
             }
           }
         }, 100);
       } else {
-        setIsListening(false);
-        onListeningChange?.(false);
+        isProcessingRef.current = false;
+        updateListeningState(false);
+        setIsStopping(false);
       }
     };
 
     recognition.onstart = () => {
-      isListeningRef.current = true;
-      setIsListening(true);
-      onListeningChange?.(true);
+      isProcessingRef.current = false;
+      updateListeningState(true);
       setErrorMessage(null);
     };
 
@@ -196,7 +220,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         }
       }
     };
-  }, [webSpeechSupported, onChange, onListeningChange]);
+  }, [webSpeechSupported, onChange, updateListeningState, isStopping]);
 
   // Cleanup MediaRecorder on unmount
   useEffect(() => {
@@ -218,17 +242,74 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     };
   }, []);
 
-  // Start listening - different for mobile vs desktop
-  const startListening = async () => {
-    if (disabled || isListening) return;
+  // Force stop all recording - robust cleanup
+  const forceStopAllRecording = useCallback(() => {
+    console.log("Force stopping all recording...");
+    
+    // Stop MediaRecorder
+    if (mediaRecorderRef.current) {
+      try {
+        if (mediaRecorderRef.current.state === "recording" || mediaRecorderRef.current.state === "paused") {
+          mediaRecorderRef.current.stop();
+        }
+      } catch (e) {
+        console.error("Error stopping MediaRecorder:", e);
+      }
+      mediaRecorderRef.current = null;
+    }
+    
+    // Stop all audio tracks
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (e) {
+          console.error("Error stopping track:", e);
+        }
+      });
+      streamRef.current = null;
+    }
+    
+    // Stop Web Speech API
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.error("Error stopping recognition:", e);
+      }
+    }
+    
+    // Reset all states
+    audioChunksRef.current = [];
+    isProcessingRef.current = false;
+    setIsStopping(false);
+    setIsTranscribing(false);
+    updateListeningState(false);
+  }, [updateListeningState]);
 
+  // Start listening - different for mobile vs desktop
+  const startListening = useCallback(async () => {
+    // Debounce check
+    const now = Date.now();
+    if (now - lastToggleTimeRef.current < DEBOUNCE_MS) {
+      console.log("Debounced - ignoring start request");
+      return;
+    }
+    lastToggleTimeRef.current = now;
+
+    // Prevent if already processing or listening
+    if (disabled || isListeningRef.current || isProcessingRef.current) {
+      console.log("Start blocked - disabled:", disabled, "listening:", isListeningRef.current, "processing:", isProcessingRef.current);
+      return;
+    }
+
+    isProcessingRef.current = true;
     baseValueRef.current = value;
     accumulatedFinalRef.current = "";
     setErrorMessage(null);
 
     if (isMobile.current) {
       // Mobile: Use MediaRecorder + Google Cloud Speech-to-Text
-      // Mobile: Use MediaRecorder
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
@@ -242,7 +323,6 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         audioChunksRef.current = [];
 
         // Determine best MIME type for recording
-        // Prefer WEBM_OPUS as it's well-supported by Google Speech API
         let mimeType: string;
         if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
           mimeType = "audio/webm;codecs=opus";
@@ -251,7 +331,6 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
           mimeType = "audio/mp4";
         } else {
-          // Fallback to default
           mimeType = "audio/webm";
         }
 
@@ -265,53 +344,66 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         };
 
         mediaRecorder.onstop = async () => {
+          console.log("MediaRecorder stopped, processing audio...");
+          
+          // Stop all tracks immediately
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+          }
+
           if (audioChunksRef.current.length === 0) {
-            setIsListening(false);
-            onListeningChange?.(false);
-            if (streamRef.current) {
-              streamRef.current.getTracks().forEach(track => track.stop());
-              streamRef.current = null;
-            }
+            console.log("No audio chunks to process");
+            isProcessingRef.current = false;
+            updateListeningState(false);
+            setIsStopping(false);
             return;
           }
 
           setIsTranscribing(true);
           const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
           
-          const result = await transcribeAudio(audioBlob, mimeType);
-          
-          setIsTranscribing(false);
-          
-          if (result.success && result.transcript) {
-            const newText = result.transcript.trim();
-            if (newText) {
-              const updatedValue = baseValueRef.current + 
-                (baseValueRef.current ? " " : "") + 
-                newText;
-              onChange(updatedValue);
-              accumulatedFinalRef.current += newText + " ";
+          try {
+            const result = await transcribeAudio(audioBlob, mimeType);
+            
+            if (result.success && result.transcript) {
+              const newText = result.transcript.trim();
+              if (newText) {
+                const updatedValue = baseValueRef.current + 
+                  (baseValueRef.current ? " " : "") + 
+                  newText;
+                onChange(updatedValue);
+                accumulatedFinalRef.current += newText + " ";
+              }
+            } else {
+              setErrorMessage(result.error || "Failed to transcribe audio");
             }
-          } else {
-            setErrorMessage(result.error || "Failed to transcribe audio");
+          } catch (e) {
+            console.error("Transcription error:", e);
+            setErrorMessage("Failed to transcribe audio");
           }
 
           audioChunksRef.current = [];
-          setIsListening(false);
-          onListeningChange?.(false);
+          setIsTranscribing(false);
+          isProcessingRef.current = false;
+          updateListeningState(false);
+          setIsStopping(false);
+        };
 
-          if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-            streamRef.current = null;
-          }
+        mediaRecorder.onerror = (event: any) => {
+          console.error("MediaRecorder error:", event);
+          forceStopAllRecording();
+          setErrorMessage("Recording error occurred");
         };
 
         mediaRecorder.start();
-        setIsListening(true);
-        onListeningChange?.(true);
+        isProcessingRef.current = false;
+        updateListeningState(true);
+        console.log("MediaRecorder started");
       } catch (error: any) {
         console.error("Error starting recording:", error);
-        setIsListening(false);
-        onListeningChange?.(false);
+        isProcessingRef.current = false;
+        updateListeningState(false);
         
         if (error.name === "NotAllowedError") {
           setErrorMessage("Microphone permission denied. Please allow microphone access in browser settings.");
@@ -323,83 +415,133 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       // Desktop: Use Web Speech API
       if (recognitionRef.current) {
         try {
-          isListeningRef.current = true;
           recognitionRef.current.start();
         } catch (error: any) {
           console.error("Error starting recognition:", error);
-          isListeningRef.current = false;
-          setIsListening(false);
-          onListeningChange?.(false);
+          isProcessingRef.current = false;
+          updateListeningState(false);
           setErrorMessage("Failed to start voice input. Please try again.");
         }
       } else {
         setErrorMessage("Web Speech API is not available in this browser.");
-        setIsListening(false);
-        onListeningChange?.(false);
+        isProcessingRef.current = false;
+        updateListeningState(false);
       }
     }
-  };
+  }, [disabled, value, onChange, updateListeningState, forceStopAllRecording]);
 
-  const stopListening = () => {
+  const stopListening = useCallback(() => {
+    // Debounce check
+    const now = Date.now();
+    if (now - lastToggleTimeRef.current < DEBOUNCE_MS) {
+      console.log("Debounced - ignoring stop request");
+      return;
+    }
+    lastToggleTimeRef.current = now;
+
+    // Prevent if already stopping or not listening
+    if (!isListeningRef.current || isProcessingRef.current) {
+      console.log("Stop blocked - listening:", isListeningRef.current, "processing:", isProcessingRef.current);
+      // Force cleanup anyway if user is having trouble
+      if (!isListeningRef.current && !isProcessingRef.current) {
+        forceStopAllRecording();
+      }
+      return;
+    }
+
+    console.log("Stopping recording...");
+    isProcessingRef.current = true;
+    setIsStopping(true);
+    
+    // Immediately update listening ref to prevent auto-restart
+    isListeningRef.current = false;
+
     if (isMobile.current) {
-      // Mobile: Stop MediaRecorder (Google Cloud Speech-to-Text)
+      // Mobile: Stop MediaRecorder
       if (mediaRecorderRef.current) {
-        // Check MediaRecorder state before stopping
-        if (mediaRecorderRef.current.state === "recording") {
-          try {
-            mediaRecorderRef.current.stop();
-          } catch (e) {
-            console.error("Error stopping MediaRecorder:", e);
+        try {
+          if (mediaRecorderRef.current.state === "recording") {
+            mediaRecorderRef.current.stop(); // This will trigger onstop callback
+          } else {
+            // Already stopped or inactive, just clean up
+            console.log("MediaRecorder not recording, cleaning up...");
+            if (streamRef.current) {
+              streamRef.current.getTracks().forEach(track => track.stop());
+              streamRef.current = null;
+            }
+            isProcessingRef.current = false;
+            updateListeningState(false);
+            setIsStopping(false);
           }
-        } else if (mediaRecorderRef.current.state === "inactive") {
-          // Already stopped, just clean up
-          setIsListening(false);
-          onListeningChange?.(false);
+        } catch (e) {
+          console.error("Error stopping MediaRecorder:", e);
+          forceStopAllRecording();
         }
+      } else {
+        // No MediaRecorder, just clean up
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+        isProcessingRef.current = false;
+        updateListeningState(false);
+        setIsStopping(false);
       }
-      
-      // Stop all audio tracks
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => {
-          track.stop();
-        });
-        streamRef.current = null;
-      }
-      
-      // Force update listening state
-      setIsListening(false);
-      onListeningChange?.(false);
     } else {
       // Desktop: Stop Web Speech API
       if (recognitionRef.current) {
-        isListeningRef.current = false;
         try {
           recognitionRef.current.stop();
         } catch (e) {
           console.error("Error stopping Web Speech API:", e);
+          isProcessingRef.current = false;
+          updateListeningState(false);
+          setIsStopping(false);
         }
+      } else {
+        isProcessingRef.current = false;
+        updateListeningState(false);
+        setIsStopping(false);
       }
-      setIsListening(false);
-      onListeningChange?.(false);
     }
-  };
+  }, [updateListeningState, forceStopAllRecording]);
 
-  const handleToggle = (e: React.MouseEvent) => {
+  const handleToggle = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (isListening) {
+    console.log("Toggle clicked - isListening:", isListeningRef.current, "isProcessing:", isProcessingRef.current);
+    
+    if (isListeningRef.current) {
       stopListening();
     } else {
       startListening();
     }
-  };
+  }, [startListening, stopListening]);
+
+  // Handle touch events separately to prevent double-firing on mobile
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log("Touch end - isListening:", isListeningRef.current, "isProcessing:", isProcessingRef.current);
+    
+    if (isListeningRef.current) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  }, [startListening, stopListening]);
 
   useImperativeHandle(ref, () => ({
     startListening,
     stopListening,
     isListening,
-  }));
+  }), [startListening, stopListening, isListening]);
+
+  // Determine button state
+  const isButtonDisabled = disabled || isTranscribing || isProcessingRef.current;
+  const showStopIcon = isListening || isStopping;
 
   return (
     <div className="space-y-2">
@@ -426,36 +568,40 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         {isSupported && !hideMicButton && (
           <Button
             type="button"
-            variant={isListening ? "destructive" : "ghost"}
+            variant={showStopIcon ? "destructive" : "ghost"}
             size="icon"
             onClick={handleToggle}
-            onTouchStart={(e) => {
-              if (!isListening && !disabled) {
-                e.preventDefault();
-              }
-            }}
-            disabled={disabled || isTranscribing}
-            className="absolute bottom-2 right-2 h-10 w-10 sm:h-12 sm:w-12 rounded-full shadow-md hover:shadow-lg transition-all touch-manipulation"
-            title={isListening ? "Stop recording" : "Start voice input"}
+            onTouchEnd={isMobile.current ? handleTouchEnd : undefined}
+            disabled={isButtonDisabled}
+            className={`absolute bottom-2 right-2 h-10 w-10 sm:h-12 sm:w-12 rounded-full shadow-md hover:shadow-lg transition-all touch-manipulation select-none ${
+              showStopIcon ? "bg-red-600 hover:bg-red-700" : ""
+            }`}
+            title={showStopIcon ? "Stop recording" : "Start voice input"}
           >
             {isTranscribing ? (
               <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
-            ) : isListening ? (
-              <MicOff className="h-5 w-5 sm:h-6 sm:w-6 animate-pulse" />
+            ) : showStopIcon ? (
+              <Square className="h-4 w-4 sm:h-5 sm:w-5 fill-current" />
             ) : (
               <Mic className="h-5 w-5 sm:h-6 sm:w-6" />
             )}
           </Button>
         )}
       </div>
-      {isListening && !isTranscribing && (
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+      {isListening && !isTranscribing && !isStopping && (
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-white bg-red-600 p-3 rounded-md animate-pulse">
+          <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
           <span className="font-medium">
             {isMobile.current
-              ? "Recording... Tap mic again to stop and transcribe." 
-              : "Recording... Speak now. Tap mic again to stop."}
+              ? "Recording... Tap the STOP button when done." 
+              : "Recording... Tap the STOP button when done."}
           </span>
+        </div>
+      )}
+      {isStopping && !isTranscribing && (
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="font-medium">Stopping recording...</span>
         </div>
       )}
       {isTranscribing && (
@@ -465,8 +611,17 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         </div>
       )}
       {errorMessage && (
-        <div className="text-xs sm:text-sm text-destructive bg-destructive/10 p-2 rounded-md">
-          {errorMessage}
+        <div className="text-xs sm:text-sm text-destructive bg-destructive/10 p-2 rounded-md flex items-center justify-between">
+          <span>{errorMessage}</span>
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setErrorMessage(null)}
+            className="h-6 px-2 text-xs"
+          >
+            Dismiss
+          </Button>
         </div>
       )}
     </div>

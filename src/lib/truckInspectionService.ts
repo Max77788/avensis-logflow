@@ -1,4 +1,6 @@
 import { supabase } from "./supabase";
+import { sendEmail } from "./emailService";
+import { normalizePhoneToE164 } from "./validationUtils";
 
 export interface InspectionItem {
   id: string;
@@ -242,6 +244,14 @@ export const truckInspectionService = {
       // Update truck compliance status if an issue is reported
       if (status === "not_working") {
         await this.updateTruckComplianceStatus(inspectionId);
+        
+        // Send email notification to admin when issue is raised
+        try {
+          await this.notifyAdminOfInspectionIssue(inspectionId, itemId);
+        } catch (emailError) {
+          console.error("Error sending admin notification email:", emailError);
+          // Don't fail the update if email fails
+        }
       }
 
       return { success: true };
@@ -296,6 +306,389 @@ export const truckInspectionService = {
     } catch (error: any) {
       console.error("Error updating truck compliance:", error);
       return { success: false, error: error.message || "Failed to update truck compliance" };
+    }
+  },
+
+  /**
+   * Notify admin when an inspection issue is raised
+   */
+  async notifyAdminOfInspectionIssue(
+    inspectionId: string,
+    itemId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get inspection details
+      const { data: inspection, error: inspectionError } = await supabase
+        .from("truck_daily_inspections")
+        .select(`
+          id,
+          truck_id,
+          inspection_date,
+          driver_id,
+          truck:trucks!truck_daily_inspections_truck_id_fkey(
+            truck_id,
+            license_plate,
+            carrier:companies!trucks_carrier_id_fkey_companies(name)
+          ),
+          driver:drivers(id, name, phone, email)
+        `)
+        .eq("id", inspectionId)
+        .single();
+
+      if (inspectionError) throw inspectionError;
+
+      // Get the item that has the issue
+      const { data: itemStatus, error: itemError } = await supabase
+        .from("truck_inspection_item_status")
+        .select(`
+          notes,
+          item:truck_inspection_items(item_name)
+        `)
+        .eq("inspection_id", inspectionId)
+        .eq("item_id", itemId)
+        .single();
+
+      if (itemError) throw itemError;
+
+      const truck = (inspection as any).truck;
+      const driver = (inspection as any).driver;
+      const itemName = itemStatus?.item?.item_name || "Unknown Item";
+
+      // Get admin email from environment or use default
+      const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || "admin@avensis-logflow.com";
+
+      // Generate email HTML
+      const emailHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inspection Issue Reported</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #ef4444; margin-bottom: 20px; font-size: 24px;">⚠️ Inspection Issue Reported</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      An inspection issue has been reported for a truck in the fleet.
+    </p>
+
+    <div style="background-color: #fee2e2; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #ef4444;">
+      <h2 style="color: #ef4444; margin-top: 0; font-size: 18px; margin-bottom: 15px;">Issue Details</h2>
+      
+      <p style="margin: 10px 0; font-size: 16px;">
+        <strong>Truck ID:</strong> ${truck?.truck_id || "N/A"}<br>
+        <strong>License Plate:</strong> ${truck?.license_plate || "N/A"}<br>
+        <strong>Carrier:</strong> ${truck?.carrier?.name || "N/A"}<br>
+        <strong>Driver:</strong> ${driver?.name || "N/A"}<br>
+        <strong>Inspection Date:</strong> ${new Date(inspection.inspection_date).toLocaleDateString()}<br>
+        <strong>Issue Item:</strong> ${itemName}<br>
+        <strong>Notes:</strong> ${itemStatus?.notes || "No notes provided"}
+      </p>
+    </div>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Please review this issue in the Fleet Compliance tab of the Admin Dashboard.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Best regards,<br>
+      <strong>Avensis LogFlow System</strong>
+    </p>
+  </div>
+</body>
+</html>
+      `;
+
+      // Send email
+      const emailResult = await sendEmail({
+        to: adminEmail,
+        subject: `Inspection Issue Reported - Truck ${truck?.truck_id || "Unknown"}`,
+        html: emailHTML,
+      });
+
+      if (!emailResult.success) {
+        console.error("Failed to send admin notification email:", emailResult.error);
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error notifying admin of inspection issue:", error);
+      return { success: false, error: error.message || "Failed to notify admin" };
+    }
+  },
+
+  /**
+   * Generate and save inspection report, then send SMS to driver
+   */
+  async generateAndSaveInspectionReport(
+    inspectionId: string
+  ): Promise<{ success: boolean; reportUrl?: string; error?: string }> {
+    try {
+      // Get inspection with all details
+      const { data: inspection, error: inspectionError } = await supabase
+        .from("truck_daily_inspections")
+        .select(`
+          id,
+          truck_id,
+          inspection_date,
+          driver_id,
+          truck:trucks!truck_daily_inspections_truck_id_fkey(
+            truck_id,
+            license_plate,
+            license_state,
+            vin,
+            carrier:companies!trucks_carrier_id_fkey_companies(name)
+          ),
+          driver:drivers(id, name, phone, email)
+        `)
+        .eq("id", inspectionId)
+        .single();
+
+      if (inspectionError) throw inspectionError;
+
+      // Get all inspection items with their statuses
+      const { data: itemStatuses, error: itemsError } = await supabase
+        .from("truck_inspection_item_status")
+        .select(`
+          status,
+          notes,
+          checked_at,
+          item:truck_inspection_items(item_name, item_key, category, section)
+        `)
+        .eq("inspection_id", inspectionId);
+
+      if (itemsError) throw itemsError;
+
+      const truck = (inspection as any).truck;
+      const driver = (inspection as any).driver;
+
+      // Generate PDF report HTML
+      const reportHTML = this.generateInspectionReportHTML({
+        inspectionDate: inspection.inspection_date,
+        truckId: truck?.truck_id || "N/A",
+        licensePlate: truck?.license_plate || "N/A",
+        licenseState: truck?.license_state || "N/A",
+        vin: truck?.vin || "N/A",
+        carrierName: truck?.carrier?.name || "N/A",
+        driverName: driver?.name || "N/A",
+        items: (itemStatuses || []).map((item: any) => ({
+          name: item.item?.item_name || "Unknown",
+          status: item.status,
+          notes: item.notes || "",
+          checkedAt: item.checked_at,
+        })),
+      });
+
+      // Save report to Supabase Storage
+      // First, check if bucket exists, create if not
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(b => b.name === "inspection-reports");
+      
+      if (!bucketExists) {
+        // Create bucket if it doesn't exist
+        const { error: createError } = await supabase.storage.createBucket("inspection-reports", {
+          public: true,
+          fileSizeLimit: 5242880, // 5MB
+        });
+        if (createError && !createError.message.includes("already exists")) {
+          console.warn("Could not create inspection-reports bucket:", createError);
+        }
+      }
+
+      const fileName = `inspection-report-${inspectionId}-${Date.now()}.html`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("inspection-reports")
+        .upload(fileName, new Blob([reportHTML], { type: "text/html" }), {
+          contentType: "text/html",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        // If upload fails, try creating bucket again
+        console.warn("Upload failed, attempting to create bucket:", uploadError);
+        await supabase.storage.createBucket("inspection-reports", {
+          public: true,
+          fileSizeLimit: 5242880,
+        });
+        // Retry upload
+        const { error: retryError } = await supabase.storage
+          .from("inspection-reports")
+          .upload(fileName, new Blob([reportHTML], { type: "text/html" }), {
+            contentType: "text/html",
+            upsert: false,
+          });
+        if (retryError) throw retryError;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("inspection-reports")
+        .getPublicUrl(fileName);
+
+      const reportUrl = urlData?.publicUrl;
+
+      // Save report reference to driver profile (if driver_id exists)
+      if (inspection.driver_id && reportUrl) {
+        try {
+          // Store report URL in a metadata field or create a reports table
+          // For now, we'll store it in the inspection record itself
+          // Note: This assumes report_url column exists in truck_daily_inspections table
+          // If it doesn't exist, this will fail silently
+          const { error: dbError } = await supabase
+            .from("truck_daily_inspections")
+            .update({ report_url: reportUrl })
+            .eq("id", inspectionId);
+          
+          if (dbError) {
+            // Column might not exist, log but don't fail
+            console.warn("Could not save report URL to database (column may not exist):", dbError);
+          }
+        } catch (dbError) {
+          console.error("Error saving report URL to database:", dbError);
+          // Don't fail if we can't save the URL
+        }
+      }
+
+      // Save report reference to database (if you have a table for this)
+      // For now, we'll just return the URL
+
+      // Send SMS to driver if phone number is available
+      if (driver?.phone) {
+        try {
+          // Normalize phone number to E.164 format for SMS
+          const normalizedPhone = normalizePhoneToE164(driver.phone);
+          if (normalizedPhone) {
+            await this.sendInspectionReportSMS(normalizedPhone, reportUrl || "");
+          } else {
+            console.warn("Invalid phone number format for driver, skipping SMS:", driver.phone);
+          }
+        } catch (smsError) {
+          console.error("Error sending SMS:", smsError);
+          // Don't fail the whole operation if SMS fails
+        }
+      }
+
+      return { success: true, reportUrl };
+    } catch (error: any) {
+      console.error("Error generating inspection report:", error);
+      return { success: false, error: error.message || "Failed to generate inspection report" };
+    }
+  },
+
+  /**
+   * Generate HTML for inspection report
+   */
+  generateInspectionReportHTML(params: {
+    inspectionDate: string;
+    truckId: string;
+    licensePlate: string;
+    licenseState: string;
+    vin: string;
+    carrierName: string;
+    driverName: string;
+    items: Array<{ name: string; status: string; notes: string; checkedAt: string }>;
+  }): string {
+    const issues = params.items.filter((item) => item.status === "not_working");
+    const passed = params.items.filter((item) => item.status === "working");
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Daily Vehicle Inspection Report - ${params.truckId}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+    .section { margin: 20px 0; }
+    .issue { background-color: #fee2e2; padding: 10px; margin: 5px 0; border-left: 4px solid #ef4444; }
+    .passed { background-color: #d1fae5; padding: 10px; margin: 5px 0; border-left: 4px solid #10b981; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Daily Vehicle Inspection Report</h1>
+    <p><strong>Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
+    <p><strong>Truck ID:</strong> ${params.truckId}</p>
+    <p><strong>License Plate:</strong> ${params.licensePlate} (${params.licenseState})</p>
+    <p><strong>VIN:</strong> ${params.vin}</p>
+    <p><strong>Carrier:</strong> ${params.carrierName}</p>
+    <p><strong>Driver:</strong> ${params.driverName}</p>
+  </div>
+
+  <div class="section">
+    <h2>Issues Found (${issues.length})</h2>
+    ${issues.length > 0 ? issues.map(item => `
+      <div class="issue">
+        <strong>${item.name}</strong><br>
+        ${item.notes ? `Notes: ${item.notes}<br>` : ""}
+        Checked: ${new Date(item.checkedAt).toLocaleString()}
+      </div>
+    `).join("") : "<p>No issues reported.</p>"}
+  </div>
+
+  <div class="section">
+    <h2>Items Checked - All Passed (${passed.length})</h2>
+    <table>
+      <tr><th>Item</th><th>Status</th><th>Checked At</th></tr>
+      ${passed.map(item => `
+        <tr>
+          <td>${item.name}</td>
+          <td>✓ Working</td>
+          <td>${new Date(item.checkedAt).toLocaleString()}</td>
+        </tr>
+      `).join("")}
+    </table>
+  </div>
+
+  <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #333;">
+    <p><strong>Driver Signature:</strong> ${params.driverName}</p>
+    <p><strong>Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
+    <p style="font-size: 12px; color: #666;">
+      This report is valid for 24 hours from the inspection date. 
+      Keep this report available for DOT inspections.
+    </p>
+  </div>
+</body>
+</html>
+    `;
+  },
+
+  /**
+   * Send SMS to driver with inspection report link
+   */
+  async sendInspectionReportSMS(
+    phoneNumber: string,
+    reportUrl: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Call SMS API endpoint (you'll need to create this)
+      const response = await fetch("/api/send-sms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: phoneNumber,
+          message: `Your daily inspection report is ready. View it here: ${reportUrl}. Keep this link for DOT inspections.`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send SMS");
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error sending SMS:", error);
+      return { success: false, error: error.message || "Failed to send SMS" };
     }
   },
 

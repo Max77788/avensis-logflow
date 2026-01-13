@@ -48,9 +48,9 @@ const ContractorLogin = () => {
       );
 
       if (result.success && result.data) {
-        // Verify this is a contractor company
-        if (result.data.type !== "Contractor") {
-          setError("This company is not registered as a contractor.");
+        // Verify this is a destination client company (support both old "Contractor" and new "Destination Client")
+        if (result.data.type !== "Destination Client" && result.data.type !== "Contractor") {
+          setError("This company is not registered as a destination client.");
           setIsLoading(false);
           return;
         }

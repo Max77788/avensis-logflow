@@ -17,6 +17,7 @@ import {
   Power,
   AlertCircle,
   BookOpen,
+  CheckCircle2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -459,6 +460,27 @@ const Index = () => {
                   driverId={driverProfile.id}
                   isShiftActive={true}
                 />
+              )}
+
+              {/* Show message when shift is inactive - inspection will be available after starting shift */}
+              {driverProfile?.status !== "active" && driverProfile?.default_truck_id && (
+                <Card className="p-4 sm:p-6 mt-4">
+                  <div className="text-center py-6 sm:py-8">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/40">
+                        <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm sm:text-base font-medium text-foreground">
+                          Truck Inspection Available
+                        </p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Start your shift to begin the daily truck inspection
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
               )}
 
               {/* Recent Activity */}

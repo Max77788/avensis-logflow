@@ -10,7 +10,7 @@ import {
 // TYPES
 // ============================================================================
 
-export type CompanyType = "Carrier" | "Scale House" | "Contractor" | "Other";
+export type CompanyType = "Carrier" | "Scale House" | "Destination Client" | "Other";
 export type CompanyStatus =
   | "Draft"
   | "Onboarding Invited"

@@ -46,41 +46,54 @@ const DriverSignUp = () => {
         );
         
         // Check each truck for restrictions
+        // Priority: Admin-assigned compliance_status takes precedence over inspection issues
         const trucksWithRestrictions = await Promise.all(
           data.map(async (truck) => {
-            // Get latest inspection for this truck
-            const { data: latestInspection } = await supabase
-              .from("truck_daily_inspections")
-              .select("id, inspection_date")
-              .eq("truck_id", truck.id)
-              .order("inspection_date", { ascending: false })
-              .limit(1)
-              .single();
-
-            let hasIssues = false;
-            if (latestInspection) {
-              // Count "not_working" items
-              const { count } = await supabase
-                .from("truck_inspection_item_status")
-                .select("*", { count: "exact", head: true })
-                .eq("inspection_id", latestInspection.id)
-                .eq("status", "not_working");
-
-              hasIssues = (count || 0) > 0;
-            }
-
-            // Check compliance_status
+            // Get compliance_status from the truck record (admin-assigned)
             const { data: truckData } = await supabase
               .from("trucks")
               .select("compliance_status")
               .eq("id", truck.id)
               .single();
 
-            const isRestricted = hasIssues || truckData?.compliance_status === "restricted";
+            // Admin-assigned status takes priority
+            // If admin set to "active" -> truck is NOT restricted (even if there are inspection issues)
+            // If admin set to "restricted" -> truck IS restricted
+            // If no admin decision (null/undefined) -> check inspection issues as fallback
+            let isRestricted = false;
+            
+            if (truckData?.compliance_status === "restricted") {
+              // Admin explicitly marked as restricted
+              isRestricted = true;
+            } else if (truckData?.compliance_status === "active") {
+              // Admin explicitly marked as active - NOT restricted
+              isRestricted = false;
+            } else {
+              // No admin decision - fall back to checking inspection issues
+              const { data: latestInspection } = await supabase
+                .from("truck_daily_inspections")
+                .select("id, inspection_date")
+                .eq("truck_id", truck.id)
+                .order("inspection_date", { ascending: false })
+                .limit(1)
+                .single();
+
+              if (latestInspection) {
+                // Count "not_working" items
+                const { count } = await supabase
+                  .from("truck_inspection_item_status")
+                  .select("*", { count: "exact", head: true })
+                  .eq("inspection_id", latestInspection.id)
+                  .eq("status", "not_working");
+
+                isRestricted = (count || 0) > 0;
+              }
+            }
 
             return {
               ...truck,
               isRestricted,
+              compliance_status: truckData?.compliance_status || null,
             };
           })
         );
@@ -111,11 +124,25 @@ const DriverSignUp = () => {
   // Available trucks from database (those without assigned drivers) - sorted alphabetically
   // Mark restricted trucks as disabled
   const trucksList = trucks
-    .map((truck) => ({
-      value: truck.id,
-      label: truck.truck_id,
-      disabled: (truck as any).isRestricted || false,
-    }))
+    .map((truck) => {
+      const isRestricted = (truck as any).isRestricted || false;
+      let statusLabel = "";
+      if (isRestricted) {
+        statusLabel = "restricted";
+      } else if (truck.status === "inactive") {
+        statusLabel = "available";
+      } else if (truck.status === "active") {
+        statusLabel = "active";
+      } else {
+        statusLabel = (truck as any).compliance_status || truck.status || "";
+      }
+
+      return {
+        value: truck.id,
+        label: `${truck.truck_id} - ${statusLabel}`,
+        disabled: isRestricted, // Disable restricted trucks - they cannot be selected
+      };
+    })
     .sort((a, b) =>
       a.label.localeCompare(b.label, undefined, {
         numeric: true,
