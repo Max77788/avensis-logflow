@@ -201,6 +201,17 @@ export const truckInspectionService = {
     imageUrls?: string[]
   ): Promise<{ success: boolean; error?: string }> {
     try {
+      // Get existing status to check if this is a new issue (transition from working to not_working)
+      const { data: existing } = await supabase
+        .from("truck_inspection_item_status")
+        .select("status, image_urls")
+        .eq("inspection_id", inspectionId)
+        .eq("item_id", itemId)
+        .single();
+
+      const previousStatus = existing?.status;
+      const isNewIssue = status === "not_working" && previousStatus !== "not_working";
+
       // If imageUrls is provided, use it directly (replace, don't merge)
       // This allows for both adding new images and removing existing ones
       const finalImageUrls = imageUrls !== undefined 
@@ -212,14 +223,6 @@ export const truckInspectionService = {
       let imageUrlsToSave = finalImageUrls;
       
       if (finalImageUrls === undefined) {
-        // Get existing record to preserve image URLs if not provided
-        const { data: existing } = await supabase
-          .from("truck_inspection_item_status")
-          .select("image_urls")
-          .eq("inspection_id", inspectionId)
-          .eq("item_id", itemId)
-          .single();
-
         imageUrlsToSave = existing?.image_urls || null;
       }
 
@@ -245,12 +248,18 @@ export const truckInspectionService = {
       if (status === "not_working") {
         await this.updateTruckComplianceStatus(inspectionId);
         
-        // Send email notification to admin when issue is raised
-        try {
-          await this.notifyAdminOfInspectionIssue(inspectionId, itemId);
-        } catch (emailError) {
-          console.error("Error sending admin notification email:", emailError);
-          // Don't fail the update if email fails
+        // Only send email notification to admin when a NEW issue is raised
+        // (transitioning from "working" to "not_working", not when already "not_working")
+        if (isNewIssue) {
+          try {
+            console.log("📧 Sending admin notification for NEW inspection issue:", { inspectionId, itemId });
+            await this.notifyAdminOfInspectionIssue(inspectionId, itemId);
+          } catch (emailError) {
+            console.error("Error sending admin notification email:", emailError);
+            // Don't fail the update if email fails
+          }
+        } else {
+          console.log("⏭️ Skipping admin notification - issue already reported for this item");
         }
       }
 
@@ -529,30 +538,27 @@ export const truckInspectionService = {
 
       const reportUrl = urlData?.publicUrl;
 
-      // Save report reference to driver profile (if driver_id exists)
-      if (inspection.driver_id && reportUrl) {
-        try {
-          // Store report URL in a metadata field or create a reports table
-          // For now, we'll store it in the inspection record itself
-          // Note: This assumes report_url column exists in truck_daily_inspections table
-          // If it doesn't exist, this will fail silently
-          const { error: dbError } = await supabase
-            .from("truck_daily_inspections")
-            .update({ report_url: reportUrl })
-            .eq("id", inspectionId);
-          
-          if (dbError) {
-            // Column might not exist, log but don't fail
-            console.warn("Could not save report URL to database (column may not exist):", dbError);
-          }
-        } catch (dbError) {
-          console.error("Error saving report URL to database:", dbError);
-          // Don't fail if we can't save the URL
-        }
+      // Always save report URL to the inspection record
+      if (!reportUrl) {
+        throw new Error("Failed to get public URL for inspection report");
       }
 
-      // Save report reference to database (if you have a table for this)
-      // For now, we'll just return the URL
+      // Save report URL to database - always save it, not just if driver_id exists
+      try {
+        const { error: dbError } = await supabase
+          .from("truck_daily_inspections")
+          .update({ report_url: reportUrl })
+          .eq("id", inspectionId);
+        
+        if (dbError) {
+          console.error("Error saving report URL to database:", dbError);
+          throw new Error(`Failed to save report URL: ${dbError.message}`);
+        }
+        console.log("✅ Report URL saved to database:", reportUrl);
+      } catch (dbError: any) {
+        console.error("Error saving report URL to database:", dbError);
+        throw dbError; // Re-throw to fail the operation if we can't save the URL
+      }
 
       // Send notification to driver - SMS if phone exists, otherwise email
       if (reportUrl) {
@@ -1130,16 +1136,15 @@ export const truckInspectionService = {
       'exhaust': 32,
       'trailer_tires': 33,
       'trailer_brakes': 34,
-      'trailer_lights': 35,
-      'trailer_reflectors': 36,
-      'trailer_doors': 37,
-      'trailer_floor': 38,
-      'rear_lights': 39,
-      'reflectors': 40,
-      'bumper': 41,
-      'fire_extinguisher': 42,
-      'warning_triangles': 43,
-      'spare_fuses': 44,
+      'trailer_reflectors': 35,
+      'trailer_doors': 36,
+      'trailer_floor': 37,
+      'rear_lights': 38,
+      'reflectors': 39,
+      'bumper': 40,
+      'fire_extinguisher': 41,
+      'warning_triangles': 42,
+      'spare_fuses': 43,
     };
 
     // Location-based order (front to back)
