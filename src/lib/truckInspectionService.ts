@@ -656,7 +656,7 @@ export const truckInspectionService = {
       console.log("📄 [REPORT GENERATION] Step 4: Converting HTML to PDF...");
       let pdfBytes: Uint8Array | null = null;
       try {
-        pdfBytes = await this.convertHTMLToPDF(reportHTML);
+        pdfBytes = await this.convertHTMLToPDF(reportHTML, inspectionId);
         console.log(`✅ [REPORT GENERATION] PDF generated: ${pdfBytes.length} bytes`);
       } catch (pdfError: any) {
         console.error("❌ [REPORT GENERATION] PDF conversion failed, falling back to HTML:", pdfError);
@@ -1029,45 +1029,79 @@ export const truckInspectionService = {
   },
 
   /**
-   * Convert HTML to PDF using html2pdf.app API
+   * Convert HTML to PDF using pdfendpoint.com API
+   * First uploads HTML to storage, then converts the URL to PDF
    */
-  async convertHTMLToPDF(html: string): Promise<Uint8Array> {
+  async convertHTMLToPDF(html: string, inspectionId: string): Promise<Uint8Array> {
     try {
-      console.log("📄 [PDF CONVERSION] Converting HTML to PDF...");
-      const response = await fetch("https://api.html2pdf.app/v1/convert", {
+      console.log("📄 [PDF CONVERSION] Converting HTML to PDF using pdfendpoint.com...");
+      
+      // First, upload HTML to storage temporarily to get a URL
+      const tempFileName = `temp-html-${inspectionId}-${Date.now()}.html`;
+      console.log("📄 [PDF CONVERSION] Uploading HTML to storage for conversion...");
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("inspection-reports")
+        .upload(tempFileName, new Blob([html], { type: "text/html" }), {
+          contentType: "text/html",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw new Error(`Failed to upload HTML for PDF conversion: ${uploadError.message}`);
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("inspection-reports")
+        .getPublicUrl(tempFileName);
+
+      const htmlUrl = urlData?.publicUrl;
+      if (!htmlUrl) {
+        throw new Error("Failed to get public URL for HTML");
+      }
+
+      console.log("📄 [PDF CONVERSION] HTML URL obtained, converting to PDF...");
+
+      // Get API key from environment or use the provided one
+      const apiKey = import.meta.env.VITE_PDFENDPOINT_API_KEY || "pdfe_live_7501b32442cddc17879d549fcea6af72da07";
+
+      // Convert URL to PDF using pdfendpoint.com
+      const response = await fetch("https://api.pdfendpoint.com/v1/convert", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          html: html,
-          options: {
-            margin: 10,
-            filename: "inspection-report.pdf",
-            image: { type: "jpeg", quality: 0.98 },
-            html2canvas: { scale: 2 },
-            jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
-          },
+          url: htmlUrl,
+          sandbox: false,
+          orientation: "vertical",
+          page_size: "A4",
+          margin_top: "2cm",
+          margin_bottom: "2cm",
+          margin_left: "2cm",
+          margin_right: "2cm",
         }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
+        // Clean up temp file
+        await supabase.storage.from("inspection-reports").remove([tempFileName]);
         throw new Error(`PDF conversion failed: ${response.statusText} - ${errorText}`);
       }
 
-      const data = await response.json();
+      // pdfendpoint.com returns PDF as binary data
+      const pdfBlob = await response.blob();
+      const arrayBuffer = await pdfBlob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
 
-      if (!data.pdf) {
-        throw new Error("PDF conversion returned no data");
-      }
-
-      // Decode base64 PDF
-      const binaryString = atob(data.pdf);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
+      // Clean up temporary HTML file
+      console.log("📄 [PDF CONVERSION] Cleaning up temporary HTML file...");
+      await supabase.storage.from("inspection-reports").remove([tempFileName]).catch((err) => {
+        console.warn("⚠️ [PDF CONVERSION] Failed to clean up temp file:", err);
+      });
 
       console.log(`✅ [PDF CONVERSION] PDF generated: ${bytes.length} bytes`);
       return bytes;
