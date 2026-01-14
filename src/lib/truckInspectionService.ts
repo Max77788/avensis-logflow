@@ -476,7 +476,7 @@ export const truckInspectionService = {
           status,
           notes,
           checked_at,
-          item:truck_inspection_items(item_name, item_key, category, section)
+          item:truck_inspection_items(item_name, item_key)
         `)
         .eq("inspection_id", inspectionId);
 
