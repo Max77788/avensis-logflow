@@ -416,6 +416,152 @@ export const truckInspectionService = {
   },
 
   /**
+   * Notify admin of all inspection issues when inspection is completed
+   */
+  async notifyAdminOfAllInspectionIssues(
+    inspectionId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log("📧 [ADMIN NOTIFICATION] Collecting all issues for inspection:", inspectionId);
+      
+      // Get inspection details
+      const { data: inspection, error: inspectionError } = await supabase
+        .from("truck_daily_inspections")
+        .select(`
+          id,
+          truck_id,
+          inspection_date,
+          driver_id,
+          truck:trucks!truck_daily_inspections_truck_id_fkey(
+            truck_id,
+            license_plate,
+            carrier:companies!trucks_carrier_id_fkey_companies(name)
+          ),
+          driver:drivers(id, name, phone, email)
+        `)
+        .eq("id", inspectionId)
+        .single();
+
+      if (inspectionError) throw inspectionError;
+
+      // Get all "not_working" items
+      const { data: itemStatuses, error: itemsError } = await supabase
+        .from("truck_inspection_item_status")
+        .select(`
+          notes,
+          checked_at,
+          item:truck_inspection_items(item_name)
+        `)
+        .eq("inspection_id", inspectionId)
+        .eq("status", "not_working");
+
+      if (itemsError) throw itemsError;
+
+      // If no issues, don't send email
+      if (!itemStatuses || itemStatuses.length === 0) {
+        console.log("📧 [ADMIN NOTIFICATION] No issues found, skipping email");
+        return { success: true };
+      }
+
+      const truck = (inspection as any).truck;
+      const driver = (inspection as any).driver;
+
+      // Get admin email from environment or use default
+      const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || "admin@avensis-logflow.com";
+
+      // Generate issues list HTML
+      const issuesListHTML = itemStatuses.map((itemStatus: any, index: number) => {
+        const itemName = itemStatus?.item?.item_name || "Unknown Item";
+        const notes = itemStatus?.notes || "No notes provided";
+        const checkedAt = itemStatus?.checked_at 
+          ? new Date(itemStatus.checked_at).toLocaleString() 
+          : "N/A";
+        
+        return `
+          <div style="background-color: #fee2e2; padding: 15px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #ef4444;">
+            <h3 style="color: #ef4444; margin-top: 0; margin-bottom: 10px; font-size: 16px;">
+              Issue ${index + 1}: ${itemName}
+            </h3>
+            <p style="margin: 5px 0; font-size: 14px;">
+              <strong>Notes:</strong> ${notes}
+            </p>
+            <p style="margin: 5px 0; font-size: 12px; color: #666;">
+              <strong>Reported at:</strong> ${checkedAt}
+            </p>
+          </div>
+        `;
+      }).join("");
+
+      // Generate email HTML
+      const emailHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inspection Issues Reported</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <h1 style="color: #ef4444; margin-bottom: 20px; font-size: 24px;">⚠️ Inspection Issues Reported</h1>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      An inspection has been completed with ${itemStatuses.length} issue${itemStatuses.length > 1 ? 's' : ''} reported for a truck in the fleet.
+    </p>
+
+    <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 25px 0;">
+      <h2 style="color: #1f2937; margin-top: 0; font-size: 18px; margin-bottom: 15px;">Inspection Details</h2>
+      
+      <p style="margin: 10px 0; font-size: 16px;">
+        <strong>Truck ID:</strong> ${truck?.truck_id || "N/A"}<br>
+        <strong>License Plate:</strong> ${truck?.license_plate || "N/A"}<br>
+        <strong>Carrier:</strong> ${truck?.carrier?.name || "N/A"}<br>
+        <strong>Driver:</strong> ${driver?.name || "N/A"}<br>
+        <strong>Inspection Date:</strong> ${new Date(inspection.inspection_date).toLocaleDateString()}<br>
+        <strong>Total Issues:</strong> ${itemStatuses.length}
+      </p>
+    </div>
+
+    <div style="margin: 25px 0;">
+      <h2 style="color: #ef4444; font-size: 18px; margin-bottom: 15px;">Issues Found</h2>
+      ${issuesListHTML}
+    </div>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Please review these issues in the Fleet Compliance tab of the Admin Dashboard.
+    </p>
+
+    <p style="font-size: 16px; margin-top: 25px;">
+      Best regards,<br>
+      <strong>Avensis LogFlow System</strong>
+    </p>
+  </div>
+</body>
+</html>
+      `;
+
+      // Send email
+      console.log(`📧 [ADMIN NOTIFICATION] Sending email to admin with ${itemStatuses.length} issue(s)`);
+      const emailResult = await sendEmail({
+        to: adminEmail,
+        subject: `Inspection Issues Reported - Truck ${truck?.truck_id || "Unknown"} (${itemStatuses.length} issue${itemStatuses.length > 1 ? 's' : ''})`,
+        html: emailHTML,
+      });
+
+      if (!emailResult.success) {
+        console.error("❌ [ADMIN NOTIFICATION] Failed to send admin notification email:", emailResult.error);
+        return { success: false, error: emailResult.error };
+      }
+
+      console.log("✅ [ADMIN NOTIFICATION] Admin notification email sent successfully");
+      return { success: true };
+    } catch (error: any) {
+      console.error("❌ [ADMIN NOTIFICATION] Error sending admin notification:", error);
+      return { success: false, error: error.message || "Failed to send admin notification" };
+    }
+  },
+
+  /**
    * Generate and save inspection report, then send SMS to driver
    */
   async generateAndSaveInspectionReport(
@@ -506,41 +652,91 @@ export const truckInspectionService = {
       });
       console.log(`✅ [REPORT GENERATION] HTML report generated: ${reportHTML.length} characters`);
 
+      // Convert HTML to PDF
+      console.log("📄 [REPORT GENERATION] Step 4: Converting HTML to PDF...");
+      let pdfBytes: Uint8Array | null = null;
+      try {
+        pdfBytes = await this.convertHTMLToPDF(reportHTML);
+        console.log(`✅ [REPORT GENERATION] PDF generated: ${pdfBytes.length} bytes`);
+      } catch (pdfError: any) {
+        console.error("❌ [REPORT GENERATION] PDF conversion failed, falling back to HTML:", pdfError);
+        // Continue with HTML fallback
+      }
+
       // Save report to Supabase Storage
       // Note: Bucket creation requires admin/service role, not client-side
       // The bucket should be created via Supabase dashboard or MCP
-      console.log("📄 [REPORT GENERATION] Step 4: Preparing to upload report to storage...");
+      console.log("📄 [REPORT GENERATION] Step 5: Preparing to upload report to storage...");
       
-      const fileName = `inspection-report-${inspectionId}-${Date.now()}.html`;
-      console.log("📄 [REPORT GENERATION] Step 5: Uploading report file:", fileName);
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("inspection-reports")
-        .upload(fileName, new Blob([reportHTML], { type: "text/html" }), {
-          contentType: "text/html",
-          upsert: false,
-        });
+      const timestamp = Date.now();
+      const baseFileName = `inspection-report-${inspectionId}-${timestamp}`;
+      let reportUrl: string;
+      
+      // Upload PDF if conversion succeeded, otherwise upload HTML
+      if (pdfBytes && pdfBytes.length > 0) {
+        const pdfFileName = `${baseFileName}.pdf`;
+        console.log("📄 [REPORT GENERATION] Uploading PDF file:", pdfFileName);
+        const { data: pdfUploadData, error: pdfUploadError } = await supabase.storage
+          .from("inspection-reports")
+          .upload(pdfFileName, pdfBytes, {
+            contentType: "application/pdf",
+            upsert: false,
+          });
 
-      if (uploadError) {
-        console.error("❌ [REPORT GENERATION] Upload failed:", uploadError);
-        
-        // Check if error is due to missing bucket
-        if (uploadError.message?.includes("Bucket not found") || uploadError.message?.includes("not found")) {
-          console.error("❌ [REPORT GENERATION] Storage bucket 'inspection-reports' does not exist. Please create it via Supabase dashboard or MCP.");
-          throw new Error("Storage bucket 'inspection-reports' does not exist. Please contact an administrator to create it.");
+        if (pdfUploadError) {
+          console.error("❌ [REPORT GENERATION] PDF upload failed:", pdfUploadError);
+          
+          // Check if error is due to missing bucket
+          if (pdfUploadError.message?.includes("Bucket not found") || pdfUploadError.message?.includes("not found")) {
+            console.error("❌ [REPORT GENERATION] Storage bucket 'inspection-reports' does not exist. Please create it via Supabase dashboard or MCP.");
+            throw new Error("Storage bucket 'inspection-reports' does not exist. Please contact an administrator to create it.");
+          }
+          
+          throw pdfUploadError;
         }
         
-        throw uploadError;
+        console.log("✅ [REPORT GENERATION] PDF file uploaded successfully");
+
+        // Get public URL for PDF
+        console.log("📄 [REPORT GENERATION] Step 6: Getting public URL for PDF...");
+        const { data: urlData } = supabase.storage
+          .from("inspection-reports")
+          .getPublicUrl(pdfFileName);
+
+        reportUrl = urlData?.publicUrl;
+      } else {
+        // Fallback to HTML upload
+        const htmlFileName = `${baseFileName}.html`;
+        console.log("📄 [REPORT GENERATION] Uploading HTML file (PDF conversion failed):", htmlFileName);
+        const { data: htmlUploadData, error: htmlUploadError } = await supabase.storage
+          .from("inspection-reports")
+          .upload(htmlFileName, new Blob([reportHTML], { type: "text/html" }), {
+            contentType: "text/html",
+            upsert: false,
+          });
+
+        if (htmlUploadError) {
+          console.error("❌ [REPORT GENERATION] HTML upload failed:", htmlUploadError);
+          
+          // Check if error is due to missing bucket
+          if (htmlUploadError.message?.includes("Bucket not found") || htmlUploadError.message?.includes("not found")) {
+            console.error("❌ [REPORT GENERATION] Storage bucket 'inspection-reports' does not exist. Please create it via Supabase dashboard or MCP.");
+            throw new Error("Storage bucket 'inspection-reports' does not exist. Please contact an administrator to create it.");
+          }
+          
+          throw htmlUploadError;
+        }
+        
+        console.log("✅ [REPORT GENERATION] HTML file uploaded successfully");
+
+        // Get public URL for HTML
+        console.log("📄 [REPORT GENERATION] Step 6: Getting public URL for HTML...");
+        const { data: urlData } = supabase.storage
+          .from("inspection-reports")
+          .getPublicUrl(htmlFileName);
+
+        reportUrl = urlData?.publicUrl;
       }
-      
-      console.log("✅ [REPORT GENERATION] Report file uploaded successfully");
-
-      // Get public URL
-      console.log("📄 [REPORT GENERATION] Step 6: Getting public URL...");
-      const { data: urlData } = supabase.storage
-        .from("inspection-reports")
-        .getPublicUrl(fileName);
-
-      const reportUrl = urlData?.publicUrl;
 
       // Always save report URL to the inspection record
       if (!reportUrl) {
@@ -646,6 +842,7 @@ export const truckInspectionService = {
   }): string {
     const issues = params.items.filter((item) => item.status === "not_working");
     const passed = params.items.filter((item) => item.status === "working");
+    const allItems = [...issues, ...passed]; // Issues first, then passed items
 
     return `
 <!DOCTYPE html>
@@ -654,56 +851,174 @@ export const truckInspectionService = {
   <meta charset="utf-8">
   <title>Daily Vehicle Inspection Report - ${params.truckId}</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
-    .section { margin: 20px 0; }
-    .issue { background-color: #fee2e2; padding: 10px; margin: 5px 0; border-left: 4px solid #ef4444; }
-    .passed { background-color: #d1fae5; padding: 10px; margin: 5px 0; border-left: 4px solid #10b981; }
-    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background-color: #f3f4f6; }
+    * { box-sizing: border-box; }
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0;
+      padding: 20px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .header { 
+      border-bottom: 3px solid #1f2937; 
+      padding-bottom: 15px; 
+      margin-bottom: 20px; 
+    }
+    .header h1 {
+      margin: 0 0 15px 0;
+      font-size: 24px;
+      color: #1f2937;
+    }
+    .header-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .header-info p {
+      margin: 5px 0;
+      font-size: 11px;
+    }
+    .section { 
+      margin: 25px 0; 
+      page-break-inside: avoid;
+    }
+    .section h2 {
+      font-size: 16px;
+      margin-bottom: 10px;
+      color: #1f2937;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 5px;
+    }
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin: 15px 0;
+      font-size: 11px;
+      page-break-inside: auto;
+    }
+    th, td { 
+      border: 1px solid #d1d5db; 
+      padding: 8px 10px; 
+      text-align: left;
+      vertical-align: top;
+    }
+    th { 
+      background-color: #f3f4f6;
+      font-weight: bold;
+      color: #1f2937;
+      font-size: 11px;
+    }
+    tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+    .status-working {
+      color: #10b981;
+      font-weight: bold;
+    }
+    .status-not-working {
+      color: #ef4444;
+      font-weight: bold;
+    }
+    .notes-cell {
+      max-width: 300px;
+      word-wrap: break-word;
+    }
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #1f2937;
+      font-size: 11px;
+    }
+    .footer p {
+      margin: 8px 0;
+    }
+    .disclaimer {
+      font-size: 10px;
+      color: #6b7280;
+      font-style: italic;
+      margin-top: 15px;
+    }
+    @media print {
+      body { margin: 0; padding: 15px; }
+      .section { page-break-inside: avoid; }
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>Daily Vehicle Inspection Report</h1>
-    <p><strong>Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
-    <p><strong>Truck ID:</strong> ${params.truckId}</p>
-    <p><strong>License Plate:</strong> ${params.licensePlate} (${params.licenseState})</p>
-    <p><strong>VIN:</strong> ${params.vin}</p>
-    <p><strong>Carrier:</strong> ${params.carrierName}</p>
-    <p><strong>Driver:</strong> ${params.driverName}</p>
-  </div>
-
-  <div class="section">
-    <h2>Issues Found (${issues.length})</h2>
-    ${issues.length > 0 ? issues.map(item => `
-      <div class="issue">
-        <strong>${item.name}</strong><br>
-        ${item.notes ? `Notes: ${item.notes}<br>` : ""}
-        Checked: ${new Date(item.checkedAt).toLocaleString()}
+    <div class="header-info">
+      <div>
+        <p><strong>Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
+        <p><strong>Truck ID:</strong> ${params.truckId}</p>
+        <p><strong>License Plate:</strong> ${params.licensePlate} (${params.licenseState})</p>
       </div>
-    `).join("") : "<p>No issues reported.</p>"}
+      <div>
+        <p><strong>VIN:</strong> ${params.vin}</p>
+        <p><strong>Carrier:</strong> ${params.carrierName}</p>
+        <p><strong>Driver:</strong> ${params.driverName}</p>
+      </div>
+    </div>
   </div>
 
   <div class="section">
-    <h2>Items Checked - All Passed (${passed.length})</h2>
+    <h2>Inspection Summary</h2>
     <table>
-      <tr><th>Item</th><th>Status</th><th>Checked At</th></tr>
-      ${passed.map(item => `
+      <thead>
         <tr>
-          <td>${item.name}</td>
-          <td>✓ Working</td>
-          <td>${new Date(item.checkedAt).toLocaleString()}</td>
+          <th style="width: 30%;">Item</th>
+          <th style="width: 15%;">Status</th>
+          <th style="width: 35%;">Notes</th>
+          <th style="width: 20%;">Checked At</th>
         </tr>
-      `).join("")}
+      </thead>
+      <tbody>
+        ${allItems.map(item => `
+          <tr>
+            <td><strong>${item.name}</strong></td>
+            <td class="${item.status === "not_working" ? "status-not-working" : "status-working"}">
+              ${item.status === "not_working" ? "✗ NOT WORKING" : "✓ WORKING"}
+            </td>
+            <td class="notes-cell">${item.notes || "-"}</td>
+            <td>${new Date(item.checkedAt).toLocaleString()}</td>
+          </tr>
+        `).join("")}
+      </tbody>
     </table>
   </div>
 
-  <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #333;">
+  ${issues.length > 0 ? `
+  <div class="section">
+    <h2 style="color: #ef4444;">Issues Requiring Attention (${issues.length})</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 30%;">Item</th>
+          <th style="width: 50%;">Notes</th>
+          <th style="width: 20%;">Reported At</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${issues.map(item => `
+          <tr style="background-color: #fee2e2;">
+            <td><strong>${item.name}</strong></td>
+            <td class="notes-cell">${item.notes || "No notes provided"}</td>
+            <td>${new Date(item.checkedAt).toLocaleString()}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  </div>
+  ` : ""}
+
+  <div class="footer">
     <p><strong>Driver Signature:</strong> ${params.driverName}</p>
-    <p><strong>Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
-    <p style="font-size: 12px; color: #666;">
+    <p><strong>Inspection Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
+    <p><strong>Total Items Inspected:</strong> ${params.items.length}</p>
+    <p><strong>Items Working:</strong> ${passed.length}</p>
+    ${issues.length > 0 ? `<p style="color: #ef4444;"><strong>Items Not Working:</strong> ${issues.length}</p>` : ""}
+    <p class="disclaimer">
       This report is valid for 24 hours from the inspection date. 
       Keep this report available for DOT inspections.
     </p>
@@ -711,6 +1026,55 @@ export const truckInspectionService = {
 </body>
 </html>
     `;
+  },
+
+  /**
+   * Convert HTML to PDF using html2pdf.app API
+   */
+  async convertHTMLToPDF(html: string): Promise<Uint8Array> {
+    try {
+      console.log("📄 [PDF CONVERSION] Converting HTML to PDF...");
+      const response = await fetch("https://api.html2pdf.app/v1/convert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          html: html,
+          options: {
+            margin: 10,
+            filename: "inspection-report.pdf",
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`PDF conversion failed: ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.pdf) {
+        throw new Error("PDF conversion returned no data");
+      }
+
+      // Decode base64 PDF
+      const binaryString = atob(data.pdf);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      console.log(`✅ [PDF CONVERSION] PDF generated: ${bytes.length} bytes`);
+      return bytes;
+    } catch (error: any) {
+      console.error("❌ [PDF CONVERSION] Error converting HTML to PDF:", error);
+      throw error;
+    }
   },
 
   /**
