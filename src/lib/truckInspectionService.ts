@@ -845,184 +845,67 @@ export const truckInspectionService = {
     const allItems = [...issues, ...passed]; // Issues first, then passed items
 
     return `
-<!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>Daily Vehicle Inspection Report - ${params.truckId}</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { 
-      font-family: Arial, sans-serif; 
-      margin: 0;
-      padding: 20px;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-    .header { 
-      border-bottom: 3px solid #1f2937; 
-      padding-bottom: 15px; 
-      margin-bottom: 20px; 
-    }
-    .header h1 {
-      margin: 0 0 15px 0;
-      font-size: 24px;
-      color: #1f2937;
-    }
-    .header-info {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .header-info p {
-      margin: 5px 0;
-      font-size: 11px;
-    }
-    .section { 
-      margin: 25px 0; 
-      page-break-inside: avoid;
-    }
-    .section h2 {
-      font-size: 16px;
-      margin-bottom: 10px;
-      color: #1f2937;
-      border-bottom: 2px solid #e5e7eb;
-      padding-bottom: 5px;
-    }
-    table { 
-      width: 100%; 
-      border-collapse: collapse; 
-      margin: 15px 0;
-      font-size: 11px;
-      page-break-inside: auto;
-    }
-    th, td { 
-      border: 1px solid #d1d5db; 
-      padding: 8px 10px; 
-      text-align: left;
-      vertical-align: top;
-    }
-    th { 
-      background-color: #f3f4f6;
-      font-weight: bold;
-      color: #1f2937;
-      font-size: 11px;
-    }
-    tr:nth-child(even) {
-      background-color: #f9fafb;
-    }
-    .status-working {
-      color: #10b981;
-      font-weight: bold;
-    }
-    .status-not-working {
-      color: #ef4444;
-      font-weight: bold;
-    }
-    .notes-cell {
-      max-width: 300px;
-      word-wrap: break-word;
-    }
-    .footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 2px solid #1f2937;
-      font-size: 11px;
-    }
-    .footer p {
-      margin: 8px 0;
-    }
-    .disclaimer {
-      font-size: 10px;
-      color: #6b7280;
-      font-style: italic;
-      margin-top: 15px;
-    }
-    @media print {
-      body { margin: 0; padding: 15px; }
-      .section { page-break-inside: avoid; }
-    }
-  </style>
-</head>
 <body>
-  <div class="header">
-    <h1>Daily Vehicle Inspection Report</h1>
-    <div class="header-info">
-      <div>
-        <p><strong>Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
-        <p><strong>Truck ID:</strong> ${params.truckId}</p>
-        <p><strong>License Plate:</strong> ${params.licensePlate} (${params.licenseState})</p>
-      </div>
-      <div>
-        <p><strong>VIN:</strong> ${params.vin}</p>
-        <p><strong>Carrier:</strong> ${params.carrierName}</p>
-        <p><strong>Driver:</strong> ${params.driverName}</p>
-      </div>
-    </div>
-  </div>
+  <h1>Daily Vehicle Inspection Report</h1>
+  
+  <p><strong>Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
+  <p><strong>Truck ID:</strong> ${params.truckId}</p>
+  <p><strong>License Plate:</strong> ${params.licensePlate} (${params.licenseState})</p>
+  <p><strong>VIN:</strong> ${params.vin}</p>
+  <p><strong>Carrier:</strong> ${params.carrierName}</p>
+  <p><strong>Driver:</strong> ${params.driverName}</p>
 
-  <div class="section">
-    <h2>Inspection Summary</h2>
-    <table>
-      <thead>
+  <h2>Inspection Summary</h2>
+  <table border="1" cellpadding="5" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Status</th>
+        <th>Notes</th>
+        <th>Checked At</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${allItems.map(item => `
         <tr>
-          <th style="width: 30%;">Item</th>
-          <th style="width: 15%;">Status</th>
-          <th style="width: 35%;">Notes</th>
-          <th style="width: 20%;">Checked At</th>
+          <td><strong>${item.name}</strong></td>
+          <td>${item.status === "not_working" ? "NOT WORKING" : "WORKING"}</td>
+          <td>${item.notes || "-"}</td>
+          <td>${new Date(item.checkedAt).toLocaleString()}</td>
         </tr>
-      </thead>
-      <tbody>
-        ${allItems.map(item => `
-          <tr>
-            <td><strong>${item.name}</strong></td>
-            <td class="${item.status === "not_working" ? "status-not-working" : "status-working"}">
-              ${item.status === "not_working" ? "✗ NOT WORKING" : "✓ WORKING"}
-            </td>
-            <td class="notes-cell">${item.notes || "-"}</td>
-            <td>${new Date(item.checkedAt).toLocaleString()}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  </div>
+      `).join("")}
+    </tbody>
+  </table>
 
   ${issues.length > 0 ? `
-  <div class="section">
-    <h2 style="color: #ef4444;">Issues Requiring Attention (${issues.length})</h2>
-    <table>
-      <thead>
+  <h2>Issues Requiring Attention (${issues.length})</h2>
+  <table border="1" cellpadding="5" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Notes</th>
+        <th>Reported At</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${issues.map(item => `
         <tr>
-          <th style="width: 30%;">Item</th>
-          <th style="width: 50%;">Notes</th>
-          <th style="width: 20%;">Reported At</th>
+          <td><strong>${item.name}</strong></td>
+          <td>${item.notes || "No notes provided"}</td>
+          <td>${new Date(item.checkedAt).toLocaleString()}</td>
         </tr>
-      </thead>
-      <tbody>
-        ${issues.map(item => `
-          <tr style="background-color: #fee2e2;">
-            <td><strong>${item.name}</strong></td>
-            <td class="notes-cell">${item.notes || "No notes provided"}</td>
-            <td>${new Date(item.checkedAt).toLocaleString()}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  </div>
+      `).join("")}
+    </tbody>
+  </table>
   ` : ""}
 
-  <div class="footer">
-    <p><strong>Driver Signature:</strong> ${params.driverName}</p>
-    <p><strong>Inspection Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
-    <p><strong>Total Items Inspected:</strong> ${params.items.length}</p>
-    <p><strong>Items Working:</strong> ${passed.length}</p>
-    ${issues.length > 0 ? `<p style="color: #ef4444;"><strong>Items Not Working:</strong> ${issues.length}</p>` : ""}
-    <p class="disclaimer">
-      This report is valid for 24 hours from the inspection date. 
-      Keep this report available for DOT inspections.
-    </p>
-  </div>
+  <p><strong>Driver Signature:</strong> ${params.driverName}</p>
+  <p><strong>Inspection Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
+  <p><strong>Total Items Inspected:</strong> ${params.items.length}</p>
+  <p><strong>Items Working:</strong> ${passed.length}</p>
+  ${issues.length > 0 ? `<p><strong>Items Not Working:</strong> ${issues.length}</p>` : ""}
+  <p>This report is valid for 24 hours from the inspection date. Keep this report available for DOT inspections.</p>
 </body>
 </html>
     `;
