@@ -554,19 +554,41 @@ export const truckInspectionService = {
       // Save report reference to database (if you have a table for this)
       // For now, we'll just return the URL
 
-      // Send SMS to driver if phone number is available
-      if (driver?.phone) {
+      // Send notification to driver - SMS if phone exists, otherwise email
+      if (reportUrl) {
         try {
-          // Normalize phone number to E.164 format for SMS
-          const normalizedPhone = normalizePhoneToE164(driver.phone);
-          if (normalizedPhone) {
-            await this.sendInspectionReportSMS(normalizedPhone, reportUrl || "");
+          if (driver?.phone) {
+            // Normalize phone number to E.164 format for SMS
+            const normalizedPhone = normalizePhoneToE164(driver.phone);
+            if (normalizedPhone) {
+              console.log("📱 Sending inspection report via SMS to:", normalizedPhone);
+              await this.sendInspectionReportSMS(normalizedPhone, reportUrl);
+            } else {
+              console.warn("Invalid phone number format, trying email instead:", driver.phone);
+              // Fall back to email if phone is invalid
+              if (driver?.email) {
+                console.log("📧 Sending inspection report via email to:", driver.email);
+                await this.sendInspectionReportEmail(driver.email, driver.name || "Driver", reportUrl, {
+                  inspectionDate: inspection.inspection_date,
+                  truckId: truck?.truck_id || "N/A",
+                  carrierName: truck?.carrier?.name || "N/A",
+                });
+              }
+            }
+          } else if (driver?.email) {
+            // No phone number, send via email
+            console.log("📧 Sending inspection report via email to:", driver.email);
+            await this.sendInspectionReportEmail(driver.email, driver.name || "Driver", reportUrl, {
+              inspectionDate: inspection.inspection_date,
+              truckId: truck?.truck_id || "N/A",
+              carrierName: truck?.carrier?.name || "N/A",
+            });
           } else {
-            console.warn("Invalid phone number format for driver, skipping SMS:", driver.phone);
+            console.warn("Driver has no phone or email, cannot send inspection report notification");
           }
-        } catch (smsError) {
-          console.error("Error sending SMS:", smsError);
-          // Don't fail the whole operation if SMS fails
+        } catch (notifyError) {
+          console.error("Error sending inspection report notification:", notifyError);
+          // Don't fail the whole operation if notification fails
         }
       }
 
@@ -667,7 +689,7 @@ export const truckInspectionService = {
     reportUrl: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Call SMS API endpoint (you'll need to create this)
+      // Call SMS API endpoint
       const response = await fetch("/api/send-sms", {
         method: "POST",
         headers: {
@@ -685,10 +707,112 @@ export const truckInspectionService = {
         throw new Error(data.error || "Failed to send SMS");
       }
 
+      console.log("✅ SMS sent successfully!");
       return { success: true };
     } catch (error: any) {
       console.error("Error sending SMS:", error);
       return { success: false, error: error.message || "Failed to send SMS" };
+    }
+  },
+
+  /**
+   * Send email to driver with inspection report link
+   */
+  async sendInspectionReportEmail(
+    email: string,
+    driverName: string,
+    reportUrl: string,
+    details: {
+      inspectionDate: string;
+      truckId: string;
+      carrierName: string;
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const inspectionDateFormatted = new Date(details.inspectionDate).toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      const emailHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Daily Inspection Report</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; border: 1px solid #e5e7eb;">
+    <div style="text-align: center; margin-bottom: 30px;">
+      <h1 style="color: #10b981; margin-bottom: 10px; font-size: 24px;">✅ Daily Inspection Report</h1>
+      <p style="color: #6b7280; font-size: 14px;">Your inspection has been completed and documented</p>
+    </div>
+
+    <p style="font-size: 16px; margin-bottom: 15px;">
+      Hi <strong>${driverName}</strong>,
+    </p>
+
+    <p style="font-size: 16px; margin-bottom: 20px;">
+      Your daily vehicle inspection report is ready. Keep this link available for DOT inspections.
+    </p>
+
+    <div style="background-color: #f0fdf4; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #10b981;">
+      <h2 style="color: #10b981; margin-top: 0; font-size: 18px; margin-bottom: 15px;">Inspection Details</h2>
+      
+      <p style="margin: 8px 0; font-size: 15px;">
+        <strong>Date:</strong> ${inspectionDateFormatted}<br>
+        <strong>Truck ID:</strong> ${details.truckId}<br>
+        <strong>Carrier:</strong> ${details.carrierName}
+      </p>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${reportUrl}" style="display: inline-block; background-color: #10b981; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+        📋 View Full Report
+      </a>
+    </div>
+
+    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #f59e0b;">
+      <p style="margin: 0; font-size: 14px; color: #92400e;">
+        <strong>⚠️ Important:</strong> This report is valid for 24 hours from the inspection date. 
+        Save this email or bookmark the link for easy access during DOT stops.
+      </p>
+    </div>
+
+    <p style="font-size: 14px; color: #6b7280; margin-top: 30px;">
+      If the button above doesn't work, copy and paste this link into your browser:<br>
+      <a href="${reportUrl}" style="color: #10b981; word-break: break-all;">${reportUrl}</a>
+    </p>
+
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+    <p style="font-size: 14px; color: #9ca3af; text-align: center;">
+      This is an automated message from Avensis LogFlow.<br>
+      Please do not reply to this email.
+    </p>
+  </div>
+</body>
+</html>
+      `;
+
+      const result = await sendEmail({
+        to: email,
+        subject: `Daily Inspection Report - Truck ${details.truckId} - ${inspectionDateFormatted}`,
+        html: emailHTML,
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to send email");
+      }
+
+      console.log("✅ Email sent successfully!");
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error sending inspection report email:", error);
+      return { success: false, error: error.message || "Failed to send email" };
     }
   },
 

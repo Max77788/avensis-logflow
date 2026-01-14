@@ -4,6 +4,41 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
+ * Normalize phone number to E.164 format for Twilio
+ */
+function normalizePhoneToE164(phone: string): string {
+  if (!phone) return '';
+  
+  const trimmed = phone.trim();
+  
+  // If it already starts with +, clean it
+  if (trimmed.startsWith('+')) {
+    const cleaned = '+' + trimmed.substring(1).replace(/\D/g, '');
+    if (cleaned.length >= 3) {
+      return cleaned;
+    }
+    return '';
+  }
+  
+  // Remove all non-digit characters
+  const digitsOnly = trimmed.replace(/\D/g, '');
+  
+  if (digitsOnly.length === 0) return '';
+  
+  // Handle US numbers (10 or 11 digits)
+  if (digitsOnly.length === 10) {
+    return '+1' + digitsOnly;
+  } else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+    return '+' + digitsOnly;
+  } else if (digitsOnly.length >= 10) {
+    // Default to US format for now
+    return '+1' + digitsOnly.substring(digitsOnly.length - 10);
+  }
+  
+  return '';
+}
+
+/**
  * Vercel Serverless Function to send SMS via Twilio API
  */
 export default async function handler(
@@ -26,6 +61,15 @@ export default async function handler(
     });
   }
 
+  // Normalize phone number to E.164 format
+  const normalizedTo = normalizePhoneToE164(to);
+  if (!normalizedTo) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid phone number format'
+    });
+  }
+
   // Check if Twilio is configured
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -40,7 +84,7 @@ export default async function handler(
   }
 
   try {
-    console.log(`📱 Sending SMS to: ${to}`);
+    console.log(`📱 Sending SMS to: ${normalizedTo}`);
     console.log(`📝 Message: ${message.substring(0, 50)}...`);
 
     // Send SMS via Twilio
@@ -48,7 +92,7 @@ export default async function handler(
     
     const formData = new URLSearchParams();
     formData.append('From', fromNumber);
-    formData.append('To', to);
+    formData.append('To', normalizedTo);
     formData.append('Body', message);
 
     const response = await fetch(twilioUrl, {
