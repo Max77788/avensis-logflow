@@ -520,26 +520,10 @@ export const truckInspectionService = {
       console.log(`✅ [REPORT GENERATION] HTML report generated: ${reportHTML.length} characters`);
 
       // Save report to Supabase Storage
-      // First, check if bucket exists, create if not
-      console.log("📄 [REPORT GENERATION] Step 4: Checking storage bucket...");
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const bucketExists = buckets?.some(b => b.name === "inspection-reports");
-      console.log(`📄 [REPORT GENERATION] Bucket exists: ${bucketExists}`);
+      // Note: Bucket creation requires admin/service role, not client-side
+      // The bucket should be created via Supabase dashboard or MCP
+      console.log("📄 [REPORT GENERATION] Step 4: Preparing to upload report to storage...");
       
-      if (!bucketExists) {
-        // Create bucket if it doesn't exist
-        console.log("📄 [REPORT GENERATION] Creating storage bucket...");
-        const { error: createError } = await supabase.storage.createBucket("inspection-reports", {
-          public: true,
-          fileSizeLimit: 5242880, // 5MB
-        });
-        if (createError && !createError.message.includes("already exists")) {
-          console.error("❌ [REPORT GENERATION] Could not create inspection-reports bucket:", createError);
-        } else {
-          console.log("✅ [REPORT GENERATION] Storage bucket created/verified");
-        }
-      }
-
       const fileName = `inspection-report-${inspectionId}-${Date.now()}.html`;
       console.log("📄 [REPORT GENERATION] Step 5: Uploading report file:", fileName);
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -550,28 +534,18 @@ export const truckInspectionService = {
         });
 
       if (uploadError) {
-        // If upload fails, try creating bucket again
-        console.warn("⚠️ [REPORT GENERATION] Upload failed, attempting to create bucket:", uploadError);
-        await supabase.storage.createBucket("inspection-reports", {
-          public: true,
-          fileSizeLimit: 5242880,
-        });
-        // Retry upload
-        console.log("📄 [REPORT GENERATION] Retrying upload...");
-        const { error: retryError } = await supabase.storage
-          .from("inspection-reports")
-          .upload(fileName, new Blob([reportHTML], { type: "text/html" }), {
-            contentType: "text/html",
-            upsert: false,
-          });
-        if (retryError) {
-          console.error("❌ [REPORT GENERATION] Retry upload failed:", retryError);
-          throw retryError;
+        console.error("❌ [REPORT GENERATION] Upload failed:", uploadError);
+        
+        // Check if error is due to missing bucket
+        if (uploadError.message?.includes("Bucket not found") || uploadError.message?.includes("not found")) {
+          console.error("❌ [REPORT GENERATION] Storage bucket 'inspection-reports' does not exist. Please create it via Supabase dashboard or MCP.");
+          throw new Error("Storage bucket 'inspection-reports' does not exist. Please contact an administrator to create it.");
         }
-        console.log("✅ [REPORT GENERATION] Upload succeeded on retry");
-      } else {
-        console.log("✅ [REPORT GENERATION] Report file uploaded successfully");
+        
+        throw uploadError;
       }
+      
+      console.log("✅ [REPORT GENERATION] Report file uploaded successfully");
 
       // Get public URL
       console.log("📄 [REPORT GENERATION] Step 6: Getting public URL...");
