@@ -651,6 +651,9 @@ export const truckInspectionService = {
         })),
       });
       console.log(`✅ [REPORT GENERATION] HTML report generated: ${reportHTML.length} characters`);
+      console.log("📄 [REPORT GENERATION] HTML preview (first 500 chars):", reportHTML.substring(0, 500));
+      console.log("📄 [REPORT GENERATION] HTML contains DOCTYPE:", reportHTML.includes("<!DOCTYPE"));
+      console.log("📄 [REPORT GENERATION] HTML contains page divs:", reportHTML.includes("div class=\"page\""));
 
       // Convert HTML to PDF
       console.log("📄 [REPORT GENERATION] Step 4: Converting HTML to PDF...");
@@ -934,6 +937,10 @@ export const truckInspectionService = {
   async convertHTMLToPDF(html: string, inspectionId: string): Promise<Uint8Array> {
     try {
       console.log("📄 [PDF CONVERSION] Converting HTML to PDF using pdfendpoint.com...");
+      console.log("📄 [PDF CONVERSION] HTML length:", html.length);
+      console.log("📄 [PDF CONVERSION] HTML preview (first 500 chars):", html.substring(0, 500));
+      console.log("📄 [PDF CONVERSION] HTML contains DOCTYPE:", html.includes("<!DOCTYPE"));
+      console.log("📄 [PDF CONVERSION] HTML contains page divs:", html.includes("div class=\"page\""));
       
       // First, upload HTML to storage temporarily to get a URL
       const tempFileName = `temp-html-${inspectionId}-${Date.now()}.html`;
@@ -960,28 +967,33 @@ export const truckInspectionService = {
         throw new Error("Failed to get public URL for HTML");
       }
 
-      console.log("📄 [PDF CONVERSION] HTML URL obtained, converting to PDF...");
+      console.log("📄 [PDF CONVERSION] HTML URL obtained:", htmlUrl);
+      console.log("📄 [PDF CONVERSION] Converting URL to PDF...");
 
       // Get API key from environment or use the provided one
       const apiKey = import.meta.env.VITE_PDFENDPOINT_API_KEY || "pdfe_live_7501b32442cddc17879d549fcea6af72da07";
 
       // Convert URL to PDF using pdfendpoint.com
+      const requestBody = {
+        url: htmlUrl,
+        sandbox: false,
+        orientation: "vertical",
+        page_size: "A4",
+        margin_top: "2cm",
+        margin_bottom: "2cm",
+        margin_left: "2cm",
+        margin_right: "2cm",
+      };
+      
+      console.log("📄 [PDF CONVERSION] API request body:", JSON.stringify(requestBody, null, 2));
+      
       const response = await fetch("https://api.pdfendpoint.com/v1/convert", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          url: htmlUrl,
-          sandbox: false,
-          orientation: "vertical",
-          page_size: "A4",
-          margin_top: "2cm",
-          margin_bottom: "2cm",
-          margin_left: "2cm",
-          margin_right: "2cm",
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
