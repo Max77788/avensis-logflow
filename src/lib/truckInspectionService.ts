@@ -434,8 +434,10 @@ export const truckInspectionService = {
   async generateAndSaveInspectionReport(
     inspectionId: string
   ): Promise<{ success: boolean; reportUrl?: string; error?: string }> {
+    console.log("📄 [REPORT GENERATION] Starting report generation for inspection:", inspectionId);
     try {
       // Get inspection with all details
+      console.log("📄 [REPORT GENERATION] Step 1: Fetching inspection data...");
       const { data: inspection, error: inspectionError } = await supabase
         .from("truck_daily_inspections")
         .select(`
@@ -455,9 +457,19 @@ export const truckInspectionService = {
         .eq("id", inspectionId)
         .single();
 
-      if (inspectionError) throw inspectionError;
+      if (inspectionError) {
+        console.error("❌ [REPORT GENERATION] Error fetching inspection:", inspectionError);
+        throw inspectionError;
+      }
+      console.log("✅ [REPORT GENERATION] Inspection data fetched:", {
+        id: inspection?.id,
+        truck_id: inspection?.truck_id,
+        inspection_date: inspection?.inspection_date,
+        driver_id: inspection?.driver_id,
+      });
 
       // Get all inspection items with their statuses
+      console.log("📄 [REPORT GENERATION] Step 2: Fetching inspection item statuses...");
       const { data: itemStatuses, error: itemsError } = await supabase
         .from("truck_inspection_item_status")
         .select(`
@@ -468,12 +480,28 @@ export const truckInspectionService = {
         `)
         .eq("inspection_id", inspectionId);
 
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error("❌ [REPORT GENERATION] Error fetching item statuses:", itemsError);
+        throw itemsError;
+      }
+      console.log(`✅ [REPORT GENERATION] Item statuses fetched: ${itemStatuses?.length || 0} items`);
 
       const truck = (inspection as any).truck;
       const driver = (inspection as any).driver;
+      console.log("📄 [REPORT GENERATION] Truck info:", {
+        truck_id: truck?.truck_id,
+        license_plate: truck?.license_plate,
+        carrier: truck?.carrier?.name,
+      });
+      console.log("📄 [REPORT GENERATION] Driver info:", {
+        driver_id: driver?.id,
+        name: driver?.name,
+        has_phone: !!driver?.phone,
+        has_email: !!driver?.email,
+      });
 
       // Generate PDF report HTML
+      console.log("📄 [REPORT GENERATION] Step 3: Generating HTML report...");
       const reportHTML = this.generateInspectionReportHTML({
         inspectionDate: inspection.inspection_date,
         truckId: truck?.truck_id || "N/A",
@@ -489,24 +517,31 @@ export const truckInspectionService = {
           checkedAt: item.checked_at,
         })),
       });
+      console.log(`✅ [REPORT GENERATION] HTML report generated: ${reportHTML.length} characters`);
 
       // Save report to Supabase Storage
       // First, check if bucket exists, create if not
+      console.log("📄 [REPORT GENERATION] Step 4: Checking storage bucket...");
       const { data: buckets } = await supabase.storage.listBuckets();
       const bucketExists = buckets?.some(b => b.name === "inspection-reports");
+      console.log(`📄 [REPORT GENERATION] Bucket exists: ${bucketExists}`);
       
       if (!bucketExists) {
         // Create bucket if it doesn't exist
+        console.log("📄 [REPORT GENERATION] Creating storage bucket...");
         const { error: createError } = await supabase.storage.createBucket("inspection-reports", {
           public: true,
           fileSizeLimit: 5242880, // 5MB
         });
         if (createError && !createError.message.includes("already exists")) {
-          console.warn("Could not create inspection-reports bucket:", createError);
+          console.error("❌ [REPORT GENERATION] Could not create inspection-reports bucket:", createError);
+        } else {
+          console.log("✅ [REPORT GENERATION] Storage bucket created/verified");
         }
       }
 
       const fileName = `inspection-report-${inspectionId}-${Date.now()}.html`;
+      console.log("📄 [REPORT GENERATION] Step 5: Uploading report file:", fileName);
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("inspection-reports")
         .upload(fileName, new Blob([reportHTML], { type: "text/html" }), {
@@ -516,22 +551,30 @@ export const truckInspectionService = {
 
       if (uploadError) {
         // If upload fails, try creating bucket again
-        console.warn("Upload failed, attempting to create bucket:", uploadError);
+        console.warn("⚠️ [REPORT GENERATION] Upload failed, attempting to create bucket:", uploadError);
         await supabase.storage.createBucket("inspection-reports", {
           public: true,
           fileSizeLimit: 5242880,
         });
         // Retry upload
+        console.log("📄 [REPORT GENERATION] Retrying upload...");
         const { error: retryError } = await supabase.storage
           .from("inspection-reports")
           .upload(fileName, new Blob([reportHTML], { type: "text/html" }), {
             contentType: "text/html",
             upsert: false,
           });
-        if (retryError) throw retryError;
+        if (retryError) {
+          console.error("❌ [REPORT GENERATION] Retry upload failed:", retryError);
+          throw retryError;
+        }
+        console.log("✅ [REPORT GENERATION] Upload succeeded on retry");
+      } else {
+        console.log("✅ [REPORT GENERATION] Report file uploaded successfully");
       }
 
       // Get public URL
+      console.log("📄 [REPORT GENERATION] Step 6: Getting public URL...");
       const { data: urlData } = supabase.storage
         .from("inspection-reports")
         .getPublicUrl(fileName);
@@ -540,10 +583,13 @@ export const truckInspectionService = {
 
       // Always save report URL to the inspection record
       if (!reportUrl) {
+        console.error("❌ [REPORT GENERATION] Failed to get public URL for inspection report");
         throw new Error("Failed to get public URL for inspection report");
       }
+      console.log("✅ [REPORT GENERATION] Public URL obtained:", reportUrl);
 
       // Save report URL to database - always save it, not just if driver_id exists
+      console.log("📄 [REPORT GENERATION] Step 7: Saving report URL to database...");
       try {
         const { error: dbError } = await supabase
           .from("truck_daily_inspections")
@@ -551,56 +597,66 @@ export const truckInspectionService = {
           .eq("id", inspectionId);
         
         if (dbError) {
-          console.error("Error saving report URL to database:", dbError);
+          console.error("❌ [REPORT GENERATION] Error saving report URL to database:", dbError);
           throw new Error(`Failed to save report URL: ${dbError.message}`);
         }
-        console.log("✅ Report URL saved to database:", reportUrl);
+        console.log("✅ [REPORT GENERATION] Report URL saved to database:", reportUrl);
       } catch (dbError: any) {
-        console.error("Error saving report URL to database:", dbError);
+        console.error("❌ [REPORT GENERATION] Error saving report URL to database:", dbError);
         throw dbError; // Re-throw to fail the operation if we can't save the URL
       }
 
       // Send notification to driver - SMS if phone exists, otherwise email
+      console.log("📄 [REPORT GENERATION] Step 8: Sending notification to driver...");
       if (reportUrl) {
         try {
           if (driver?.phone) {
             // Normalize phone number to E.164 format for SMS
             const normalizedPhone = normalizePhoneToE164(driver.phone);
             if (normalizedPhone) {
-              console.log("📱 Sending inspection report via SMS to:", normalizedPhone);
+              console.log("📱 [REPORT GENERATION] Sending inspection report via SMS to:", normalizedPhone);
               await this.sendInspectionReportSMS(normalizedPhone, reportUrl);
+              console.log("✅ [REPORT GENERATION] SMS notification sent successfully");
             } else {
-              console.warn("Invalid phone number format, trying email instead:", driver.phone);
+              console.warn("⚠️ [REPORT GENERATION] Invalid phone number format, trying email instead:", driver.phone);
               // Fall back to email if phone is invalid
               if (driver?.email) {
-                console.log("📧 Sending inspection report via email to:", driver.email);
+                console.log("📧 [REPORT GENERATION] Sending inspection report via email to:", driver.email);
                 await this.sendInspectionReportEmail(driver.email, driver.name || "Driver", reportUrl, {
                   inspectionDate: inspection.inspection_date,
                   truckId: truck?.truck_id || "N/A",
                   carrierName: truck?.carrier?.name || "N/A",
                 });
+                console.log("✅ [REPORT GENERATION] Email notification sent successfully");
               }
             }
           } else if (driver?.email) {
             // No phone number, send via email
-            console.log("📧 Sending inspection report via email to:", driver.email);
+            console.log("📧 [REPORT GENERATION] Sending inspection report via email to:", driver.email);
             await this.sendInspectionReportEmail(driver.email, driver.name || "Driver", reportUrl, {
               inspectionDate: inspection.inspection_date,
               truckId: truck?.truck_id || "N/A",
               carrierName: truck?.carrier?.name || "N/A",
             });
+            console.log("✅ [REPORT GENERATION] Email notification sent successfully");
           } else {
-            console.warn("Driver has no phone or email, cannot send inspection report notification");
+            console.warn("⚠️ [REPORT GENERATION] Driver has no phone or email, cannot send inspection report notification");
           }
         } catch (notifyError) {
-          console.error("Error sending inspection report notification:", notifyError);
+          console.error("❌ [REPORT GENERATION] Error sending inspection report notification:", notifyError);
           // Don't fail the whole operation if notification fails
         }
       }
 
+      console.log("✅ [REPORT GENERATION] Report generation completed successfully:", reportUrl);
       return { success: true, reportUrl };
     } catch (error: any) {
-      console.error("Error generating inspection report:", error);
+      console.error("❌ [REPORT GENERATION] Report generation failed:", error);
+      console.error("❌ [REPORT GENERATION] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        inspectionId,
+      });
       return { success: false, error: error.message || "Failed to generate inspection report" };
     }
   },
