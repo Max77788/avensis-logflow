@@ -567,8 +567,17 @@ export const truckInspectionService = {
         throw dbError; // Re-throw to fail the operation if we can't save the URL
       }
 
+      // Send admin notification with all issues (if any)
+      console.log("📄 [REPORT GENERATION] Step 8: Sending admin notification with all issues...");
+      try {
+        await this.notifyAdminOfAllInspectionIssues(inspectionId);
+      } catch (adminNotifyError: any) {
+        console.error("❌ [REPORT GENERATION] Error sending admin notification:", adminNotifyError);
+        // Don't fail the operation if admin notification fails
+      }
+
       // Send notification to driver - SMS if phone exists, otherwise email
-      console.log("📄 [REPORT GENERATION] Step 8: Sending notification to driver...");
+      console.log("📄 [REPORT GENERATION] Step 9: Sending notification to driver...");
       if (reportUrl) {
         try {
           if (driver?.phone) {
