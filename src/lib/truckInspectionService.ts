@@ -247,20 +247,7 @@ export const truckInspectionService = {
       // Update truck compliance status if an issue is reported
       if (status === "not_working") {
         await this.updateTruckComplianceStatus(inspectionId);
-        
-        // Only send email notification to admin when a NEW issue is raised
-        // (transitioning from "working" to "not_working", not when already "not_working")
-        if (isNewIssue) {
-          try {
-            console.log("📧 Sending admin notification for NEW inspection issue:", { inspectionId, itemId });
-            await this.notifyAdminOfInspectionIssue(inspectionId, itemId);
-          } catch (emailError) {
-            console.error("Error sending admin notification email:", emailError);
-            // Don't fail the update if email fails
-          }
-        } else {
-          console.log("⏭️ Skipping admin notification - issue already reported for this item");
-        }
+        // Note: Admin email notification is now sent when inspection is completed (all issues combined)
       }
 
       return { success: true };
