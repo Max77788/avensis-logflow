@@ -71,8 +71,9 @@ export const InspectionHistory = ({
     return today === inspectionDate;
   };
 
-  const inspectionsWithReports = inspections.filter((i) => i.report_url);
-  const hasReports = inspectionsWithReports.length > 0;
+  // Filter to only show completed inspections
+  const completedInspections = inspections.filter((i) => i.completed_at !== null);
+  const hasInspections = completedInspections.length > 0;
 
   if (isLoading) {
     return (
@@ -94,7 +95,7 @@ export const InspectionHistory = ({
     );
   }
 
-  if (!hasReports) {
+  if (!hasInspections) {
     return (
       <Card className="p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
@@ -121,7 +122,7 @@ export const InspectionHistory = ({
       </p>
 
       <div className="space-y-3">
-        {inspectionsWithReports.map((inspection) => (
+        {completedInspections.map((inspection) => (
           <div
             key={inspection.id}
             className="flex items-center justify-between gap-4 p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
@@ -150,30 +151,26 @@ export const InspectionHistory = ({
                 </div>
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (inspection.report_url) {
-                  window.open(inspection.report_url, "_blank");
-                }
-              }}
-              className="flex items-center gap-2 flex-shrink-0"
-            >
-              <ExternalLink className="h-4 w-4" />
-              View Report
-            </Button>
+            {inspection.report_url ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  window.open(inspection.report_url!, "_blank");
+                }}
+                className="flex items-center gap-2 flex-shrink-0"
+              >
+                <ExternalLink className="h-4 w-4" />
+                View Report
+              </Button>
+            ) : (
+              <Badge variant="secondary" className="flex-shrink-0">
+                Report Pending
+              </Badge>
+            )}
           </div>
         ))}
       </div>
-
-      {inspectionsWithReports.length === 0 && (
-        <div className="text-center py-6">
-          <p className="text-sm text-muted-foreground">
-            No reports available yet. Complete an inspection to generate a report.
-          </p>
-        </div>
-      )}
     </Card>
   );
 };

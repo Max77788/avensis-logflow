@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Header } from "@/components/Header";
+import { InspectionHistory } from "@/components/InspectionHistory";
 import {
   QrCode,
   LogOut,
@@ -22,6 +23,8 @@ import {
   Moon,
   Sun,
   MapPin,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,6 +64,8 @@ const DriverProfile = () => {
   const [showLogoutWarning, setShowLogoutWarning] = useState(false);
   const [dbCarriers, setDbCarriers] = useState<any[]>([]);
   const [availableTrucks, setAvailableTrucks] = useState<any[]>([]);
+  const [driverEmail, setDriverEmail] = useState<string>("");
+  const [driverPhone, setDriverPhone] = useState<string>("");
   const [editFormData, setEditFormData] = useState({
     truck_id: driverProfile?.default_truck_id || "", // UUID
     carrier_id: driverProfile?.carrier_id || "", // UUID
@@ -102,6 +107,10 @@ const DriverProfile = () => {
             created_at: dbDriver.created_at,
             updated_at: dbDriver.updated_at,
           });
+
+          // Store email and phone for display
+          setDriverEmail(dbDriver.email || "");
+          setDriverPhone(dbDriver.phone || "");
 
           // Fetch truck name from truck_id and get status information
           let currentTruckLocal: any = null;
@@ -856,6 +865,36 @@ const DriverProfile = () => {
             {"Continue to Dashboard ->"}
           </Button>
 
+          {/* Login Information Card */}
+          <Card className="p-4 md:p-6">
+            <div className="space-y-3">
+              <h3 className="text-lg font-bold text-foreground">
+                Login Information
+              </h3>
+              <div className="space-y-2">
+                {driverEmail && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Email:</span>
+                    <span className="font-medium text-foreground">{driverEmail}</span>
+                  </div>
+                )}
+                {driverPhone && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Phone:</span>
+                    <span className="font-medium text-foreground">{driverPhone}</span>
+                  </div>
+                )}
+                {!driverEmail && !driverPhone && (
+                  <p className="text-sm text-muted-foreground">
+                    No login information available
+                  </p>
+                )}
+              </div>
+            </div>
+          </Card>
+
           {/* Edit Profile Card */}
           <Card className="p-4 md:p-6 border-primary/50 bg-primary/5">
             <div className="space-y-4">
@@ -981,6 +1020,17 @@ const DriverProfile = () => {
                   Download QR Code
                 </Button>
               </Card>
+
+              {/* Inspection History */}
+              {driverProfile?.id && (
+                <div className="mt-4">
+                  <InspectionHistory
+                    driverId={driverProfile.id}
+                    truckId={driverProfile.default_truck_id || undefined}
+                    limit={10}
+                  />
+                </div>
+              )}
 
               {/* Active Tickets 
               <Card className="p-6">

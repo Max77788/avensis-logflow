@@ -22,6 +22,7 @@ export interface Driver {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   carrier_id: string;
   default_truck_id: string;
   driver_qr_code: string;
