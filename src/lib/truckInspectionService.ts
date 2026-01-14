@@ -1092,8 +1092,33 @@ export const truckInspectionService = {
         throw new Error(`PDF conversion failed: ${response.statusText} - ${errorText}`);
       }
 
-      // pdfendpoint.com returns PDF as binary data
-      const pdfBlob = await response.blob();
+      // pdfendpoint.com returns JSON with PDF URL
+      const result = await response.json();
+      
+      if (!result.success || !result.data?.url) {
+        // Clean up temp file
+        await supabase.storage.from("inspection-reports").remove([tempFileName]);
+        throw new Error(`PDF conversion failed: ${result.error || "No PDF URL returned"}`);
+      }
+
+      console.log("📄 [PDF CONVERSION] PDF generated successfully:", {
+        url: result.data.url,
+        file_size: result.data.file_size,
+        page_count: result.data.page_count,
+        expires_after: result.data.expires_after,
+      });
+
+      // Download PDF from the returned URL
+      console.log("📄 [PDF CONVERSION] Downloading PDF from URL...");
+      const pdfResponse = await fetch(result.data.url);
+      
+      if (!pdfResponse.ok) {
+        // Clean up temp file
+        await supabase.storage.from("inspection-reports").remove([tempFileName]);
+        throw new Error(`Failed to download PDF: ${pdfResponse.statusText}`);
+      }
+
+      const pdfBlob = await pdfResponse.blob();
       const arrayBuffer = await pdfBlob.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
 
