@@ -817,6 +817,81 @@ export const truckInspectionService = {
   },
 
   /**
+   * Get inspection history for a driver or truck
+   */
+  async getInspectionHistory(
+    driverId?: string,
+    truckId?: string,
+    limit: number = 30
+  ): Promise<{
+    success: boolean;
+    data?: Array<{
+      id: string;
+      inspection_date: string;
+      completed_at: string | null;
+      report_url: string | null;
+      truck_id: string;
+      driver_id: string | null;
+      truck?: { truck_id: string; license_plate: string | null };
+    }>;
+    error?: string;
+  }> {
+    try {
+      let query = supabase
+        .from("truck_daily_inspections")
+        .select(`
+          id,
+          inspection_date,
+          completed_at,
+          report_url,
+          truck_id,
+          driver_id,
+          truck:trucks!truck_daily_inspections_truck_id_fkey(
+            truck_id,
+            license_plate
+          )
+        `)
+        .order("inspection_date", { ascending: false })
+        .limit(limit);
+
+      if (driverId) {
+        query = query.eq("driver_id", driverId);
+      }
+      if (truckId) {
+        query = query.eq("truck_id", truckId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data: (data || []).map((inspection: any) => ({
+          id: inspection.id,
+          inspection_date: inspection.inspection_date,
+          completed_at: inspection.completed_at,
+          report_url: inspection.report_url,
+          truck_id: inspection.truck_id,
+          driver_id: inspection.driver_id,
+          truck: inspection.truck
+            ? {
+                truck_id: inspection.truck.truck_id,
+                license_plate: inspection.truck.license_plate,
+              }
+            : undefined,
+        })),
+      };
+    } catch (error: any) {
+      console.error("Error getting inspection history:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to get inspection history",
+      };
+    }
+  },
+
+  /**
    * Get all inspection items (for reference)
    */
   async getAllInspectionItems(): Promise<{

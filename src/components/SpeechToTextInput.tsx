@@ -557,7 +557,22 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
           value={value}
           onChange={(e) => {
             const scrollTop = e.target.scrollTop;
-            onChange(e.target.value);
+            const newValue = e.target.value;
+            
+            // If speech recognition is active and user manually types, stop listening immediately
+            // This prevents speech recognition from overwriting manual typing
+            if (isListeningRef.current) {
+              // Update baseValueRef to current value so speech recognition doesn't overwrite
+              baseValueRef.current = newValue;
+              accumulatedFinalRef.current = "";
+              // Stop speech recognition immediately to allow manual typing
+              isListeningRef.current = false;
+              stopListening();
+            }
+            
+            // Update the value normally - this happens regardless of speech recognition state
+            onChange(newValue);
+            
             requestAnimationFrame(() => {
               if (textareaRef.current) {
                 textareaRef.current.scrollTop = scrollTop;

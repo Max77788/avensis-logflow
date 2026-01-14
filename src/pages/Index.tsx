@@ -8,6 +8,7 @@ import { QRScanner } from "@/components/QRScanner";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { Header } from "@/components/Header";
 import { TruckInspectionChecklist } from "@/components/TruckInspectionChecklist";
+import { InspectionHistory } from "@/components/InspectionHistory";
 import {
   QrCode,
   ClipboardList,
@@ -481,6 +482,17 @@ const Index = () => {
                     </div>
                   </div>
                 </Card>
+              )}
+
+              {/* Inspection History - Show past inspection reports */}
+              {driverProfile?.id && (
+                <div className="mt-4">
+                  <InspectionHistory
+                    driverId={driverProfile.id}
+                    truckId={driverProfile.default_truck_id || undefined}
+                    limit={10}
+                  />
+                </div>
               )}
 
               {/* Recent Activity */}
