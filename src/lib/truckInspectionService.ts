@@ -846,66 +846,82 @@ export const truckInspectionService = {
 
     return `
 <html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  <title>Daily Vehicle Inspection Report - ${params.truckId}</title>
+  <style>
+    div.page {
+      page-break-after: always;
+      page-break-inside: avoid;
+    }
+  </style>
+</head>
 <body>
-  <h1>Daily Vehicle Inspection Report</h1>
-  
-  <p><strong>Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
-  <p><strong>Truck ID:</strong> ${params.truckId}</p>
-  <p><strong>License Plate:</strong> ${params.licensePlate} (${params.licenseState})</p>
-  <p><strong>VIN:</strong> ${params.vin}</p>
-  <p><strong>Carrier:</strong> ${params.carrierName}</p>
-  <p><strong>Driver:</strong> ${params.driverName}</p>
+  <div class="page">
+    <h1>Daily Vehicle Inspection Report</h1>
+    
+    <p><strong>Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
+    <p><strong>Truck ID:</strong> ${params.truckId}</p>
+    <p><strong>License Plate:</strong> ${params.licensePlate} (${params.licenseState})</p>
+    <p><strong>VIN:</strong> ${params.vin}</p>
+    <p><strong>Carrier:</strong> ${params.carrierName}</p>
+    <p><strong>Driver:</strong> ${params.driverName}</p>
 
-  <h2>Inspection Summary</h2>
-  <table border="1" cellpadding="5" cellspacing="0">
-    <thead>
-      <tr>
-        <th>Item</th>
-        <th>Status</th>
-        <th>Notes</th>
-        <th>Checked At</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${allItems.map(item => `
+    <h2>Inspection Summary</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <thead>
         <tr>
-          <td><strong>${item.name}</strong></td>
-          <td>${item.status === "not_working" ? "NOT WORKING" : "WORKING"}</td>
-          <td>${item.notes || "-"}</td>
-          <td>${new Date(item.checkedAt).toLocaleString()}</td>
+          <th>Item</th>
+          <th>Status</th>
+          <th>Notes</th>
+          <th>Checked At</th>
         </tr>
-      `).join("")}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        ${allItems.map(item => `
+          <tr>
+            <td><strong>${item.name}</strong></td>
+            <td>${item.status === "not_working" ? "NOT WORKING" : "WORKING"}</td>
+            <td>${item.notes || "-"}</td>
+            <td>${new Date(item.checkedAt).toLocaleString()}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  </div>
 
   ${issues.length > 0 ? `
-  <h2>Issues Requiring Attention (${issues.length})</h2>
-  <table border="1" cellpadding="5" cellspacing="0">
-    <thead>
-      <tr>
-        <th>Item</th>
-        <th>Notes</th>
-        <th>Reported At</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${issues.map(item => `
+  <div class="page">
+    <h2>Issues Requiring Attention (${issues.length})</h2>
+    <table border="1" cellpadding="5" cellspacing="0">
+      <thead>
         <tr>
-          <td><strong>${item.name}</strong></td>
-          <td>${item.notes || "No notes provided"}</td>
-          <td>${new Date(item.checkedAt).toLocaleString()}</td>
+          <th>Item</th>
+          <th>Notes</th>
+          <th>Reported At</th>
         </tr>
-      `).join("")}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        ${issues.map(item => `
+          <tr>
+            <td><strong>${item.name}</strong></td>
+            <td>${item.notes || "No notes provided"}</td>
+            <td>${new Date(item.checkedAt).toLocaleString()}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  </div>
   ` : ""}
 
-  <p><strong>Driver Signature:</strong> ${params.driverName}</p>
-  <p><strong>Inspection Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
-  <p><strong>Total Items Inspected:</strong> ${params.items.length}</p>
-  <p><strong>Items Working:</strong> ${passed.length}</p>
-  ${issues.length > 0 ? `<p><strong>Items Not Working:</strong> ${issues.length}</p>` : ""}
-  <p>This report is valid for 24 hours from the inspection date. Keep this report available for DOT inspections.</p>
+  <div class="page">
+    <p><strong>Driver Signature:</strong> ${params.driverName}</p>
+    <p><strong>Inspection Date:</strong> ${new Date(params.inspectionDate).toLocaleDateString()}</p>
+    <p><strong>Total Items Inspected:</strong> ${params.items.length}</p>
+    <p><strong>Items Working:</strong> ${passed.length}</p>
+    ${issues.length > 0 ? `<p><strong>Items Not Working:</strong> ${issues.length}</p>` : ""}
+    <p>This report is valid for 24 hours from the inspection date. Keep this report available for DOT inspections.</p>
+  </div>
 </body>
 </html>
     `;

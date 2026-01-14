@@ -61,8 +61,8 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previousScrollTopRef = useRef<number>(0);
 
-  // Debounce time in ms
-  const DEBOUNCE_MS = 300;
+  // Debounce time in ms - reduced for faster response
+  const DEBOUNCE_MS = 150;
 
   // Check if Web Speech API is available (for desktop)
   const webSpeechSupported = !isMobile.current && 
@@ -149,6 +149,11 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     let interimTranscript = "";
 
     recognition.onresult = (event: any) => {
+      // Don't process if we're stopping or not listening
+      if (!isListeningRef.current || isStopping) {
+        return;
+      }
+
       interimTranscript = "";
       finalTranscript = "";
 
@@ -163,14 +168,22 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
         }
       }
 
-      accumulatedFinalRef.current += finalTranscript;
+      // Only update if we're still listening
+      if (isListeningRef.current && !isStopping) {
+        accumulatedFinalRef.current += finalTranscript;
 
-      const combinedValue = baseValueRef.current + 
-        (baseValueRef.current && accumulatedFinalRef.current ? " " : "") + 
-        accumulatedFinalRef.current + 
-        (interimTranscript ? " " + interimTranscript : "");
-      
-      onChange(combinedValue.trim());
+        const combinedValue = baseValueRef.current + 
+          (baseValueRef.current && accumulatedFinalRef.current ? " " : "") + 
+          accumulatedFinalRef.current + 
+          (interimTranscript ? " " + interimTranscript : "");
+        
+        // Use requestAnimationFrame to batch updates and reduce glitches
+        requestAnimationFrame(() => {
+          if (isListeningRef.current && !isStopping) {
+            onChange(combinedValue.trim());
+          }
+        });
+      }
     };
 
     recognition.onerror = (event: any) => {
@@ -184,9 +197,10 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
 
     recognition.onend = () => {
       // Only restart if we're supposed to be listening AND not in stopping state
-      if (isListeningRef.current && !isStopping) {
+      if (isListeningRef.current && !isStopping && !isProcessingRef.current) {
+        // Reduced delay for faster restart
         setTimeout(() => {
-          if (isListeningRef.current && recognitionRef.current && !isStopping) {
+          if (isListeningRef.current && recognitionRef.current && !isStopping && !isProcessingRef.current) {
             try {
               recognitionRef.current.start();
             } catch (e) {
@@ -195,7 +209,7 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
               updateListeningState(false);
             }
           }
-        }, 100);
+        }, 50);
       } else {
         isProcessingRef.current = false;
         updateListeningState(false);
@@ -437,78 +451,60 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   }, [disabled, value, onChange, updateListeningState, forceStopAllRecording]);
 
   const stopListening = useCallback(() => {
-    // Debounce check
+    // Debounce check - but allow immediate stop if already listening
     const now = Date.now();
-    if (now - lastToggleTimeRef.current < DEBOUNCE_MS) {
+    if (now - lastToggleTimeRef.current < DEBOUNCE_MS && !isListeningRef.current) {
       console.log("Debounced - ignoring stop request");
       return;
     }
     lastToggleTimeRef.current = now;
 
-    // Prevent if already stopping or not listening
-    if (!isListeningRef.current || isProcessingRef.current) {
-      console.log("Stop blocked - listening:", isListeningRef.current, "processing:", isProcessingRef.current);
-      // Force cleanup anyway if user is having trouble
-      if (!isListeningRef.current && !isProcessingRef.current) {
-        forceStopAllRecording();
-      }
-      return;
-    }
-
-    console.log("Stopping recording...");
-    isProcessingRef.current = true;
-    setIsStopping(true);
-    
-    // Immediately update listening ref to prevent auto-restart
+    // Immediately update listening ref to prevent any further processing
     isListeningRef.current = false;
+    setIsStopping(true);
+    isProcessingRef.current = true;
+
+    console.log("Stopping recording immediately...");
 
     if (isMobile.current) {
-      // Mobile: Stop MediaRecorder
+      // Mobile: Stop MediaRecorder immediately
       if (mediaRecorderRef.current) {
         try {
-          if (mediaRecorderRef.current.state === "recording") {
-            mediaRecorderRef.current.stop(); // This will trigger onstop callback
-          } else {
-            // Already stopped or inactive, just clean up
-            console.log("MediaRecorder not recording, cleaning up...");
-            if (streamRef.current) {
-              streamRef.current.getTracks().forEach(track => track.stop());
-              streamRef.current = null;
-            }
-            isProcessingRef.current = false;
-            updateListeningState(false);
-            setIsStopping(false);
+          if (mediaRecorderRef.current.state === "recording" || mediaRecorderRef.current.state === "paused") {
+            // Stop immediately without waiting
+            mediaRecorderRef.current.stop();
+          }
+          // Stop all tracks immediately
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => {
+              track.stop();
+            });
+            streamRef.current = null;
           }
         } catch (e) {
           console.error("Error stopping MediaRecorder:", e);
-          forceStopAllRecording();
         }
-      } else {
-        // No MediaRecorder, just clean up
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
-        }
-        isProcessingRef.current = false;
-        updateListeningState(false);
-        setIsStopping(false);
       }
+      // Force cleanup
+      forceStopAllRecording();
     } else {
-      // Desktop: Stop Web Speech API
+      // Desktop: Stop Web Speech API immediately
       if (recognitionRef.current) {
         try {
-          recognitionRef.current.stop();
+          // Abort is faster than stop for immediate termination
+          if (typeof recognitionRef.current.abort === 'function') {
+            recognitionRef.current.abort();
+          } else {
+            recognitionRef.current.stop();
+          }
         } catch (e) {
           console.error("Error stopping Web Speech API:", e);
-          isProcessingRef.current = false;
-          updateListeningState(false);
-          setIsStopping(false);
         }
-      } else {
-        isProcessingRef.current = false;
-        updateListeningState(false);
-        setIsStopping(false);
       }
+      // Update state immediately
+      isProcessingRef.current = false;
+      updateListeningState(false);
+      setIsStopping(false);
     }
   }, [updateListeningState, forceStopAllRecording]);
 
@@ -562,17 +558,50 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
             // If speech recognition is active and user manually types, stop listening immediately
             // This prevents speech recognition from overwriting manual typing
             if (isListeningRef.current) {
+              // Immediately stop recognition to prevent glitches
+              isListeningRef.current = false;
+              setIsStopping(true);
+              
               // Update baseValueRef to current value so speech recognition doesn't overwrite
               baseValueRef.current = newValue;
               accumulatedFinalRef.current = "";
-              // Stop speech recognition immediately to allow manual typing
-              isListeningRef.current = false;
-              stopListening();
+              
+              // Stop speech recognition immediately (non-blocking)
+              if (isMobile.current) {
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+                  try {
+                    mediaRecorderRef.current.stop();
+                  } catch (e) {
+                    // Ignore errors
+                  }
+                }
+                if (streamRef.current) {
+                  streamRef.current.getTracks().forEach(track => track.stop());
+                  streamRef.current = null;
+                }
+              } else {
+                if (recognitionRef.current) {
+                  try {
+                    if (typeof recognitionRef.current.abort === 'function') {
+                      recognitionRef.current.abort();
+                    } else {
+                      recognitionRef.current.stop();
+                    }
+                  } catch (e) {
+                    // Ignore errors
+                  }
+                }
+              }
+              
+              // Reset states
+              setIsStopping(false);
+              updateListeningState(false);
             }
             
             // Update the value normally - this happens regardless of speech recognition state
             onChange(newValue);
             
+            // Preserve scroll position
             requestAnimationFrame(() => {
               if (textareaRef.current) {
                 textareaRef.current.scrollTop = scrollTop;
