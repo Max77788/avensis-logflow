@@ -104,12 +104,69 @@ export const CreateCompanyDialog = ({
     setIsSubmitting(true);
 
     try {
+      // Validate required fields
+      if (!formData.name || formData.name.trim() === "") {
+        toast({
+          title: "Validation Error",
+          description: "Company name is required",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!formData.address || formData.address.trim() === "") {
+        toast({
+          title: "Validation Error",
+          description: "Business address is required when creating a company",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!formData.city || formData.city.trim() === "") {
+        toast({
+          title: "Validation Error",
+          description: "City is required when creating a company",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!formData.state || formData.state.trim() === "") {
+        toast({
+          title: "Validation Error",
+          description: "State is required when creating a company",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!formData.zip || formData.zip.trim() === "") {
+        toast({
+          title: "Validation Error",
+          description: "Zip code is required when creating a company",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       // Hash the password using SHA256 (same as authentication)
       const CryptoJS = await import("crypto-js");
       const hashedPassword = CryptoJS.SHA256(formData.password).toString();
 
       const result = await adminService.createCompany({
-        ...formData,
+        name: formData.name,
+        business_address: formData.address, // Map address to business_address
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zip,
+        type: formData.company_type || undefined,
+        status: formData.status,
         password_hash: hashedPassword,
         plain_password: formData.password, // Store plain password for admin reference
         contact_email: formData.primary_email,
@@ -330,46 +387,54 @@ export const CreateCompanyDialog = ({
 
             {/* Address */}
             <div className="grid gap-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">Business Address *</Label>
               <Input
                 id="address"
                 value={formData.address}
                 onChange={(e) =>
                   setFormData({ ...formData, address: e.target.value })
                 }
+                required
+                placeholder="Street address of the business"
               />
             </div>
 
             {/* City, State, Zip */}
             <div className="grid grid-cols-3 gap-2">
               <div className="grid gap-2">
-                <Label htmlFor="city">City</Label>
+                <Label htmlFor="city">City *</Label>
                 <Input
                   id="city"
                   value={formData.city}
                   onChange={(e) =>
                     setFormData({ ...formData, city: e.target.value })
                   }
+                  required
+                  placeholder="City"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="state">State</Label>
+                <Label htmlFor="state">State *</Label>
                 <Input
                   id="state"
                   value={formData.state}
                   onChange={(e) =>
                     setFormData({ ...formData, state: e.target.value })
                   }
+                  required
+                  placeholder="State"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="zip">Zip</Label>
+                <Label htmlFor="zip">Zip *</Label>
                 <Input
                   id="zip"
                   value={formData.zip}
                   onChange={(e) =>
                     setFormData({ ...formData, zip: e.target.value })
                   }
+                  required
+                  placeholder="Zip code"
                 />
               </div>
             </div>

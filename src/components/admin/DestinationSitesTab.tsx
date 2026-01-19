@@ -26,9 +26,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Edit, Trash2, Loader2, Search } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Search, Upload, Download } from "lucide-react";
 import { adminService, DestinationSite, Company } from "@/lib/adminService";
 import { toast } from "@/hooks/use-toast";
+import Papa from "papaparse";
 
 export const DestinationSitesTab = () => {
   const [sites, setSites] = useState<DestinationSite[]>([]);
@@ -38,6 +39,7 @@ export const DestinationSitesTab = () => {
   const [editingSite, setEditingSite] = useState<DestinationSite | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const [formData, setFormData] = useState({
     company_id: "",
     name: "",
@@ -204,9 +206,252 @@ export const DestinationSitesTab = () => {
     return company?.name || "Unknown";
   };
 
+  // UUID validation helper
+  const isValidUUID = (str: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
+  // Resolve company name to company_id
+  const resolveCompanyId = (companyIdentifier: string): string | null => {
+    if (!companyIdentifier || companyIdentifier.trim() === "") {
+      return null;
+    }
+
+    const trimmed = companyIdentifier.trim();
+
+    // If it's already a valid UUID, return it
+    if (isValidUUID(trimmed)) {
+      return trimmed;
+    }
+
+    // Otherwise, try to find by company name
+    const company = companies.find(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+    );
+
+    return company?.id || null;
+  };
+
+  // Handle CSV Upload
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          console.log("Destination Sites CSV parsed:", results.data);
+
+          if (results.data.length === 0) {
+            toast({
+              title: "Error",
+              description: "CSV file is empty or has no valid data",
+              variant: "destructive",
+            });
+            setIsUploading(false);
+            return;
+          }
+
+          // Validate required fields and resolve company_id
+          const invalidRows: Array<{ row: number; error: string }> = [];
+          const processedRows: Array<{ row: any; company_id: string }> = [];
+
+          results.data.forEach((row: any, index: number) => {
+            const rowNumber = index + 2; // +2 because index is 0-based and CSV has header
+
+            // Check if name is provided
+            if (!row.name || row.name.trim() === "") {
+              invalidRows.push({
+                row: rowNumber,
+                error: "Missing required field: name",
+              });
+              return;
+            }
+
+            // Check if company_id or company_name is provided
+            const companyIdentifier = row.company_id?.trim() || row.company_name?.trim() || "";
+            if (!companyIdentifier) {
+              invalidRows.push({
+                row: rowNumber,
+                error: "Missing required field: company_id or company_name",
+              });
+              return;
+            }
+
+            // Resolve company_id
+            const resolvedCompanyId = resolveCompanyId(companyIdentifier);
+            if (!resolvedCompanyId) {
+              invalidRows.push({
+                row: rowNumber,
+                error: `Company not found: "${companyIdentifier}". Use a valid UUID or company name.`,
+              });
+              return;
+            }
+
+            processedRows.push({
+              row,
+              company_id: resolvedCompanyId,
+            });
+          });
+
+          if (invalidRows.length > 0) {
+            const errorMessages = invalidRows
+              .map((err) => `Row ${err.row}: ${err.error}`)
+              .join("\n");
+            
+            // Check if the error is about placeholder values
+            const hasPlaceholderError = invalidRows.some(err => 
+              err.error.includes("COMPANY_ID_") || err.error.includes("company_id")
+            );
+            
+            let description = `Please fix the following errors:\n${errorMessages}`;
+            if (hasPlaceholderError) {
+              description += "\n\n💡 Tip: Download a new template using the 'Download Template' button to get actual company names instead of placeholders.";
+            }
+            
+            toast({
+              title: "Validation Error",
+              description: description,
+              variant: "destructive",
+              duration: 10000, // Show longer for this error
+            });
+            setIsUploading(false);
+            return;
+          }
+
+          // Process each row
+          let successCount = 0;
+          let errorCount = 0;
+          const errors: string[] = [];
+
+          for (const { row, company_id } of processedRows) {
+            try {
+              const siteData = {
+                company_id: company_id,
+                name: row.name?.trim() || "",
+                address: row.address?.trim() || "",
+                city: row.city?.trim() || "",
+                state: row.state?.trim() || "",
+                zip: row.zip?.trim() || "",
+                default_email: row.default_email?.trim() || "",
+                gps_location: row.gps_location?.trim() || "",
+                notes: row.notes?.trim() || "",
+              };
+
+              const result = await adminService.createDestinationSite(siteData);
+              if (result.success) {
+                successCount++;
+              } else {
+                errorCount++;
+                errors.push(`${row.name || "Unknown"}: ${result.error || "Failed"}`);
+              }
+            } catch (error: any) {
+              errorCount++;
+              errors.push(`${row.name || "Unknown"}: ${error.message || "Error"}`);
+            }
+          }
+
+          // Show results
+          if (successCount > 0) {
+            toast({
+              title: "Upload Complete",
+              description: `Successfully created ${successCount} site(s)${
+                errorCount > 0 ? `. ${errorCount} failed.` : "."
+              }`,
+            });
+            loadData(); // Reload the list
+          }
+
+          if (errorCount > 0 && errors.length > 0) {
+            console.error("Upload errors:", errors);
+            toast({
+              title: "Some Sites Failed",
+              description: `${errorCount} site(s) failed to create. Check console for details.`,
+              variant: "destructive",
+            });
+          }
+
+          setIsUploading(false);
+        },
+        error: (error) => {
+          console.error("CSV parse error:", error);
+          toast({
+            title: "Error",
+            description: "Failed to parse CSV file",
+            variant: "destructive",
+          });
+          setIsUploading(false);
+        },
+      });
+    } catch (error: any) {
+      console.error("Error processing CSV:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to process CSV file",
+        variant: "destructive",
+      });
+      setIsUploading(false);
+    }
+
+    // Reset file input
+    e.target.value = "";
+  };
+
+  // Download CSV Template
+  const downloadTemplate = () => {
+    // Get first few companies for example - filter to only Destination Client companies
+    const destinationCompanies = companies.filter(
+      (c) => c.type === "Destination Client" || c.type === "Contractor"
+    );
+    
+    if (destinationCompanies.length === 0) {
+      toast({
+        title: "No Companies Available",
+        description: "Please create at least one Destination Client company before downloading the template.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const company1 = destinationCompanies[0];
+    const company2 = destinationCompanies[1] || destinationCompanies[0];
+
+    // Escape company names for CSV (handle quotes)
+    const escapeCsv = (str: string) => {
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const template = `company_name,name,address,city,state,zip,default_email,gps_location,notes
+${escapeCsv(company1.name)},Site Name 1,123 Main St,City,CA,12345,email@example.com,37.7749,-122.4194,Notes here
+${escapeCsv(company2.name)},Site Name 2,456 Oak Ave,Town,TX,67890,email2@example.com,32.7767,-96.7970,More notes
+
+IMPORTANT: Use "company_name" column with the exact company name from the list above.
+You can also use "company_id" with a valid UUID if you prefer.`;
+
+    const blob = new Blob([template], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "destination_sites_template.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Template Downloaded",
+      description: `Template downloaded with example company names: ${company1.name}${company2 !== company1 ? `, ${company2.name}` : ''}`,
+    });
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -216,10 +461,40 @@ export const DestinationSitesTab = () => {
             className="pl-10"
           />
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Site
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={downloadTemplate}
+            disabled={isUploading}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Template
+          </Button>
+          <label>
+            <Button
+              variant="outline"
+              asChild
+              disabled={isUploading}
+              className="cursor-pointer"
+            >
+              <span>
+                <Upload className="h-4 w-4 mr-2" />
+                {isUploading ? "Uploading..." : "Upload CSV"}
+              </span>
+            </Button>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCsvUpload}
+              className="hidden"
+              disabled={isUploading}
+            />
+          </label>
+          <Button onClick={handleAdd} disabled={isUploading}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Site
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-md border">

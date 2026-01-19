@@ -196,25 +196,34 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
     };
 
     recognition.onend = () => {
-      // Only restart if we're supposed to be listening AND not in stopping state
-      if (isListeningRef.current && !isStopping && !isProcessingRef.current) {
-        // Reduced delay for faster restart
-        setTimeout(() => {
-          if (isListeningRef.current && recognitionRef.current && !isStopping && !isProcessingRef.current) {
-            try {
-              recognitionRef.current.start();
-            } catch (e) {
-              console.error("Error restarting recognition:", e);
-              isProcessingRef.current = false;
-              updateListeningState(false);
-            }
-          }
-        }, 50);
-      } else {
+      // NEVER restart if we're stopping or not supposed to be listening
+      // This prevents the annoying behavior where it keeps recording after stop
+      if (!isListeningRef.current || isStopping || isProcessingRef.current) {
         isProcessingRef.current = false;
         updateListeningState(false);
         setIsStopping(false);
+        return;
       }
+      
+      // Only restart if we're supposed to be listening AND not in stopping state
+      // Reduced delay for faster restart
+      setTimeout(() => {
+        // Double-check all conditions before restarting
+        if (isListeningRef.current && recognitionRef.current && !isStopping && !isProcessingRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            console.error("Error restarting recognition:", e);
+            isProcessingRef.current = false;
+            updateListeningState(false);
+          }
+        } else {
+          // Conditions changed, don't restart
+          isProcessingRef.current = false;
+          updateListeningState(false);
+          setIsStopping(false);
+        }
+      }, 50);
     };
 
     recognition.onstart = () => {
@@ -451,20 +460,17 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
   }, [disabled, value, onChange, updateListeningState, forceStopAllRecording]);
 
   const stopListening = useCallback(() => {
-    // Debounce check - but allow immediate stop if already listening
+    // Allow immediate stop - no debounce for stop action
     const now = Date.now();
-    if (now - lastToggleTimeRef.current < DEBOUNCE_MS && !isListeningRef.current) {
-      console.log("Debounced - ignoring stop request");
-      return;
-    }
     lastToggleTimeRef.current = now;
 
-    // Immediately update listening ref to prevent any further processing
+    // CRITICAL: Set these flags FIRST before any async operations
+    // This prevents recognition.onend from restarting
     isListeningRef.current = false;
     setIsStopping(true);
     isProcessingRef.current = true;
 
-    console.log("Stopping recording immediately...");
+    console.log("🛑 Stopping recording immediately...");
 
     if (isMobile.current) {
       // Mobile: Stop MediaRecorder immediately
@@ -488,20 +494,24 @@ export const SpeechToTextInput = forwardRef<SpeechToTextInputRef, SpeechToTextIn
       // Force cleanup
       forceStopAllRecording();
     } else {
-      // Desktop: Stop Web Speech API immediately
+      // Desktop: Stop Web Speech API immediately with abort
       if (recognitionRef.current) {
         try {
-          // Abort is faster than stop for immediate termination
+          // Use abort() for immediate termination - it's faster and prevents restart
           if (typeof recognitionRef.current.abort === 'function') {
             recognitionRef.current.abort();
+            console.log("✅ Recognition aborted");
           } else {
             recognitionRef.current.stop();
+            console.log("✅ Recognition stopped");
           }
         } catch (e) {
           console.error("Error stopping Web Speech API:", e);
+          // Force cleanup even if error
+          forceStopAllRecording();
         }
       }
-      // Update state immediately
+      // Update state immediately - don't wait for onend event
       isProcessingRef.current = false;
       updateListeningState(false);
       setIsStopping(false);

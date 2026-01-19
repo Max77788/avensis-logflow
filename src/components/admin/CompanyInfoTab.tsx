@@ -346,7 +346,7 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
       <div className="grid gap-4">
         {/* Company Name */}
         <div className="grid gap-2">
-          <Label htmlFor="name">Company Name</Label>
+          <Label htmlFor="name">Company Name *</Label>
           <Input
             id="name"
             value={formData.name}
@@ -453,10 +453,23 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
         </div>
         */}
 
+        {/* Business Address */}
+        <div className="grid gap-2">
+          <Label htmlFor="business_address">Business Address *</Label>
+          <Input
+            id="business_address"
+            value={formData.business_address}
+            onChange={(e) =>
+              setFormData({ ...formData, business_address: e.target.value })
+            }
+            disabled={!isEditing}
+          />
+        </div>
+
         {/* City, State, Zip */}
         <div className="grid grid-cols-3 gap-2">
           <div className="grid gap-2">
-            <Label htmlFor="city">City</Label>
+            <Label htmlFor="city">City *</Label>
             <Input
               id="city"
               value={formData.city}
@@ -467,7 +480,7 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="state">State</Label>
+            <Label htmlFor="state">State *</Label>
             <Input
               id="state"
               value={formData.state}
@@ -478,7 +491,7 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="zip">Zip</Label>
+            <Label htmlFor="zip">Zip *</Label>
             <Input
               id="zip"
               value={formData.zip}
@@ -490,23 +503,10 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
           </div>
         </div>
 
-        {/* Business Address */}
-        <div className="grid gap-2">
-          <Label htmlFor="business_address">Business Address</Label>
-          <Input
-            id="business_address"
-            value={formData.business_address}
-            onChange={(e) =>
-              setFormData({ ...formData, business_address: e.target.value })
-            }
-            disabled={!isEditing}
-          />
-        </div>
-
         {/* Legal Name for Invoicing */}
         <div className="grid gap-2">
           <Label htmlFor="legal_name_for_invoicing">
-            Legal Name for Invoicing
+            Legal Name for Invoicing *
           </Label>
           <Input
             id="legal_name_for_invoicing"
@@ -539,7 +539,7 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
         {/* MC Number and DOT Number */}
         <div className="grid grid-cols-2 gap-2">
           <div className="grid gap-2">
-            <Label htmlFor="mc_number">MC Number</Label>
+            <Label htmlFor="mc_number">MC Number *</Label>
             <Input
               id="mc_number"
               value={formData.mc_number}
@@ -550,7 +550,7 @@ export const CompanyInfoTab = ({ company, onUpdate }: CompanyInfoTabProps) => {
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="dot_number">DOT Number</Label>
+            <Label htmlFor="dot_number">DOT Number *</Label>
             <Input
               id="dot_number"
               value={formData.dot_number}

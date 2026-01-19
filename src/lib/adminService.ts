@@ -227,25 +227,63 @@ export const adminService = {
     tableName: string = "companies"
   ): Promise<{ success: boolean; data?: Company; error?: string }> {
     try {
-      // Step 0: Check if company name already exists
-      if (company.name) {
-        const { data: existingCompany } = await supabase
-          .from(tableName)
-          .select("id, name")
-          .ilike("name", company.name)
-          .single();
+      // Step 0: Validate required fields for company creation
+      if (!company.name || company.name.trim() === "") {
+        return {
+          success: false,
+          error: "Company name is required",
+        };
+      }
 
-        if (existingCompany) {
-          return {
-            success: false,
-            error: `A company with the name "${company.name}" already exists. Please use a different name.`,
-          };
-        }
+      if (!company.business_address || company.business_address.trim() === "") {
+        return {
+          success: false,
+          error: "Business address is required when creating a company",
+        };
+      }
+
+      if (!company.city || company.city.trim() === "") {
+        return {
+          success: false,
+          error: "City is required when creating a company",
+        };
+      }
+
+      if (!company.state || company.state.trim() === "") {
+        return {
+          success: false,
+          error: "State is required when creating a company",
+        };
+      }
+
+      if (!company.zip || company.zip.trim() === "") {
+        return {
+          success: false,
+          error: "Zip code is required when creating a company",
+        };
+      }
+
+      // Step 0.5: Check if company name already exists
+      const { data: existingCompany } = await supabase
+        .from(tableName)
+        .select("id, name")
+        .ilike("name", company.name)
+        .single();
+
+      if (existingCompany) {
+        return {
+          success: false,
+          error: `A company with the name "${company.name}" already exists. Please use a different name.`,
+        };
       }
 
       // Step 1: Create company first (without contact_info_id_fk)
       const companyData: any = {
         name: company.name,
+        business_address: company.business_address, // Required field
+        city: company.city, // Required field
+        state: company.state, // Required field
+        zip: company.zip, // Required field
       };
 
       if (company.password_hash) {
@@ -254,6 +292,14 @@ export const adminService = {
 
       if (company.plain_password) {
         companyData.plain_password = company.plain_password;
+      }
+
+      // Include optional fields if provided
+      if (company.type) {
+        companyData.type = company.type;
+      }
+      if (company.status) {
+        companyData.status = company.status;
       }
 
       const { data: newCompany, error: companyError } = await supabase
