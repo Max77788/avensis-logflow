@@ -212,11 +212,6 @@ const ContractorLogin = () => {
 
                 <div className="mt-6 pt-6 border-t border-border">
                   <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
-                    <img
-                      src="/avensis-logo.jpg"
-                      alt="Avensis Energy Services"
-                      className="h-12 w-auto object-contain opacity-70"
-                    />
                     <p className="text-center">
                       The Contractor Portal allows destination attendants to
                       view and approve tickets coming to their destination

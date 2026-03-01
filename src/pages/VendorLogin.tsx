@@ -138,13 +138,6 @@ const VendorLogin = () => {
       <Header />
       <div className="container mx-auto px-4 py-8 max-w-md">
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <img
-              src="/avensis-logo.jpg"
-              alt="Avensis Energy Services"
-              className="h-20 md:h-24 w-auto object-contain"
-            />
-          </div>
           <h1 className="text-3xl font-bold mb-2">Vendor Portal</h1>
           <p className="text-muted-foreground">
             Sign in to access the vendor onboarding portal

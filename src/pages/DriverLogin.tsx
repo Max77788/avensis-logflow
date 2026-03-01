@@ -76,13 +76,6 @@ const DriverLogin = () => {
         <div className="w-full max-w-md">
           {/* Header */}
           <div className="mb-8 text-center">
-            <div className="flex justify-center mb-4">
-              <img
-                src="/avensis-logo.jpg"
-                alt="Avensis Energy Services"
-                className="h-20 md:h-24 w-auto object-contain"
-              />
-            </div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
               {t("login.driverLogin")}
             </h1>

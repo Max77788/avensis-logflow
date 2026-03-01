@@ -139,11 +139,6 @@ const CarrierLogin = () => {
 
             <div className="mt-6 pt-6 border-t border-border">
               <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
-                <img
-                  src="/avensis-logo.jpg"
-                  alt="Avensis Energy Services"
-                  className="h-12 w-auto object-contain opacity-70"
-                />
                 <p className="text-center">
                   The Carrier Portal allows you to view all loads your trucks
                   have completed on the Avensis eTicket platform.
