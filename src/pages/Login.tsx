@@ -40,13 +40,6 @@ const Login = () => {
         <div className="w-full max-w-md">
           {/* Header */}
           <div className="mb-8 text-center">
-            <div className="flex items-center justify-center mx-auto mb-4">
-              <img
-                src="/avensis-logo.jpg"
-                alt="Avensis Energy Services"
-                className="h-20 md:h-24 w-auto object-contain"
-              />
-            </div>
             <p className="text-muted-foreground text-lg">
               {t("login.digitalTicketingSystem")}
             </p>

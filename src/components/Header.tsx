@@ -24,16 +24,7 @@ export const Header = ({
   return (
     <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
       <div className="container mx-auto px-3 py-3 md:px-4 md:py-4">
-        <div className="flex items-center justify-between gap-4">
-          {/* Left Section - Avensis Logo */}
-          <div className="flex-shrink-0">
-            <img
-              src="/avensis-logo.jpg"
-              alt="Avensis Energy Services"
-              className="h-8 md:h-10 w-auto object-contain"
-            />
-          </div>
-
+        <div className="flex items-center justify-end gap-4">
           {/* Right Section - Settings, Home, Logout, Theme Toggle */}
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
             {showSettingsButton && (
