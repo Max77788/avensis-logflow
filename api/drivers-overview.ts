@@ -21,6 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (driversError) {
       console.error("drivers-overview Supabase error (drivers):", driversError);
+      console.log("lala1");
       return res.status(500).json({ error: "Failed to load drivers overview" });
     }
 
