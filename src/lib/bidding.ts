@@ -271,6 +271,96 @@ export const biddingService = {
   },
 };
 
+// ---------- Admin-side bidding oversight client ----------
+// Uses the admin-bidding edge function with a shared admin token (stored in
+// sessionStorage after the legacy admin login). Bypasses shipper-scoped RLS.
+
+export interface AdminLoadRow extends LoadSummary {
+  shipper_company_name: string | null;
+  shipper_contact_name: string | null;
+}
+
+export interface AdminShipperRow {
+  id: string;
+  company_name: string;
+  contact_name: string | null;
+  phone: string | null;
+  created_at: string;
+  load_count_total: number;
+  load_count_open: number;
+}
+
+export interface AdminBiddingStats {
+  total_loads: number;
+  open_loads: number;
+  total_bids: number;
+  total_shippers: number;
+}
+
+function getAdminToken(): string {
+  if (typeof window === "undefined") return "";
+  return sessionStorage.getItem("adminToken") ?? "";
+}
+
+async function callAdminBidding(body: Record<string, unknown>) {
+  const token = getAdminToken();
+  if (!token) throw new Error("Admin session expired. Please log in again.");
+  const { data, error } = await supabase.functions.invoke("admin-bidding", {
+    body,
+    headers: { "x-admin-token": token },
+  });
+  if (error) {
+    const msg = (data as { error?: string } | undefined)?.error ?? error.message;
+    throw new Error(msg);
+  }
+  if (data && typeof data === "object" && "error" in (data as Record<string, unknown>)) {
+    throw new Error((data as { error: string }).error);
+  }
+  return data;
+}
+
+export const adminBiddingClient = {
+  async listLoads(filters: { status?: LoadStatus; shipper_id?: string; limit?: number } = {}): Promise<AdminLoadRow[]> {
+    const r = (await callAdminBidding({ action: "list_loads", ...filters })) as {
+      loads: AdminLoadRow[];
+    };
+    return r.loads ?? [];
+  },
+
+  async getLoad(loadId: string): Promise<{ load: Load; shipper: { id: string; company_name: string; contact_name: string | null; phone: string | null } | null }> {
+    return (await callAdminBidding({ action: "get_load", load_id: loadId })) as never;
+  },
+
+  async listBids(loadId: string): Promise<BidWithCarrier[]> {
+    const r = (await callAdminBidding({ action: "list_bids", load_id: loadId })) as {
+      bids: BidWithCarrier[];
+    };
+    return r.bids ?? [];
+  },
+
+  async listShippers(): Promise<AdminShipperRow[]> {
+    const r = (await callAdminBidding({ action: "list_shippers" })) as {
+      shippers: AdminShipperRow[];
+    };
+    return r.shippers ?? [];
+  },
+
+  async cancelLoad(loadId: string): Promise<Load> {
+    const r = (await callAdminBidding({ action: "cancel_load", load_id: loadId })) as {
+      load: Load;
+    };
+    return r.load;
+  },
+
+  async awardBid(bidId: string): Promise<void> {
+    await callAdminBidding({ action: "award_bid", bid_id: bidId });
+  },
+
+  async stats(): Promise<AdminBiddingStats> {
+    return (await callAdminBidding({ action: "stats" })) as AdminBiddingStats;
+  },
+};
+
 // ---------- Public bid portal client (carrier-side, token-based) ----------
 
 export interface BidPortalGetResponse {
