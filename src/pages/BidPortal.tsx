@@ -63,6 +63,7 @@ const BidPortal = () => {
   const [success, setSuccess] = useState<string | null>(null);
 
   const [price, setPrice] = useState("");
+  const [quantity, setQuantity] = useState("1");
   const [transitDays, setTransitDays] = useState("");
   const [availableDate, setAvailableDate] = useState("");
   const [notes, setNotes] = useState("");
@@ -75,6 +76,13 @@ const BidPortal = () => {
       const resp = await bidPortalClient.get(token);
       setData(resp);
       setPrice(resp.bid.price?.toString() ?? "");
+      // Default quantity: existing bid value, else remaining capacity (so the
+      // carrier's default is "I'll take them all"), capped at remaining.
+      const remaining = Math.max(resp.load.remaining_count ?? 1, 1);
+      const existingQty = resp.bid.quantity;
+      setQuantity(
+        (existingQty && existingQty > 0 ? Math.min(existingQty, remaining) : remaining).toString()
+      );
       setTransitDays(resp.bid.estimated_transit_days?.toString() ?? "");
       setAvailableDate(resp.bid.available_date ?? "");
       setNotes(resp.bid.notes ?? "");
@@ -107,19 +115,16 @@ const BidPortal = () => {
       const action = data.bid.status === "submitted" || data.bid.status === "shortlisted"
         ? "update"
         : "submit";
+      const payload = {
+        price: Number(price),
+        quantity: Math.max(1, Math.floor(Number(quantity) || 1)),
+        estimated_transit_days: transitDays ? Number(transitDays) : null,
+        available_date: availableDate || null,
+        notes: notes || null,
+      };
       const resp = await (action === "submit"
-        ? bidPortalClient.submit(token, {
-            price: Number(price),
-            estimated_transit_days: transitDays ? Number(transitDays) : null,
-            available_date: availableDate || null,
-            notes: notes || null,
-          })
-        : bidPortalClient.update(token, {
-            price: Number(price),
-            estimated_transit_days: transitDays ? Number(transitDays) : null,
-            available_date: availableDate || null,
-            notes: notes || null,
-          }));
+        ? bidPortalClient.submit(token, payload)
+        : bidPortalClient.update(token, payload));
       setData(resp);
       setSuccess(action === "submit" ? "Bid submitted!" : "Bid updated.");
     } catch (e) {
@@ -154,13 +159,18 @@ const BidPortal = () => {
 
   if (!data) return null;
 
-  const { load: l, carrier, bid, closed, load_cancelled } = data;
+  const { load: l, carrier, bid, closed, load_cancelled, load_fully_awarded } = data;
+  const remaining = Math.max(l.remaining_count ?? l.load_count, 0);
   const lockedReason = load_cancelled
     ? "This load has been cancelled by the shipper."
     : closed
     ? "Bidding has closed for this load."
+    : load_fully_awarded
+    ? "This load has been fully awarded to other carriers."
     : ["awarded", "declined", "withdrawn"].includes(bid.status)
-    ? `This bid is now ${bid.status} and can no longer be modified.`
+    ? bid.status === "awarded"
+      ? `You've been awarded ${bid.quantity} load${bid.quantity === 1 ? "" : "s"} on this request.`
+      : `This bid is now ${bid.status} and can no longer be modified.`
     : null;
 
   return (
@@ -236,6 +246,15 @@ const BidPortal = () => {
               </div>
             </div>
             <div>
+              <div className="text-xs uppercase text-muted-foreground">Loads available</div>
+              <div className="font-medium">
+                {remaining} of {l.load_count}{" "}
+                <span className="text-xs text-muted-foreground">
+                  ({l.awarded_count} awarded)
+                </span>
+              </div>
+            </div>
+            <div>
               <div className="text-xs uppercase text-muted-foreground flex items-center gap-1">
                 <Calendar className="h-3 w-3" /> Pickup
               </div>
@@ -308,9 +327,17 @@ const BidPortal = () => {
                 : "Submit your bid"}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {l.load_count > 1 && (
+                <div className="rounded-md border border-sky-500/30 bg-sky-500/10 text-sky-200 text-sm p-3">
+                  This request is for <strong>{l.load_count} loads</strong>.{" "}
+                  {remaining === l.load_count
+                    ? "No carriers have been awarded yet — bid on as many as you can haul."
+                    : `${remaining} of ${l.load_count} remain (${l.awarded_count} already awarded). You can bid on any subset of the remaining loads.`}
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Your price (USD)</Label>
+                  <Label htmlFor="price">Your price per load (USD)</Label>
                   <Input
                     id="price"
                     type="number"
@@ -324,6 +351,27 @@ const BidPortal = () => {
                   {livePpm && (
                     <div className="text-xs text-muted-foreground">
                       ≈ {formatMoney(livePpm)}/mile
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">
+                    Loads you can haul {l.load_count > 1 ? `(1–${remaining})` : ""}
+                  </Label>
+                  <Input
+                    id="quantity"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={remaining}
+                    step="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    required
+                  />
+                  {Number(quantity) > 0 && Number(price) > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      Total: {formatMoney(Number(price) * Number(quantity))}
                     </div>
                   )}
                 </div>

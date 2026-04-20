@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 
 export type LoadStatus =
   | "open"
+  | "partially_awarded"
   | "awarded"
   | "in_transit"
   | "delivered"
@@ -46,11 +47,14 @@ export interface Load {
   status: LoadStatus;
   awarded_bid_id: string | null;
   notes: string | null;
+  load_count: number;
+  awarded_count: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface LoadSummary extends Load {
+  remaining_count: number;
   total_bids: number;
   submitted_bids: number;
   viewed_bids: number;
@@ -88,6 +92,7 @@ export interface Bid {
   bid_token: string;
   price: number | null;
   price_per_mile: number | null;
+  quantity: number;
   estimated_transit_days: number | null;
   available_date: string | null;
   notes: string | null;
@@ -369,13 +374,14 @@ export interface BidPortalGetResponse {
     status: BidStatus;
     price: number | null;
     price_per_mile: number | null;
+    quantity: number;
     estimated_transit_days: number | null;
     available_date: string | null;
     notes: string | null;
     submitted_at: string | null;
     viewed_at: string | null;
   };
-  load: Load;
+  load: Load & { remaining_count: number };
   carrier: {
     id: string;
     name: string;
@@ -385,10 +391,12 @@ export interface BidPortalGetResponse {
   closed: boolean;
   deadline_passed: boolean;
   load_cancelled: boolean;
+  load_fully_awarded: boolean;
 }
 
 export interface BidPortalSubmitInput {
   price: number;
+  quantity?: number;
   estimated_transit_days?: number | null;
   available_date?: string | null;
   notes?: string | null;
@@ -470,6 +478,8 @@ export function loadStatusBadgeClass(status: LoadStatus): string {
   switch (status) {
     case "open":
       return "border-sky-500/40 bg-sky-500/15 text-sky-300";
+    case "partially_awarded":
+      return "border-amber-500/40 bg-amber-500/15 text-amber-300";
     case "awarded":
       return "border-emerald-500/40 bg-emerald-500/15 text-emerald-300";
     case "in_transit":

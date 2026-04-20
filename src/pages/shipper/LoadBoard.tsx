@@ -134,6 +134,7 @@ const LoadBoard = () => {
                   <TableHead>Pickup</TableHead>
                   <TableHead>Equipment</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Loads</TableHead>
                   <TableHead className="text-right">Bids</TableHead>
                   <TableHead className="text-right">Lowest</TableHead>
                 </TableRow>
@@ -188,6 +189,12 @@ const LoadBoard = () => {
                       >
                         {formatStatusLabel(l.status)}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="text-sm">
+                        <span className="font-medium">{l.awarded_count}</span>
+                        <span className="text-muted-foreground"> / {l.load_count}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="text-sm">

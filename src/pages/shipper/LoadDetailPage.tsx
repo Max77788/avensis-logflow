@@ -100,10 +100,13 @@ const LoadDetailPage = () => {
     refresh();
   }, [refresh]);
 
-  const awardedBid = useMemo(
-    () => bids.find((b) => b.status === "awarded") ?? null,
+  const awardedBids = useMemo(
+    () => bids.filter((b) => b.status === "awarded"),
     [bids]
   );
+  // Keep the "single awarded" alias for the rating flow; it's fine to rate
+  // the first awarded carrier when there are multiple.
+  const awardedBid = awardedBids[0] ?? null;
 
   const submittedBids = bids.filter((b) =>
     ["submitted", "shortlisted", "awarded"].includes(b.status)
@@ -218,8 +221,19 @@ const LoadDetailPage = () => {
               </div>
             </div>
             <div>
-              <div className="text-xs uppercase text-muted-foreground">Target</div>
+              <div className="text-xs uppercase text-muted-foreground">Target / load</div>
               <div className="font-medium">{formatMoney(load.target_price)}</div>
+            </div>
+            <div>
+              <div className="text-xs uppercase text-muted-foreground">Loads</div>
+              <div className="font-medium">
+                {load.awarded_count} of {load.load_count} awarded
+                {load.load_count - load.awarded_count > 0 && (
+                  <span className="text-xs text-muted-foreground ml-1">
+                    ({load.load_count - load.awarded_count} remaining)
+                  </span>
+                )}
+              </div>
             </div>
             <div>
               <div className="text-xs uppercase text-muted-foreground">Hazmat / Temp</div>
@@ -340,7 +354,9 @@ const LoadDetailPage = () => {
                     <TableRow>
                       <TableHead>Rank</TableHead>
                       <TableHead>Carrier</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Price / load</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                       <TableHead className="text-right">$/mi</TableHead>
                       <TableHead className="text-right">Transit</TableHead>
                       <TableHead>Available</TableHead>
@@ -376,8 +392,16 @@ const LoadDetailPage = () => {
                             </div>
                           )}
                         </TableCell>
+                        <TableCell className="text-right">
+                          {b.quantity}
+                        </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatMoney(b.price)}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {b.price != null
+                            ? formatMoney(Number(b.price) * b.quantity)
+                            : "—"}
                         </TableCell>
                         <TableCell className="text-right">
                           {formatMoney(b.price_per_mile)}
@@ -397,21 +421,32 @@ const LoadDetailPage = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {load.status === "open" && b.status !== "awarded" && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setSelectedBid(b);
-                                setAwardOpen(true);
-                              }}
-                            >
-                              <Trophy className="h-4 w-4 mr-1" />
-                              Award
-                            </Button>
-                          )}
+                          {(["open", "partially_awarded"] as LoadStatus[]).includes(load.status) &&
+                            b.status !== "awarded" && (() => {
+                              const remaining = load.load_count - load.awarded_count;
+                              const exceeds = b.quantity > remaining;
+                              return (
+                                <Button
+                                  size="sm"
+                                  disabled={exceeds}
+                                  title={
+                                    exceeds
+                                      ? `Bid requests ${b.quantity} loads but only ${remaining} remain`
+                                      : undefined
+                                  }
+                                  onClick={() => {
+                                    setSelectedBid(b);
+                                    setAwardOpen(true);
+                                  }}
+                                >
+                                  <Trophy className="h-4 w-4 mr-1" />
+                                  Award
+                                </Button>
+                              );
+                            })()}
                           {b.status === "awarded" && (
                             <Badge variant="default" className="gap-1">
-                              <CheckCircle2 className="h-3.5 w-3.5" /> Awarded
+                              <CheckCircle2 className="h-3.5 w-3.5" /> {b.quantity} awarded
                             </Badge>
                           )}
                         </TableCell>

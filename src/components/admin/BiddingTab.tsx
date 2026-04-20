@@ -31,7 +31,6 @@ import {
   Eye,
   Loader2,
   Building2,
-  Truck,
   DollarSign,
   Inbox,
 } from "lucide-react";
@@ -51,6 +50,7 @@ import { BiddingLoadDetailDialog } from "./BiddingLoadDetailDialog";
 const LOAD_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "all", label: "All statuses" },
   { value: "open", label: "Open" },
+  { value: "partially_awarded", label: "Partially Awarded" },
   { value: "awarded", label: "Awarded" },
   { value: "in_transit", label: "In Transit" },
   { value: "delivered", label: "Delivered" },
@@ -222,6 +222,7 @@ export const BiddingTab = () => {
                     <TableHead>Pickup</TableHead>
                     <TableHead>Equipment</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Loads</TableHead>
                     <TableHead className="text-right">Bids</TableHead>
                     <TableHead className="text-right">Lowest</TableHead>
                     <TableHead />
@@ -230,14 +231,14 @@ export const BiddingTab = () => {
                 <TableBody>
                   {loadingLoads ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-10">
+                      <TableCell colSpan={10} className="text-center py-10">
                         <Loader2 className="h-5 w-5 animate-spin inline-block text-muted-foreground" />
                       </TableCell>
                     </TableRow>
                   ) : filteredLoads.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={9}
+                        colSpan={10}
                         className="text-center py-10 text-muted-foreground"
                       >
                         No loads match the current filters.
@@ -288,6 +289,13 @@ export const BiddingTab = () => {
                           >
                             {formatStatusLabel(l.status)}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-right text-sm">
+                          <span className="font-medium">{l.awarded_count}</span>
+                          <span className="text-muted-foreground">
+                            {" "}
+                            / {l.load_count}
+                          </span>
                         </TableCell>
                         <TableCell className="text-right text-sm">
                           <span className="font-medium">
@@ -418,6 +426,3 @@ function StatCard({
   );
 }
 
-// Small helper icon to keep consistent with the rest of the admin tabs.
-// (Truck is re-exported only so imports above line up if later extracted.)
-export const _BiddingTabIcon = Truck;

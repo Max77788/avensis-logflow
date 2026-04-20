@@ -5,11 +5,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, MapPin, Building, Lock, Eye, EyeOff, Truck } from "lucide-react";
+import { Building2, MapPin, Building, Lock, Eye, EyeOff, Truck, Gavel } from "lucide-react";
 import { CompaniesTab } from "@/components/admin/CompaniesTab";
 import { PickupSitesTab } from "@/components/admin/PickupSitesTab";
 import { DestinationSitesTab } from "@/components/admin/DestinationSitesTab";
 import { AdminFleetComplianceTab } from "@/components/admin/AdminFleetComplianceTab";
+import { BiddingTab } from "@/components/admin/BiddingTab";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -33,6 +34,14 @@ const AdminDashboard = () => {
   // Persist authentication state to localStorage
   useEffect(() => {
     localStorage.setItem("adminAuthenticated", isAuthenticated.toString());
+    // Keep the session-scoped admin token in sync with auth state. On page
+    // reload the login flow itself re-populates it, but if the user is
+    // already authenticated (from localStorage) and hasn't typed the
+    // password this session, fall back to the default so admin-bidding calls
+    // still work end-to-end.
+    if (isAuthenticated && !sessionStorage.getItem("adminToken")) {
+      sessionStorage.setItem("adminToken", ADMIN_PASSWORD);
+    }
   }, [isAuthenticated]);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -40,6 +49,9 @@ const AdminDashboard = () => {
 
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
       setIsAuthenticated(true);
+      // The admin-bidding edge function validates this token via x-admin-token.
+      // Stored in sessionStorage so it clears on tab close.
+      sessionStorage.setItem("adminToken", password);
       toast({
         title: "Success",
         description: "Welcome to Admin Dashboard",
@@ -125,6 +137,7 @@ const AdminDashboard = () => {
           // Clear admin authentication
           setIsAuthenticated(false);
           localStorage.removeItem("adminAuthenticated");
+          sessionStorage.removeItem("adminToken");
           // Clear main auth
           logout();
           // Refresh the page to show login modal again
@@ -149,7 +162,7 @@ const AdminDashboard = () => {
           {/* Main Tabs */}
           <Card className="shadow-md">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="companies" className="gap-2">
                   <Building2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Companies</span>
@@ -166,6 +179,10 @@ const AdminDashboard = () => {
                   <Building className="h-4 w-4" />
                   <span className="hidden sm:inline">Destination Sites</span>
                 </TabsTrigger>
+                <TabsTrigger value="bidding" className="gap-2">
+                  <Gavel className="h-4 w-4" />
+                  <span className="hidden sm:inline">Bidding</span>
+                </TabsTrigger>
               </TabsList>
 
               <div className="p-6">
@@ -180,6 +197,9 @@ const AdminDashboard = () => {
                 </TabsContent>
                 <TabsContent value="destination-sites" className="mt-0">
                   <DestinationSitesTab />
+                </TabsContent>
+                <TabsContent value="bidding" className="mt-0">
+                  <BiddingTab />
                 </TabsContent>
               </div>
             </Tabs>

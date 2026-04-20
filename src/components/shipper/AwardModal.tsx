@@ -34,7 +34,9 @@ export const AwardModal: React.FC<Props> = ({ bid, open, onOpenChange, onAwarded
       await biddingService.awardBid(bid.id);
       toast({
         title: "Bid awarded",
-        description: `${bid.carrier.name} won this load.`,
+        description: `${bid.carrier.name} won ${bid.quantity} load${
+          bid.quantity === 1 ? "" : "s"
+        }.`,
       });
       onAwarded();
       onOpenChange(false);
@@ -57,12 +59,21 @@ export const AwardModal: React.FC<Props> = ({ bid, open, onOpenChange, onAwarded
           <AlertDialogDescription>
             {bid ? (
               <>
-                You're about to award <strong>{bid.carrier.name}</strong> the
-                load at <strong>{formatMoney(bid.price)}</strong>
+                You're about to award <strong>{bid.carrier.name}</strong>{" "}
+                <strong>
+                  {bid.quantity} load{bid.quantity === 1 ? "" : "s"}
+                </strong>{" "}
+                at <strong>{formatMoney(bid.price)}</strong>/load
+                {bid.price != null && (
+                  <>
+                    {" "}(total {formatMoney(Number(bid.price) * bid.quantity)})
+                  </>
+                )}
                 {bid.price_per_mile
-                  ? ` (${formatMoney(bid.price_per_mile)}/mi)`
+                  ? ` · ${formatMoney(bid.price_per_mile)}/mi`
                   : ""}
-                . All other bids on this load will be marked as declined.
+                . If this fills the remaining capacity, all other pending bids
+                will be declined; otherwise the load stays open for the rest.
               </>
             ) : (
               "Select a bid to award."
