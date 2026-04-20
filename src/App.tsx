@@ -4,11 +4,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ShipperAuthProvider } from "./contexts/ShipperAuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ShiftProvider } from "./contexts/ShiftContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { LanguageSelector } from "./components/LanguageSelector";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ShipperProtectedRoute } from "./components/shipper/ShipperProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import DriverLogin from "./pages/DriverLogin";
@@ -37,6 +39,15 @@ import NotFound from "./pages/NotFound";
 import { initDatabase } from "./lib/initDatabase";
 import DriverOnboarding from "./pages/DriverOnboarding";
 import DriverOnboardingRoutes from "./pages/driver-onboarding/index";
+import ShipperLogin from "./pages/shipper/ShipperLogin";
+import ShipperSignUp from "./pages/shipper/ShipperSignUp";
+import ShipperLayout from "./pages/shipper/ShipperLayout";
+import LoadBoard from "./pages/shipper/LoadBoard";
+import PostLoadPage from "./pages/shipper/PostLoadPage";
+import LoadDetailPage from "./pages/shipper/LoadDetailPage";
+import CarriersPage from "./pages/shipper/CarriersPage";
+import CarrierDetailPage from "./pages/shipper/CarrierDetailPage";
+import BidPortal from "./pages/BidPortal";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +61,7 @@ const App = () => {
       <LanguageProvider>
         <ThemeProvider>
           <AuthProvider>
+            <ShipperAuthProvider>
             <ShiftProvider>
               <TooltipProvider>
                 <Toaster />
@@ -181,11 +193,35 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
+                    {/* Bidding feature: public carrier-side bid portal (token only) */}
+                    <Route path="/bid/:token" element={<BidPortal />} />
+
+                    {/* Bidding feature: shipper auth (Supabase Auth) */}
+                    <Route path="/shipper" element={<ShipperLogin />} />
+                    <Route path="/shipper/login" element={<ShipperLogin />} />
+                    <Route path="/shipper/signup" element={<ShipperSignUp />} />
+
+                    {/* Bidding feature: shipper dashboard (protected) */}
+                    <Route
+                      element={
+                        <ShipperProtectedRoute>
+                          <ShipperLayout />
+                        </ShipperProtectedRoute>
+                      }
+                    >
+                      <Route path="/shipper/loads" element={<LoadBoard />} />
+                      <Route path="/shipper/loads/new" element={<PostLoadPage />} />
+                      <Route path="/shipper/loads/:id" element={<LoadDetailPage />} />
+                      <Route path="/shipper/carriers" element={<CarriersPage />} />
+                      <Route path="/shipper/carriers/:id" element={<CarrierDetailPage />} />
+                    </Route>
+
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </BrowserRouter>
               </TooltipProvider>
             </ShiftProvider>
+            </ShipperAuthProvider>
           </AuthProvider>
         </ThemeProvider>
       </LanguageProvider>
