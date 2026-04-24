@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { User, BookOpen, Shield, Building2, MapPin } from "lucide-react";
+import { User, BookOpen, Shield, Building2, MapPin, Gavel } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { DriverOnboardingModal } from "@/components/DriverOnboardingModal";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -37,7 +37,7 @@ const Login = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-5xl">
           {/* Header */}
           <div className="mb-8 text-center">
             <p className="text-muted-foreground text-lg">
@@ -46,7 +46,7 @@ const Login = () => {
           </div>
 
           {/* Role Selection */}
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card
               className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
               onClick={() => navigate("/driver-onboarding")}
@@ -156,8 +156,27 @@ const Login = () => {
               </div>
             </Card>
 
+            <Card
+              className="group cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary"
+              onClick={() => navigate("/shipper/login")}
+            >
+              <div className="p-6 space-y-4 flex flex-col items-center text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-amber-100 group-hover:bg-amber-200 transition-colors">
+                  <Gavel className="h-6 w-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground mb-1">
+                    Bidding
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Post loads, invite carriers, and manage bids
+                  </p>
+                </div>
+              </div>
+            </Card>
+
             {/* Driver Onboarding Button */}
-            <div className="flex flex-col items-center gap-3 pt-4 md:pt-8">
+            <div className="flex flex-col items-center gap-3 pt-4 md:col-span-2 md:pt-8 lg:col-span-3">
               <Button
                 variant="outline"
                 onClick={() => setShowOnboarding(true)}
