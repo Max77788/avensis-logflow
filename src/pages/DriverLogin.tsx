@@ -13,7 +13,7 @@ import { Header } from "@/components/Header";
 
 const DriverLogin = () => {
   const navigate = useNavigate();
-  const { login, setDriverProfile } = useAuth();
+  const { login, setDriverProfile, logout } = useAuth();
   const { t } = useLanguage();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [emailOrPhone, setEmailOrPhone] = useState("");
@@ -69,8 +69,13 @@ const DriverLogin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-accent/5 to-background">
-      {/* <Header showHomeButton onHomeClick={() => navigate("/")} /> */}
-      <Header />
+      <Header
+        showLogoutButton
+        onLogoutClick={() => {
+          logout();
+          navigate("/", { replace: true });
+        }}
+      />
       
       <div className="flex items-center justify-center p-4 pt-24">
         <div className="w-full max-w-md">
