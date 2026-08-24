@@ -35,9 +35,11 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PipelineDashboard = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [applications, setApplications] = useState<ApplicationWithDetails[]>(
     []
   );
@@ -130,6 +132,11 @@ const PipelineDashboard = () => {
       <Header
         showHomeButton
         onHomeClick={() => navigate("/driver-onboarding")}
+        showLogoutButton
+        onLogoutClick={() => {
+          logout();
+          navigate("/home");
+        }}
       />
       <main className="container mx-auto px-4 py-8 flex-1">
         <div className="flex items-center justify-between mb-6">

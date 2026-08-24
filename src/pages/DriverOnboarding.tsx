@@ -2,12 +2,22 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/Header";
+import { useAuth } from "@/contexts/AuthContext";
 
 const DriverOnboarding = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header showHomeButton onHomeClick={() => navigate("/home")} />
+      <Header
+        showHomeButton
+        onHomeClick={() => navigate("/home")}
+        showLogoutButton
+        onLogoutClick={() => {
+          logout();
+          navigate("/home");
+        }}
+      />
       <main className="container mx-auto px-4 py-8 flex-1 flex flex-col justify-center">
         <div className="max-w-2xl mx-auto space-y-6">
           <Card className="p-8 space-y-4 shadow-md">
