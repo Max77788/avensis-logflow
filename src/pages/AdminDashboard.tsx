@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState("companies");
 
@@ -136,15 +138,17 @@ const AdminDashboard = () => {
       <Header
         showLogoutButton
         onLogoutClick={() => {
-          // Clear the server-side mega-admin session as well as local UI state.
-          fetch("/api/admin-auth", { method: "DELETE", credentials: "include" }).catch(() => {});
+          // Clear the server-side mega-admin session without reloading the
+          // dashboard, which otherwise causes a visible login-page flicker.
+          void fetch("/api/admin-auth", {
+            method: "DELETE",
+            credentials: "include",
+          }).catch(() => {});
           setIsAuthenticated(false);
           localStorage.removeItem("adminAuthenticated");
           sessionStorage.removeItem("adminToken");
-          // Clear main auth
           logout();
-          // Refresh the page to show login modal again
-          window.location.reload();
+          navigate("/", { replace: true });
         }}
       />
 
