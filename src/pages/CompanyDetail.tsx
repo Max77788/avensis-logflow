@@ -28,23 +28,35 @@ const CompanyDetail = () => {
   const { logout } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
 
-  // Check admin authentication
+  // Restore the same server-side admin session used by AdminDashboard.
   useEffect(() => {
-    const isAdminAuthenticated =
-      localStorage.getItem("adminAuthenticated") === "true";
-    if (!isAdminAuthenticated) {
-      // Redirect to admin dashboard if not authenticated
-      navigate("/admin/dashboard");
-    }
+    fetch("/api/admin-auth", { credentials: "include" })
+      .then((response) =>
+        response.ok ? response.json() : { authenticated: false }
+      )
+      .then((result) => {
+        const authenticated = result.authenticated === true;
+        setIsAuthenticated(authenticated);
+        if (!authenticated) navigate("/admin/dashboard");
+      })
+      .catch(() => {
+        setIsAuthenticated(false);
+        navigate("/admin/dashboard");
+      })
+      .finally(() => setAuthLoading(false));
   }, [navigate]);
 
   useEffect(() => {
-    if (id) {
+    if (id && isAuthenticated) {
       loadCompany();
     }
-  }, [id]);
+    // loadCompany is stable for the lifetime of this page instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isAuthenticated]);
 
   const loadCompany = async () => {
     if (!id) return;
@@ -54,7 +66,7 @@ const CompanyDetail = () => {
     setIsLoading(false);
   };
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Header showHomeButton onHomeClick={() => navigate("/home")} />
