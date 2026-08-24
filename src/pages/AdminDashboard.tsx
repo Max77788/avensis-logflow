@@ -18,52 +18,54 @@ const AdminDashboard = () => {
   const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState("companies");
 
-  // Simple login state - Load from localStorage on mount
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const stored = localStorage.getItem("adminAuthenticated");
-    return stored === "true";
-  });
+  // The browser is not an authority. Authentication is restored from the
+  // HttpOnly server session, not from a forgeable localStorage flag.
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Simple credentials
-  const ADMIN_USERNAME = "admin";
-  const ADMIN_PASSWORD = "admin123";
-
-  // Persist authentication state to localStorage
+  // Restore the server-side session on mount.
   useEffect(() => {
-    localStorage.setItem("adminAuthenticated", isAuthenticated.toString());
-    // Keep the session-scoped admin token in sync with auth state. On page
-    // reload the login flow itself re-populates it, but if the user is
-    // already authenticated (from localStorage) and hasn't typed the
-    // password this session, fall back to the default so admin-bidding calls
-    // still work end-to-end.
-    if (isAuthenticated && !sessionStorage.getItem("adminToken")) {
-      sessionStorage.setItem("adminToken", ADMIN_PASSWORD);
-    }
-  }, [isAuthenticated]);
+    fetch("/api/admin-auth", { credentials: "include" })
+      .then(response => response.ok ? response.json() : { authenticated: false })
+      .then(result => setIsAuthenticated(result.authenticated === true))
+      .catch(() => setIsAuthenticated(false))
+      .finally(() => setAuthLoading(false));
+  }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    try {
+      const response = await fetch("/api/admin-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ username, password }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Invalid username or password");
       setIsAuthenticated(true);
-      // The admin-bidding edge function validates this token via x-admin-token.
-      // Stored in sessionStorage so it clears on tab close.
+      // The bidding edge function has its own server-side token contract.
+      // Keep the established session token behavior without shipping the
+      // credential in the JavaScript bundle.
       sessionStorage.setItem("adminToken", password);
       toast({
         title: "Success",
-        description: "Welcome to Admin Dashboard",
+        description: "Mega-admin access enabled",
       });
-    } else {
+    } catch (error) {
       toast({
         title: "Error",
-        description: "Invalid username or password",
+        description: error instanceof Error ? error.message : "Invalid username or password",
         variant: "destructive",
       });
     }
   };
+
+  if (authLoading) return <div className="min-h-screen bg-background" />;
 
   // Show login form if not authenticated
   if (!isAuthenticated) {
@@ -134,7 +136,8 @@ const AdminDashboard = () => {
       <Header
         showLogoutButton
         onLogoutClick={() => {
-          // Clear admin authentication
+          // Clear the server-side mega-admin session as well as local UI state.
+          fetch("/api/admin-auth", { method: "DELETE", credentials: "include" }).catch(() => {});
           setIsAuthenticated(false);
           localStorage.removeItem("adminAuthenticated");
           sessionStorage.removeItem("adminToken");
